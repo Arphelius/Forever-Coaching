@@ -96,3 +96,22 @@ state.debuffs={{'Faerie Fire (Feral)'},{'Demoralizing Roar'}}
 assert(first()=='Maul','Lv20 Bear: Maul without Primal Bite or Lacerate: '..queue())
 for _,n in ipairs({'Mangle (Bear)','Swipe (Bear)','Shield of Righteousness','Devastate'}) do assert(not ids[n],n..' is not a Forever spell and must not be asked for') end
 print('PASS: tank priorities (Paladin, Warrior, Bear) by level, buff/seal/stance upkeep, stacks, rage, hidden state.')
+-- Threat per cast from SimGear's sims picks the quick threat spell (Data/TankThreat.lua shape).
+FC.TankThreat={PALADIN={['Holy Shield']={[30]=505,[40]=723},['Judgement']={[30]=204,[40]=280},['Holy Strike']={[30]=136,[40]=182},['Consecration']={[30]=196,[40]=332}},
+ DRUID={['Faerie Fire']={[40]=116},['Lacerate']={[40]=532},['Maul']={[40]=461},['Primal Bite']={[40]=348}}}
+UnitClass=function()return state.class,state.class end
+local level=40;UnitLevel=function()return level end
+reset('PALADIN',2,'tank',pal60)
+assert(live:BestThreatSpell().name=='Holy Shield','Most threat per cast at 40: Holy Shield')
+state.cd={['Holy Shield']=true}
+assert(live:BestThreatSpell().name=='Judgement','Holy Shield on cooldown: Judgement next; Consecration waits for area mode')
+ForeverCoachingDB.liveRotation.mode='aoe'
+assert(live:BestThreatSpell().name=='Consecration','Area mode lets Consecration count')
+reset('PALADIN',2,'tank',pal60);level=35;state.cd={['Holy Shield']=true}
+assert(live:BestThreatSpell().name=='Judgement','Level 35 uses the level 30 values')
+level=20;state.cd={};assert(live:BestThreatSpell().name=='Holy Shield','Below the lowest simmed level, the lowest one is used')
+reset('DRUID',2,'tank',bear60);level=40
+assert(live:BestThreatSpell().name=='Lacerate','Bear at 40: Lacerate')
+assert(FC.TankThreat.DRUID['Faerie Fire'] and live:BestThreatSpell(),'Faerie Fire (Feral) reads the Faerie Fire row')
+reset('WARRIOR',3,'tank',war60);assert(live:BestThreatSpell()==nil,'No data for the class: nil, callers fall back')
+print('PASS: threat per cast picks the quick threat spell by level, cooldown and area mode.')

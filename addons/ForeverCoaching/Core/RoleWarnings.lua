@@ -80,7 +80,10 @@ function W:TankThreat()
  else result.state='lost-far' end
  return result
 end
+-- The ready spell with the most threat per cast (SimGear's sims), else the priority's first ready spell.
 local function quickThreatSpell()
+ local okBest,best=pcall(function()return FC.LiveRotation and FC.LiveRotation.BestThreatSpell and FC.LiveRotation:BestThreatSpell()end)
+ if okBest and type(best)=='table' and best.name then return best.name end
  local ok,rec=pcall(function()return FC.LiveRotation and FC.LiveRotation.ProfileRecommendation and FC.LiveRotation:ProfileRecommendation()end)
  return ok and type(rec)=='table' and rec.spellName or nil
 end

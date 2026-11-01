@@ -17,7 +17,7 @@ Forever shows threat to addons only for your target (and focus or group targets)
 | Lost, far | Someone else has it and you are below 70% | Taunt (Taunt, Growl; Hand of Reckoning only if the character knows it), otherwise your threat spell | Red |
 | Unknown | Threat hidden or unreadable | None | Hidden |
 
-80% and 70% are coaching policy, not game rules. The bar sits under the rotation icons, filled to the closest other player's share (or yours after a loss). It never plays a sound and is only shown in combat.
+"Your next ready threat spell" is the ready spell with the most threat per cast at your level, from SimGear Forever's MythicSim tank sims (`Data/TankThreat.lua`, generated: levels 30, 40, 50 and 60; between them the lower level's values are used). Area spells count only in area mode. Without data for your class or level it falls back to the first ready spell of your priority. 80% and 70% are coaching policy, not game rules. The bar sits under the rotation icons, filled to the closest other player's share (or yours after a loss). It never plays a sound and is only shown in combat.
 
 Role comes from the assigned group role, or the actual current specialization when available. Healer detection for other group members requires their exposed assigned role; a Mana bar alone is not evidence that someone is the healer. Thresholds (35% for an urgent observed healing opportunity, 30% for own low Health, 20% Mana) are coaching policy, not proof of the incoming mechanic's damage.
 

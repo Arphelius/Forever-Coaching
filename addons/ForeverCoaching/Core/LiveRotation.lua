@@ -267,6 +267,39 @@ function Live:ItemRecommendation()
   end
  end
 end
+-- The ready tank spell with the most threat per cast at the player's level, from SimGear's sims
+-- (Data/TankThreat.lua). Only spells in the tank's own priority are considered, area ones only in area
+-- mode. nil without data or without a ready spell: callers fall back to the priority order.
+local TANK_PROFILE={PALADIN=function()return P.PALADIN[2] end,WARRIOR=function()return P.WARRIOR[3] end,DRUID=function()return bear end}
+function Live:BestThreatSpell()
+ local data=FC.TankThreat
+ local _,class=read(UnitClass,'player')
+ local spells=data and class and data[class];local profile=TANK_PROFILE[class] and TANK_PROFILE[class]()
+ local level=read(UnitLevel,'player')
+ if not spells or not profile or type(level)~='number' then return nil end
+ local mode=settings().mode
+ local moving=read(GetUnitSpeed,'player');moving=type(moving)=='number' and moving>0
+ local best,bestValue
+ for _,list in ipairs(profile) do
+  for _,rule in ipairs(list) do
+   local byLevel=spells[rule.name] or spells[(rule.name:gsub(' %(Feral%)$',''))]
+   if byLevel and (not rule.area or mode=='aoe') then
+    -- The highest simmed level at or below the player's, else the lowest simmed one.
+    local pick,lowest
+    for lv in pairs(byLevel) do
+     if lv<=level and (not pick or lv>pick) then pick=lv end
+     if not lowest or lv<lowest then lowest=lv end
+    end
+    local value=byLevel[pick or lowest]
+    local s=resolve(rule.name)
+    if s and type(value)=='number' and (not bestValue or value>bestValue) and ready(s,not (rule.self or rule.ground) and (rule.unit or 'target') or nil,moving) then
+     best,bestValue=s,value
+    end
+   end
+  end
+ end
+ return best
+end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
  if blocking then return blocking end
