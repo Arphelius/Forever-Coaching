@@ -16,7 +16,11 @@ end
 function methods:RegisterEvent(event) self.events[event]=true end
 function methods:SetScript(event, fn) self.scripts[event]=fn end
 function methods:GetScript(event) return self.scripts[event] end
+function methods:HookScript(event, fn) local old=self.scripts[event]; self.scripts[event]=old and function(...) old(...); fn(...) end or fn end
 function methods:SetParent(parent) self.parent=parent end
+function methods:GetParent() return self.parent end
+function methods:GetFontString() self.fontString=self.fontString or CreateFrame("FontString",nil,self); return self.fontString end
+function methods:UnregisterEvent(event) self.events[event]=nil end
 function methods:IsShown()
     return not self.hidden and (not self.parent or self.parent:IsShown())
 end

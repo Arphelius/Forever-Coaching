@@ -25,7 +25,7 @@ class Canvas{
 }
 const context={window,Uint8Array,DataView,ImageData:class{constructor(w,h){this.data=new Uint8Array(w*h*4);}},
  document:{hidden:false,createElement:()=>new Canvas(),getElementById:()=>({textContent:''})},
- fetch:url=>textures.has(url)?Promise.resolve({ok:true,arrayBuffer:async()=>{const b=textures.get(url);return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}}):new Promise(()=>{}),
+ fetch:url=>(url=url.split('?')[0],textures.has(url))?Promise.resolve({ok:true,arrayBuffer:async()=>{const b=textures.get(url);return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}}):new Promise(()=>{}),
  requestAnimationFrame:fn=>{callback=fn;},matchMedia:()=>({matches:false})};
 vm.runInNewContext(fs.readFileSync('tools/talent-preview/effects.js','utf8'),context);
 (async()=>{
