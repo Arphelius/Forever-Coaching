@@ -56,4 +56,7 @@ SlashCmdList.FOREVERCOACHINGROTATION('burst on');assert(live:GetRecommendation()
 state.urgent={spellID=999,spellName='Kick'};assert(live:GetRecommendation().spellID==999,'Urgency overrides burst item');state.urgent=nil
 C_Container.GetItemCooldown=function()return 9,120,1 end;assert(not live:GetRecommendation().itemID,'Item shared cooldown respected')
 SlashCmdList.FOREVERCOACHINGROTATION('item 123 off');assert(not ForeverCoachingDB.liveRotation.items[123])
+state.class='MAGE';state.tree=3;state.role='damage';state.health=100;SlashCmdList.FOREVERCOACHINGROTATION('aoe');state.range=nil
+assert(live:GetRecommendation().spellName=='Blizzard','A ground spell is offered in area mode though its range read is nil')
+state.range=true;SlashCmdList.FOREVERCOACHINGROTATION('single');assert(live:GetRecommendation().spellName=='Frostbolt','Single target never offers Blizzard')
 print('PASS: live priorities, movement/range/readiness, costs, DoTs, combo spending, urgent overrides, all class profiles and opt-in items.')

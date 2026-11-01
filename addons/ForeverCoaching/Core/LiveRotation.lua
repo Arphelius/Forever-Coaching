@@ -25,21 +25,21 @@ function Live:GetItemScope()return itemScope()end
 local function spell(name,options)local r=options or {};r.name=name;return r end
 local function dot(name)return spell(name,{dot=true})end
 local P={
- MAGE={{{spell('Arcane Blast'),spell('Arcane Missiles')},{spell('Arcane Explosion',{area=true})}},
- {{dot('Living Bomb'),spell('Fireball')},{spell('Flamestrike',{area=true}),spell('Arcane Explosion',{area=true})}},
- {{spell('Frostbolt')},{spell('Blizzard',{area=true})}}},
+ MAGE={{{spell('Arcane Blast'),spell('Arcane Missiles')},{spell('Arcane Explosion',{area=true,self=true})}},
+ {{dot('Living Bomb'),spell('Fireball')},{spell('Flamestrike',{area=true,ground=true}),spell('Arcane Explosion',{area=true,self=true})}},
+ {{spell('Frostbolt')},{spell('Blizzard',{area=true,ground=true})}}},
  PRIEST={{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Vampiric Touch'),dot('Shadow Word: Pain'),spell('Mind Blast'),spell('Mind Flay')},{spell('Mind Sear',{area=true})}}},
  WARLOCK={{{dot('Haunt'),dot('Corruption'),dot('Curse of Agony'),spell('Drain Soul',{execute=20}),spell('Shadow Bolt')},{spell('Seed of Corruption',{area=true,dot=true})}},
- {{dot('Corruption'),dot('Immolate'),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true})}},
- {{dot('Immolate'),spell('Chaos Bolt'),spell('Conflagrate',{requires='Immolate'}),spell('Incinerate',{requires='Immolate'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true})}}},
+ {{dot('Corruption'),dot('Immolate'),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
+ {{dot('Immolate'),spell('Chaos Bolt'),spell('Conflagrate',{requires='Immolate'}),spell('Incinerate',{requires='Immolate'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}}},
  HUNTER={{{spell('Kill Command'),spell('Arcane Shot'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}},
  {{spell('Chimera Shot',{requires='Serpent Sting'}),dot('Serpent Sting'),spell('Aimed Shot'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}},
  {{spell('Explosive Shot'),dot('Serpent Sting'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}}},
- ROGUE={{{spell('Envenom',{combo=4,requires='Deadly Poison'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true})}},
- {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true})}},
- {{spell('Eviscerate',{combo=4}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{spell('Fan of Knives',{area=true})}}},
+ ROGUE={{{spell('Envenom',{combo=4,requires='Deadly Poison'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}},
+ {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}},
+ {{spell('Eviscerate',{combo=4}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}}},
  WARRIOR={{{spell('Execute',{execute=20}),spell('Mortal Strike'),spell('Overpower'),spell('Slam')},{spell('Thunder Clap',{area=true,self=true})}},
- {{spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true}),spell('Slam')},{spell('Whirlwind',{area=true})}},
+ {{spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true,self=true}),spell('Slam')},{spell('Whirlwind',{area=true,self=true})}},
  -- Tank profiles (Protection Warrior, Protection Paladin, Bear below) follow MythicSim's Forever tank APLs
  -- (github.com/sage3648/mythicsim-forever-engine-go, MIT), translated to spell names so every rank the
  -- player knows resolves. The sim also casts Thunder Clap and Consecration on one target; here they stay
@@ -52,8 +52,8 @@ local P={
    spell('Judgement',{requiresSelf='Seal of Righteousness'}),spell('Seal of Righteousness',{selfBuff=true,refresh=1,self=true}),
    spell('Holy Shield',{selfBuff=true,self=true}),spell('Hammer of Wrath',{execute=20}),spell('Holy Strike')},
   {spell('Hammer of the Righteous',{area=true}),spell('Consecration',{area=true,self=true})}},
- {{spell('Hammer of Wrath',{execute=20}),spell('Crusader Strike'),spell('Divine Storm',{area=true}),spell('Judgement')},{spell('Divine Storm',{area=true}),spell('Consecration',{area=true,self=true})}}},
- DRUID={{{dot('Moonfire'),dot('Insect Swarm'),spell('Wrath'),spell('Starfire')},{spell('Hurricane',{area=true})}},
+ {{spell('Hammer of Wrath',{execute=20}),spell('Crusader Strike'),spell('Divine Storm',{area=true,self=true}),spell('Judgement')},{spell('Divine Storm',{area=true,self=true}),spell('Consecration',{area=true,self=true})}}},
+ DRUID={{{dot('Moonfire'),dot('Insect Swarm'),spell('Wrath'),spell('Starfire')},{spell('Hurricane',{area=true,ground=true})}},
  {{spell('Rip',{combo=5,dot=true}),dot('Rake'),spell('Mangle (Cat)',{builder=true}),spell('Claw',{builder=true})},{spell('Swipe (Cat)',{area=true})}},{{dot('Moonfire'),spell('Wrath')},{}}}
 }
 -- Finishers must never be suggested at zero combo points.
@@ -156,7 +156,8 @@ local function ready(s,unit,moving)
  if cd then start,duration,enabled=read(function()return cd.startTime,cd.duration,cd.isEnabled end) else start,duration,enabled=read(GetSpellCooldown,s.id) end
  if type(start)~='number' or type(duration)~='number' or enabled==false or enabled==0 then return false end
  if start>0 and duration>1.5 and start+duration>now() then return false end
- -- unit nil: a self-centred spell (stance, own buff, Consecration) has no range to check.
+ -- unit nil: a self-centred spell (stance, own buff, Consecration) or one placed on the ground (Blizzard) has no
+ -- range the API can report; the player places ground spells, and area spells wait for /fcrotation aoe.
  if unit then
   local range
   if C_Spell and C_Spell.IsSpellInRange then range=read(C_Spell.IsSpellInRange,s.id,unit) else range=read(IsSpellInRange,s.name,unit) end
@@ -211,7 +212,7 @@ function Live:ProfileRecommendation()
    local dotMissing=not rule.dot or (not applied[rule.name] and aura(rule.name)==false)
    if s and (not rule.area or mode=='aoe') and required and dotMissing and (not rule.execute or hp and hp<=rule.execute)
     and (not rule.combo or type(combo)=='number' and combo>=rule.combo) and not used[s.id]
-    and selfRulesPass(rule,s,applied,resources) and ready(s,not rule.self and (rule.unit or 'target') or nil,moving) then
+    and selfRulesPass(rule,s,applied,resources) and ready(s,not (rule.self or rule.ground) and (rule.unit or 'target') or nil,moving) then
     local costs=resourceCosts(s.id);local affordable=true
     if step>1 and not costs then affordable=false end
     for kind,cost in pairs(costs or {}) do
