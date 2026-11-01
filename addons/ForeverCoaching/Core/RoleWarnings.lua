@@ -32,8 +32,61 @@ local function hasAura(unit,filter,id)
  end
  return false
 end
+-- Tank threat on the current target. Forever exposes threat only for your target (and focus or group
+-- targets), so only the target is read. Thresholds are coaching policy, not game rules: warn when
+-- someone else reaches 80% of the pull point; after a loss, 70% or more of yours is "close" (a quick
+-- threat spell wins it back) and below that a taunt is advised.
+W.WARN_AT,W.CLOSE_AT=80,70
+local TAUNT={WARRIOR='Taunt',DRUID='Growl',PALADIN='Hand of Reckoning'}
+local function knownSpell(name)
+ local data=C_Spell and read(C_Spell.GetSpellInfo,name)
+ local id=data and read(function()return data.spellID end)
+ if not id then local _,_,_,_,_,_,legacy=read(GetSpellInfo,name);id=legacy end
+ if id and (read(IsPlayerSpell,id)==true or read(IsSpellKnown,id)==true) then return name end
+end
+local function groupUnits()
+ local units={'pet'};for i=1,4 do units[#units+1]='party'..i;units[#units+1]='partypet'..i end
+ for i=1,40 do units[#units+1]='raid'..i end
+ return units
+end
+-- Returns nil outside a tank's fight, {state='unknown'} when the game hides threat, else
+-- state = secure | warning | other-tank | lost-close | lost-far | lost (distance unknown),
+-- with name/percent of the closest other player and mine (my scaled percent).
+function W:TankThreat()
+ if read(UnitAffectingCombat,'player')~=true or read(UnitCanAttack,'player','target')~=true then return nil end
+ local tanking,_,mine=read(UnitDetailedThreatSituation,'player','target')
+ if tanking==nil then return {state='unknown'} end
+ local holder,holderUnit,top,topPct
+ local seen={};seen[read(UnitGUID,'player') or 'player']=true
+ for _,unit in ipairs(groupUnits())do
+  local guid=read(UnitGUID,unit)
+  if guid and not seen[guid] then
+   seen[guid]=true
+   local t,_,s=read(UnitDetailedThreatSituation,unit,'target')
+   if t==true then holder,holderUnit=read(UnitName,unit) or unit,unit end
+   if type(s)=='number' and (not topPct or s>topPct) then top,topPct=read(UnitName,unit) or unit,s end
+  end
+ end
+ mine=type(mine)=='number' and mine or nil
+ if tanking==true then
+  return {state=topPct and topPct>=self.WARN_AT and 'warning' or 'secure',name=top,percent=topPct,mine=mine}
+ end
+ if not holderUnit and read(UnitCanAssist,'player','targettarget')==true then holder,holderUnit=read(UnitName,'targettarget'),'targettarget' end
+ if not holderUnit then return {state='unknown'} end
+ local result={name=holder,percent=topPct,mine=mine}
+ if read(UnitGroupRolesAssigned,holderUnit)=='TANK' then result.state='other-tank'
+ elseif not mine then result.state='lost'
+ elseif mine>=self.CLOSE_AT then result.state='lost-close'
+ else result.state='lost-far' end
+ return result
+end
+local function quickThreatSpell()
+ local ok,rec=pcall(function()return FC.LiveRotation and FC.LiveRotation.ProfileRecommendation and FC.LiveRotation:ProfileRecommendation()end)
+ return ok and type(rec)=='table' and rec.spellName or nil
+end
 function W:Sample()
  local alerts,seen={},{};local combat=read(UnitAffectingCombat,'player')==true;local role=self:Role()
+ self.threat=nil
  local function add(key,kind,message,priority,blocks)
   if seen[key]then return end;seen[key]=true
   alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true}
@@ -41,10 +94,24 @@ function W:Sample()
  if combat then
   local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
   if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.3 then add('self-health','health','LOW HEALTH — use a ready defensive or healing item; move to safety.',2) end
-  local tanking,status=read(UnitDetailedThreatSituation,'player','target')
-  if role=='tank' and tanking==false and type(status)=='number' and read(UnitCanAttack,'player','target')==true and read(UnitCanAssist,'player','targettarget')==true then
-   add('threat','threat',(read(UnitName,'target') or 'Enemy')..' is targeting '..(read(UnitName,'targettarget') or 'an ally')..' — regain threat if assigned to you.',3)
-  elseif role~='tank' and type(status)=='number' and status>=2 then add('threat','threat','HIGH THREAT — ease damage and let the tank recover; use an appropriate threat reduction if ready.',3) end
+  local _,status=read(UnitDetailedThreatSituation,'player','target')
+  if role=='tank' then
+   local t=self:TankThreat();self.threat=t
+   local enemy=read(UnitName,'target') or 'Enemy'
+   local state=t and t.state
+   if state=='warning' then
+    local q=quickThreatSpell()
+    add('threat','threat','THREAT LEAD SMALL — '..(t.name or 'an ally')..' is at '..math.floor(t.percent)..'%'..(q and ('. Use '..q..'.') or '.'),4)
+   elseif state=='lost-close' then
+    local q=quickThreatSpell()
+    add('threat','threat',enemy..' is on '..(t.name or 'an ally')..' — you are close: do not taunt, use '..(q or 'your strongest threat spell')..'.',3)
+   elseif state=='lost-far' then
+    local _,class=read(UnitClass,'player');local taunt=TAUNT[class] and knownSpell(TAUNT[class])
+    add('threat','threat',enemy..' is on '..(t.name or 'an ally')..' — '..(taunt and ('TAUNT now ('..taunt..').') or ('far behind: use '..(quickThreatSpell() or 'your strongest threat spell')..'.')),2)
+   elseif state=='lost' then
+    add('threat','threat',enemy..' is targeting '..(t.name or 'an ally')..' — regain threat if assigned to you.',3)
+   end
+  elseif type(status)=='number' and status>=2 then add('threat','threat','HIGH THREAT — ease damage and let the tank recover; use an appropriate threat reduction if ready.',3) end
   for _,o in ipairs(FC.EncounterCoach and FC.EncounterCoach.currentOffers or {})do
    if o.expires>=now() and o.status=='observed' then
     if o.kind=='interrupt' then add(o.key,'interrupt','INTERRUPT: '..o.reason,2)

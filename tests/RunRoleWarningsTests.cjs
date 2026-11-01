@@ -1,6 +1,7 @@
 const fs=require('fs'),path=require('path');
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require(path.join(require('os').tmpdir(),'fc-lua-test-runtime/node_modules/fengari'));
 const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
+{const T=lauxlib.luaL_newstate();lualib.luaL_openlibs(T);for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/LiveRotation.lua','addons/ForeverCoaching/Core/RoleWarnings.lua','tests/TankThreat.Tests.lua']){if(lauxlib.luaL_dostring(T,to_luastring(fs.readFileSync(file,'utf8')))!==lua.LUA_OK)throw Error(file+': '+to_jsstring(lua.lua_tostring(T,-1)));}lua.lua_close(T);}
 for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/LiveRotation.lua','addons/ForeverCoaching/Core/RoleWarnings.lua','tests/RoleWarnings.Tests.lua','addons/ForeverCoaching/UI/RoleWarnings.lua','addons/ForeverCoaching/UI/CombatHUD.lua']){
  if(lauxlib.luaL_dostring(L,to_luastring(fs.readFileSync(file,'utf8')))!==lua.LUA_OK)throw Error(file+': '+to_jsstring(lua.lua_tostring(L,-1)));
 }
