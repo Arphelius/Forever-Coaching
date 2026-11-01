@@ -37,3 +37,22 @@ HUDRecommendation={targetHostile=false}
 tick()
 assert(not ForeverCoachingRotationStrip:IsShown(),'Hide the strip with no hostile target')
 assert(glowingButtons()==0,'Clear weapon glow when target is gone')
+-- Tank threat bar: colour and fill follow RoleWarnings.threat; hidden when threat is unknown.
+local bar=ForeverCoachingThreatBar
+bar.SetStatusBarColor=function(self,r,g,b)self.color={r,g,b}end
+bar.SetValue=function(self,v)self.value=v end
+ForeverCoaching.RoleWarnings=ForeverCoaching.RoleWarnings or {}
+local W=ForeverCoaching.RoleWarnings
+assert(not bar:IsShown(),'No threat state: no bar')
+W.threat={state='secure',name='Mage',percent=40,mine=100};tick()
+assert(bar:IsShown() and bar.color[2]>bar.color[1] and bar.value==40,'Secure: green, filled to the closest other player')
+W.threat={state='warning',name='Mage',percent=85,mine=100};tick()
+assert(bar.color[1]==1 and bar.value==85 and bar.label.text:find('Mage 85%',1,true),'Warning: yellow with who is close')
+W.threat={state='other-tank',name='Offtank',mine=40};tick()
+assert(bar.color[3]==1 and bar.label.text:find('(tank)',1,true),'Another tank: blue')
+W.threat={state='lost-far',name='Mage',percent=100,mine=30};tick()
+assert(bar.color[1]>0.9 and bar.color[2]<0.3 and bar.value==30,'Lost: red, filled to your share')
+W.threat={state='lost',name='Mage',percent=100};tick()
+assert(bar.value==0,'Lost with your share unknown: empty, never the other player\'s value')
+W.threat={state='unknown'};tick();assert(not bar:IsShown(),'Unknown threat: hidden')
+W.threat=nil;tick();assert(not bar:IsShown(),'Out of a tank fight: hidden')

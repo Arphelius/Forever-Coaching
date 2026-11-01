@@ -259,6 +259,44 @@ local function clearDisplay()
     updateGlows(nil)
 end
 
+-- Tank threat bar under the icons: colour by threat state (RoleWarnings.threat), filled to the closest
+-- other player's share of the pull point, or to yours after a loss. Hidden when threat is unreadable.
+local threatBar = CreateFrame("StatusBar", "ForeverCoachingThreatBar", UIParent)
+threatBar:SetSize(150, 8)
+threatBar:SetPoint("TOP", strip, "BOTTOM", 0, -4)
+threatBar:SetFrameStrata("HIGH")
+threatBar:EnableMouse(false)
+threatBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+threatBar:SetMinMaxValues(0, 100)
+local threatBackground = threatBar:CreateTexture(nil, "BACKGROUND")
+threatBackground:SetAllPoints()
+threatBackground:SetColorTexture(0.015, 0.02, 0.03, 0.8)
+threatBar.label = threatBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+threatBar.label:SetPoint("TOP", threatBar, "BOTTOM", 0, -2)
+threatBar:Hide()
+local THREAT_COLORS = {
+    secure = { 0.2, 0.8, 0.25 }, warning = { 1, 0.82, 0 }, ["other-tank"] = { 0.3, 0.55, 1 },
+    ["lost-close"] = { 0.95, 0.2, 0.1 }, ["lost-far"] = { 0.95, 0.2, 0.1 }, lost = { 0.95, 0.2, 0.1 },
+}
+local function updateThreatBar()
+    local t = FC.RoleWarnings and FC.RoleWarnings.threat
+    local color = t and THREAT_COLORS[t.state]
+    if not color then threatBar:Hide(); return end
+    local lost = t.state ~= "secure" and t.state ~= "warning"
+    local value
+    if lost then value = t.mine else value = t.percent end
+    threatBar:SetStatusBarColor(color[1], color[2], color[3])
+    threatBar:SetValue(math.max(0, math.min(100, type(value) == "number" and value or 0)))
+    local who = t.name or "an ally"
+    local text
+    if t.state == "secure" then text = t.percent and ("Threat held — next: " .. who .. " " .. math.floor(t.percent) .. "%") or "Threat held"
+    elseif t.state == "warning" then text = who .. " " .. math.floor(t.percent) .. "% of your threat"
+    elseif t.state == "other-tank" then text = who .. " (tank) has it"
+    else text = "On " .. who .. (t.mine and (" — you " .. math.floor(t.mine) .. "%") or "") end
+    threatBar.label:SetText(text)
+    threatBar:Show()
+end
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({
     "ACTIONBAR_SLOT_CHANGED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BONUS_ACTIONBAR",
@@ -286,6 +324,7 @@ controller:SetScript("OnUpdate", function(_, dt)
     end
     if elapsed < 0.12 then return end
     elapsed = 0
+    if not pcall(updateThreatBar) then threatBar:Hide() end
     local engine=FC.LiveRotation or FC.RotationCoach
     if not engine or not engine.GetRecommendation then
         encounterText:Hide()
