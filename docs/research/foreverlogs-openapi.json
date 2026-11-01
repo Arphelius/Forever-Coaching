@@ -1,0 +1,1216 @@
+{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "Forever Logs External API",
+                 "version":  "1.0.0",
+                 "summary":  "Read-only access to aggregate combat-log statistics.",
+                 "description":  "Public read-only API. Authenticate with an API key created from your profile settings. Public display of this data requires visible attribution linking back to the site; bulk redistribution of the dataset is not permitted."
+             },
+    "x-access":  {
+                     "scopes":  {
+                                    "stats:read":  {
+                                                       "label":  "Aggregate data",
+                                                       "availability":  "self-serve",
+                                                       "description":  "Class and spec statistics, content phases, boss metadata. Every key created from Profile Settings has this scope."
+                                                   },
+                                    "events:read":  {
+                                                        "label":  "Event-level data",
+                                                        "availability":  "on-request",
+                                                        "experimental":  true,
+                                                        "description":  "Individual combat events for one encounter at a time: swing timings, hit outcomes, casts, auras, deaths. Granted by hand to named projects rather than self-serve, because it is the most extraction-sensitive surface we publish."
+                                                    }
+                                },
+                     "tiers":  {
+                                   "free":  {
+                                                "perMinute":  30,
+                                                "perDay":  5000,
+                                                "scopes":  [
+                                                               "stats:read"
+                                                           ]
+                                            },
+                                   "partner":  {
+                                                   "perMinute":  120,
+                                                   "perDay":  50000,
+                                                   "scopes":  [
+                                                                  "stats:read"
+                                                              ]
+                                               },
+                                   "research":  {
+                                                    "perMinute":  60,
+                                                    "perDay":  10000,
+                                                    "scopes":  [
+                                                                   "stats:read",
+                                                                   "events:read"
+                                                               ],
+                                                    "note":  "Lower per-minute than partner on purpose: an event call does real database work, while a statistics call is served from a cache the site has already built."
+                                                }
+                               }
+                 },
+    "servers":  [
+                    {
+                        "url":  "https://foreverlogs.gg/api/public/v1"
+                    }
+                ],
+    "security":  [
+                     {
+                         "bearerAuth":  [
+
+                                        ]
+                     }
+                 ],
+    "components":  {
+                       "securitySchemes":  {
+                                               "bearerAuth":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer",
+                                                                  "description":  "Send your key as \u0027Authorization: Bearer \u003ckey\u003e\u0027. \u0027X-API-Key: \u003ckey\u003e\u0027 is also accepted. Keys are NOT accepted in the query string."
+                                                              }
+                                           },
+                       "schemas":  {
+                                       "Event":  {
+                                                     "type":  "object",
+                                                     "description":  "One combat event. timestamp_ms is milliseconds from that encounter\u0027s combat start, not a wall clock.",
+                                                     "properties":  {
+                                                                        "id":  {
+                                                                                   "type":  "string",
+                                                                                   "description":  "Event id. 64-bit, SERIALISED AS A STRING. Use it as an opaque identifier; do not parse it as a number."
+                                                                               },
+                                                                        "timestamp_ms":  {
+                                                                                             "type":  "integer",
+                                                                                             "description":  "Milliseconds since this encounter\u0027s combat start."
+                                                                                         },
+                                                                        "event_type":  {
+                                                                                           "type":  "string",
+                                                                                           "description":  "damage, heal, absorb, cast, death, or an avoidance outcome (parry, dodge, miss, block, ...). Outcome is encoded AS the event type, not as a field on a damage event."
+                                                                                       },
+                                                                        "amount":  {
+                                                                                       "type":  "string",
+                                                                                       "description":  "64-bit, SERIALISED AS A STRING. Parse it before doing arithmetic or you will concatenate rather than add. Meaning depends on event_type: damage/heal value, absorbed amount, aura stack count on buff/debuff applied, overkill on death."
+                                                                                   },
+                                                                        "is_critical":  {
+                                                                                            "type":  "boolean"
+                                                                                        },
+                                                                        "is_glancing":  {
+                                                                                            "type":  [
+                                                                                                         "boolean",
+                                                                                                         "null"
+                                                                                                     ],
+                                                                                            "description":  "Glancing blow. Recorded on swing-derived rows only; null means NOT RECORDED (a non-swing event, or an encounter ingested before 2026-08-23). Null is not evidence the mechanic is absent."
+                                                                                        },
+                                                                        "is_crushing":  {
+                                                                                            "type":  [
+                                                                                                         "boolean",
+                                                                                                         "null"
+                                                                                                     ],
+                                                                                            "description":  "Crushing blow. Same null semantics as is_glancing."
+                                                                                        },
+                                                                        "source_id":  {
+                                                                                          "type":  [
+                                                                                                       "integer",
+                                                                                                       "null"
+                                                                                                   ],
+                                                                                          "description":  "Actor id; resolve via the /actors endpoint."
+                                                                                      },
+                                                                        "target_id":  {
+                                                                                          "type":  [
+                                                                                                       "integer",
+                                                                                                       "null"
+                                                                                                   ]
+                                                                                      },
+                                                                        "spell_id":  {
+                                                                                         "type":  [
+                                                                                                      "integer",
+                                                                                                      "null"
+                                                                                                  ],
+                                                                                         "description":  "-1 is the melee sentinel: a white hit carrying no spell. A minority of genuine swings carry a real spell_id (weapon imbues, some pet melee), so prefer melee_only=true over filtering on -1 yourself."
+                                                                                     }
+                                                                    }
+                                                 },
+                                       "Actor":  {
+                                                     "type":  "object",
+                                                     "properties":  {
+                                                                        "id":  {
+                                                                                   "type":  "integer"
+                                                                               },
+                                                                        "name":  {
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                        "character_type":  {
+                                                                                               "type":  "string",
+                                                                                               "description":  "player, pet, or creature."
+                                                                                           },
+                                                                        "is_player":  {
+                                                                                          "type":  "boolean"
+                                                                                      },
+                                                                        "is_pet":  {
+                                                                                       "type":  "boolean"
+                                                                                   },
+                                                                        "is_boss":  {
+                                                                                        "type":  "boolean"
+                                                                                    }
+                                                                    }
+                                                 },
+                                       "EncounterSummary":  {
+                                                                "type":  "object",
+                                                                "properties":  {
+                                                                                   "id":  {
+                                                                                              "type":  "integer"
+                                                                                          },
+                                                                                   "name":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                                   "boss_id":  {
+                                                                                                   "type":  [
+                                                                                                                "integer",
+                                                                                                                "null"
+                                                                                                            ]
+                                                                                               },
+                                                                                   "is_boss_encounter":  {
+                                                                                                             "type":  "boolean"
+                                                                                                         },
+                                                                                   "start_time":  {
+                                                                                                      "type":  "string",
+                                                                                                      "format":  "date-time"
+                                                                                                  },
+                                                                                   "end_time":  {
+                                                                                                    "type":  [
+                                                                                                                 "string",
+                                                                                                                 "null"
+                                                                                                             ],
+                                                                                                    "format":  "date-time"
+                                                                                                },
+                                                                                   "duration_seconds":  {
+                                                                                                            "type":  [
+                                                                                                                         "integer",
+                                                                                                                         "null"
+                                                                                                                     ]
+                                                                                                        }
+                                                                               }
+                                                            },
+                                       "EventsResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "report_id":  {
+                                                                                                   "type":  "integer"
+                                                                                               },
+                                                                                 "encounter_id":  {
+                                                                                                      "type":  "integer"
+                                                                                                  },
+                                                                                 "melee_spell_id":  {
+                                                                                                        "type":  "integer",
+                                                                                                        "description":  "The melee sentinel, published so it is not a magic number."
+                                                                                                    },
+                                                                                 "events":  {
+                                                                                                "type":  "array",
+                                                                                                "items":  {
+                                                                                                              "$ref":  "#/components/schemas/Event"
+                                                                                                          }
+                                                                                            },
+                                                                                 "pagination":  {
+                                                                                                    "type":  "object",
+                                                                                                    "properties":  {
+                                                                                                                       "returned":  {
+                                                                                                                                        "type":  "integer"
+                                                                                                                                    },
+                                                                                                                       "has_more":  {
+                                                                                                                                        "type":  "boolean"
+                                                                                                                                    },
+                                                                                                                       "next_cursor":  {
+                                                                                                                                           "type":  [
+                                                                                                                                                        "string",
+                                                                                                                                                        "null"
+                                                                                                                                                    ],
+                                                                                                                                           "description":  "Pass back as ?cursor= for the next page. Null on the last page."
+                                                                                                                                       },
+                                                                                                                       "max_limit":  {
+                                                                                                                                         "type":  "integer"
+                                                                                                                                     }
+                                                                                                                   }
+                                                                                                }
+                                                                             }
+                                                          },
+                                       "ActorsResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "encounter_id":  {
+                                                                                                      "type":  "integer"
+                                                                                                  },
+                                                                                 "actors":  {
+                                                                                                "type":  "array",
+                                                                                                "items":  {
+                                                                                                              "$ref":  "#/components/schemas/Actor"
+                                                                                                          }
+                                                                                            }
+                                                                             }
+                                                          },
+                                       "ReportsResponse":  {
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "success":  {
+                                                                                                  "type":  "boolean"
+                                                                                              },
+                                                                                  "reports":  {
+                                                                                                  "type":  "array",
+                                                                                                  "items":  {
+                                                                                                                "type":  "object",
+                                                                                                                "properties":  {
+                                                                                                                                   "id":  {
+                                                                                                                                              "type":  "integer"
+                                                                                                                                          },
+                                                                                                                                   "title":  {
+                                                                                                                                                 "type":  [
+                                                                                                                                                              "string",
+                                                                                                                                                              "null"
+                                                                                                                                                          ]
+                                                                                                                                             },
+                                                                                                                                   "created_at":  {
+                                                                                                                                                      "type":  "string",
+                                                                                                                                                      "format":  "date-time"
+                                                                                                                                                  },
+                                                                                                                                   "encounter_count":  {
+                                                                                                                                                           "type":  "integer"
+                                                                                                                                                       }
+                                                                                                                               }
+                                                                                                            }
+                                                                                              },
+                                                                                  "pagination":  {
+                                                                                                     "type":  "object",
+                                                                                                     "properties":  {
+                                                                                                                        "limit":  {
+                                                                                                                                      "type":  "integer"
+                                                                                                                                  },
+                                                                                                                        "offset":  {
+                                                                                                                                       "type":  "integer"
+                                                                                                                                   },
+                                                                                                                        "returned":  {
+                                                                                                                                         "type":  "integer"
+                                                                                                                                     }
+                                                                                                                    }
+                                                                                                 }
+                                                                              }
+                                                           },
+                                       "ReportResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "report":  {
+                                                                                                "type":  "object",
+                                                                                                "properties":  {
+                                                                                                                   "id":  {
+                                                                                                                              "type":  "integer"
+                                                                                                                          },
+                                                                                                                   "title":  {
+                                                                                                                                 "type":  [
+                                                                                                                                              "string",
+                                                                                                                                              "null"
+                                                                                                                                          ]
+                                                                                                                             },
+                                                                                                                   "created_at":  {
+                                                                                                                                      "type":  "string",
+                                                                                                                                      "format":  "date-time"
+                                                                                                                                  }
+                                                                                                               }
+                                                                                            },
+                                                                                 "encounters":  {
+                                                                                                    "type":  "array",
+                                                                                                    "items":  {
+                                                                                                                  "$ref":  "#/components/schemas/EncounterSummary"
+                                                                                                              }
+                                                                                                }
+                                                                             }
+                                                          },
+                                       "PhasesResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "phases":  {
+                                                                                                "type":  "array",
+                                                                                                "items":  {
+                                                                                                              "type":  "object",
+                                                                                                              "properties":  {
+                                                                                                                                 "id":  {
+                                                                                                                                            "type":  "integer"
+                                                                                                                                        },
+                                                                                                                                 "phase_number":  {
+                                                                                                                                                      "type":  "integer"
+                                                                                                                                                  },
+                                                                                                                                 "name":  {
+                                                                                                                                              "type":  "string"
+                                                                                                                                          },
+                                                                                                                                 "start_date":  {
+                                                                                                                                                    "type":  [
+                                                                                                                                                                 "string",
+                                                                                                                                                                 "null"
+                                                                                                                                                             ],
+                                                                                                                                                    "format":  "date-time"
+                                                                                                                                                },
+                                                                                                                                 "end_date":  {
+                                                                                                                                                  "type":  [
+                                                                                                                                                               "string",
+                                                                                                                                                               "null"
+                                                                                                                                                           ],
+                                                                                                                                                  "format":  "date-time",
+                                                                                                                                                  "description":  "Null while the phase is the current one."
+                                                                                                                                              },
+                                                                                                                                 "is_active":  {
+                                                                                                                                                   "type":  "boolean"
+                                                                                                                                               },
+                                                                                                                                 "created_at":  {
+                                                                                                                                                    "type":  "string",
+                                                                                                                                                    "format":  "date-time"
+                                                                                                                                                },
+                                                                                                                                 "realm_status":  {
+                                                                                                                                                      "type":  "array",
+                                                                                                                                                      "items":  {
+                                                                                                                                                                    "type":  "string"
+                                                                                                                                                                }
+                                                                                                                                                  },
+                                                                                                                                 "progression_parent_phase_id":  {
+                                                                                                                                                                     "type":  [
+                                                                                                                                                                                  "integer",
+                                                                                                                                                                                  "null"
+                                                                                                                                                                              ]
+                                                                                                                                                                 },
+                                                                                                                                 "locations":  {
+                                                                                                                                                   "type":  "array",
+                                                                                                                                                   "items":  {
+                                                                                                                                                                 "type":  "object",
+                                                                                                                                                                 "properties":  {
+                                                                                                                                                                                    "location":  {
+                                                                                                                                                                                                     "type":  "string"
+                                                                                                                                                                                                 },
+                                                                                                                                                                                    "is_main":  {
+                                                                                                                                                                                                    "type":  "boolean"
+                                                                                                                                                                                                },
+                                                                                                                                                                                    "track_progression":  {
+                                                                                                                                                                                                              "type":  "boolean"
+                                                                                                                                                                                                          },
+                                                                                                                                                                                    "is_world_boss":  {
+                                                                                                                                                                                                          "type":  "boolean"
+                                                                                                                                                                                                      }
+                                                                                                                                                                                }
+                                                                                                                                                             }
+                                                                                                                                               }
+                                                                                                                             }
+                                                                                                          }
+                                                                                            }
+                                                                             }
+                                                          },
+                                       "BossesResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "count":  {
+                                                                                               "type":  "integer"
+                                                                                           },
+                                                                                 "bosses":  {
+                                                                                                "type":  "array",
+                                                                                                "items":  {
+                                                                                                              "type":  "object",
+                                                                                                              "properties":  {
+                                                                                                                                 "id":  {
+                                                                                                                                            "type":  "integer"
+                                                                                                                                        },
+                                                                                                                                 "name":  {
+                                                                                                                                              "type":  "string"
+                                                                                                                                          },
+                                                                                                                                 "location":  {
+                                                                                                                                                  "type":  [
+                                                                                                                                                               "string",
+                                                                                                                                                               "null"
+                                                                                                                                                           ]
+                                                                                                                                              },
+                                                                                                                                 "boss_id":  {
+                                                                                                                                                 "type":  "integer",
+                                                                                                                                                 "description":  "Index on this, not on id: it is stable across zone recategorisation."
+                                                                                                                                             },
+                                                                                                                                 "display_order":  {
+                                                                                                                                                       "type":  [
+                                                                                                                                                                    "integer",
+                                                                                                                                                                    "null"
+                                                                                                                                                                ]
+                                                                                                                                                   },
+                                                                                                                                 "icon_name":  {
+                                                                                                                                                   "type":  [
+                                                                                                                                                                "string",
+                                                                                                                                                                "null"
+                                                                                                                                                            ]
+                                                                                                                                               },
+                                                                                                                                 "instance_type":  {
+                                                                                                                                                       "type":  [
+                                                                                                                                                                    "string",
+                                                                                                                                                                    "null"
+                                                                                                                                                                ]
+                                                                                                                                                   }
+                                                                                                                             }
+                                                                                                          }
+                                                                                            }
+                                                                             }
+                                                          },
+                                       "SpecStatistics":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "avg":  {
+                                                                                             "type":  "number"
+                                                                                         },
+                                                                                 "median":  {
+                                                                                                "type":  "number"
+                                                                                            },
+                                                                                 "max":  {
+                                                                                             "type":  "number"
+                                                                                         },
+                                                                                 "min":  {
+                                                                                             "type":  "number"
+                                                                                         },
+                                                                                 "total_parses":  {
+                                                                                                      "type":  "integer"
+                                                                                                  },
+                                                                                 "percentiles":  {
+                                                                                                     "type":  "object",
+                                                                                                     "description":  "Keyed p99, p95, p90, p80, p75, p70, p60, p50, p40, p30, p25, p20, p10.",
+                                                                                                     "additionalProperties":  {
+                                                                                                                                  "type":  "number"
+                                                                                                                              }
+                                                                                                 }
+                                                                             }
+                                                          },
+                                       "StatisticsResponse":  {
+                                                                  "type":  "object",
+                                                                  "description":  "`statistics` is keyed BY CLASS NAME, and each class\u0027s `specs` is keyed by spec name, so the key set is tenant-specific and changes with the game\u0027s class model. Iterate the keys; do not hardcode them.",
+                                                                  "properties":  {
+                                                                                     "success":  {
+                                                                                                     "type":  "boolean"
+                                                                                                 },
+                                                                                     "phase":  {
+                                                                                                   "type":  "integer"
+                                                                                               },
+                                                                                     "phase_name":  {
+                                                                                                        "type":  [
+                                                                                                                     "string",
+                                                                                                                     "null"
+                                                                                                                 ]
+                                                                                                    },
+                                                                                     "location":  {
+                                                                                                      "type":  [
+                                                                                                                   "string",
+                                                                                                                   "null"
+                                                                                                               ]
+                                                                                                  },
+                                                                                     "difficulty":  {
+                                                                                                        "type":  "string"
+                                                                                                    },
+                                                                                     "bracket":  {
+                                                                                                     "type":  "string"
+                                                                                                 },
+                                                                                     "metric":  {
+                                                                                                    "type":  "string"
+                                                                                                },
+                                                                                     "damage_mode":  {
+                                                                                                         "type":  "string"
+                                                                                                     },
+                                                                                     "week_number":  {
+                                                                                                         "type":  [
+                                                                                                                      "integer",
+                                                                                                                      "null"
+                                                                                                                  ]
+                                                                                                     },
+                                                                                     "day_number":  {
+                                                                                                        "type":  [
+                                                                                                                     "integer",
+                                                                                                                     "null"
+                                                                                                                 ]
+                                                                                                    },
+                                                                                     "boss_id":  {
+                                                                                                     "type":  [
+                                                                                                                  "integer",
+                                                                                                                  "null"
+                                                                                                              ]
+                                                                                                 },
+                                                                                     "statistics":  {
+                                                                                                        "type":  "object",
+                                                                                                        "additionalProperties":  {
+                                                                                                                                     "type":  "object",
+                                                                                                                                     "properties":  {
+                                                                                                                                                        "class_avg":  {
+                                                                                                                                                                          "type":  "number"
+                                                                                                                                                                      },
+                                                                                                                                                        "class_median":  {
+                                                                                                                                                                             "type":  "number"
+                                                                                                                                                                         },
+                                                                                                                                                        "class_max":  {
+                                                                                                                                                                          "type":  "number"
+                                                                                                                                                                      },
+                                                                                                                                                        "total_parses":  {
+                                                                                                                                                                             "type":  "integer"
+                                                                                                                                                                         },
+                                                                                                                                                        "specs":  {
+                                                                                                                                                                      "type":  "object",
+                                                                                                                                                                      "additionalProperties":  {
+                                                                                                                                                                                                   "$ref":  "#/components/schemas/SpecStatistics"
+                                                                                                                                                                                               }
+                                                                                                                                                                  }
+                                                                                                                                                    }
+                                                                                                                                 }
+                                                                                                    },
+                                                                                     "bosses":  {
+                                                                                                    "type":  "array",
+                                                                                                    "items":  {
+                                                                                                                  "type":  "object",
+                                                                                                                  "properties":  {
+                                                                                                                                     "boss_id":  {
+                                                                                                                                                     "type":  "integer"
+                                                                                                                                                 },
+                                                                                                                                     "boss_name":  {
+                                                                                                                                                       "type":  "string"
+                                                                                                                                                   },
+                                                                                                                                     "total_kills":  {
+                                                                                                                                                         "type":  "integer"
+                                                                                                                                                     }
+                                                                                                                                 }
+                                                                                                              }
+                                                                                                }
+                                                                                 }
+                                                              },
+                                       "HealthResponse":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "success":  {
+                                                                                                 "type":  "boolean"
+                                                                                             },
+                                                                                 "status":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                                 "version":  {
+                                                                                                 "type":  "string"
+                                                                                             }
+                                                                             }
+                                                          },
+                                       "Error":  {
+                                                     "type":  "object",
+                                                     "properties":  {
+                                                                        "success":  {
+                                                                                        "type":  "boolean",
+                                                                                        "description":  "Always false."
+                                                                                    },
+                                                                        "error":  {
+                                                                                      "type":  "string",
+                                                                                      "description":  "Machine-readable code: missing_api_key, invalid_api_key, insufficient_scope, rate_limit_exceeded, daily_quota_exceeded, invalid_parameter, not_found, service_unavailable."
+                                                                                  },
+                                                                        "message":  {
+                                                                                        "type":  "string"
+                                                                                    }
+                                                                    }
+                                                 }
+                                   },
+                       "responses":  {
+                                         "Unauthorized":  {
+                                                              "description":  "Missing, unknown, or revoked API key.",
+                                                              "content":  {
+                                                                              "application/json":  {
+                                                                                                       "schema":  {
+                                                                                                                      "$ref":  "#/components/schemas/Error"
+                                                                                                                  }
+                                                                                                   }
+                                                                          }
+                                                          },
+                                         "RateLimited":  {
+                                                             "description":  "Rate limit or daily quota exceeded. See the Retry-After header."
+                                                         },
+                                         "Forbidden":  {
+                                                           "description":  "The key is valid but lacks the scope this endpoint requires. Event-level endpoints need \u0027events:read\u0027, which is granted by hand rather than self-serve."
+                                                       },
+                                         "NotFound":  {
+                                                          "description":  "No such public resource. Returned identically for \u0027does not exist\u0027 and \u0027is not public\u0027, so it cannot be used to enumerate private reports."
+                                                      }
+                                     }
+                   },
+    "paths":  {
+                  "/statistics":  {
+                                      "get":  {
+                                                  "x-scope":  "stats:read",
+                                                  "summary":  "Class and spec statistics",
+                                                  "description":  "Aggregate performance per class/spec for a content phase. Responses are cacheable for 30 minutes and carry an ETag.",
+                                                  "parameters":  [
+                                                                     {
+                                                                         "name":  "phase",
+                                                                         "in":  "query",
+                                                                         "required":  true,
+                                                                         "description":  "Content phase number.",
+                                                                         "schema":  {
+                                                                                        "type":  "integer"
+                                                                                    },
+                                                                         "example":  2
+                                                                     },
+                                                                     {
+                                                                         "name":  "difficulty",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Raid difficulty.",
+                                                                         "schema":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "normal",
+                                                                                                     "heroic",
+                                                                                                     "mythic",
+                                                                                                     "ascended",
+                                                                                                     "all"
+                                                                                                 ],
+                                                                                        "default":  "ascended"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "metric",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Metric to aggregate.",
+                                                                         "schema":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "avg_dps",
+                                                                                                     "avg_hps",
+                                                                                                     "avg_dtps"
+                                                                                                 ],
+                                                                                        "default":  "avg_dps"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "bracket",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Raid size bracket.",
+                                                                         "schema":  {
+                                                                                        "type":  "string",
+                                                                                        "default":  "all"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "location",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Zone name, e.g. \u0027Molten Core\u0027.",
+                                                                         "schema":  {
+                                                                                        "type":  "string"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "bossId",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Narrow to a single boss.",
+                                                                         "schema":  {
+                                                                                        "type":  "integer"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "damageMode",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Damage attribution mode.",
+                                                                         "schema":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "standard",
+                                                                                                     "boss-only",
+                                                                                                     "trash"
+                                                                                                 ],
+                                                                                        "default":  "standard"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "role",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Role filter. Omit for healing metrics.",
+                                                                         "schema":  {
+                                                                                        "type":  "string",
+                                                                                        "enum":  [
+                                                                                                     "tank",
+                                                                                                     "dps",
+                                                                                                     "tanks-and-dps",
+                                                                                                     "support"
+                                                                                                 ]
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "class",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Narrow to one class.",
+                                                                         "schema":  {
+                                                                                        "type":  "string"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "spec",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Narrow to one spec.",
+                                                                         "schema":  {
+                                                                                        "type":  "string"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "weekNumber",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Phase week.",
+                                                                         "schema":  {
+                                                                                        "type":  "integer"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "realm",
+                                                                         "in":  "query",
+                                                                         "required":  false,
+                                                                         "description":  "Realm filter.",
+                                                                         "schema":  {
+                                                                                        "type":  "string"
+                                                                                    }
+                                                                     }
+                                                                 ],
+                                                  "responses":  {
+                                                                    "200":  {
+                                                                                "description":  "Statistics for the requested slice.",
+                                                                                "content":  {
+                                                                                                "application/json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/StatisticsResponse"
+                                                                                                                                    }
+                                                                                                                     }
+                                                                                            }
+                                                                            },
+                                                                    "400":  {
+                                                                                "description":  "Invalid or missing parameter."
+                                                                            },
+                                                                    "401":  {
+                                                                                "$ref":  "#/components/responses/Unauthorized"
+                                                                            },
+                                                                    "429":  {
+                                                                                "$ref":  "#/components/responses/RateLimited"
+                                                                            }
+                                                                }
+                                              }
+                                  },
+                  "/phases":  {
+                                  "get":  {
+                                              "x-scope":  "stats:read",
+                                              "summary":  "List content phases",
+                                              "description":  "Content phases and the locations belonging to each.",
+                                              "parameters":  [
+                                                                 {
+                                                                     "name":  "realm",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "description":  "Realm filter.",
+                                                                     "schema":  {
+                                                                                    "type":  "string"
+                                                                                }
+                                                                 }
+                                                             ],
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "All visible phases.",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/PhasesResponse"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        },
+                                                                "401":  {
+                                                                            "$ref":  "#/components/responses/Unauthorized"
+                                                                        },
+                                                                "429":  {
+                                                                            "$ref":  "#/components/responses/RateLimited"
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/bosses":  {
+                                  "get":  {
+                                              "x-scope":  "stats:read",
+                                              "summary":  "List bosses",
+                                              "description":  "Boss metadata as a flat array. Index by boss_id, which is stable across zone recategorisation.",
+                                              "parameters":  [
+
+                                                             ],
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "All ranked bosses.",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/BossesResponse"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        },
+                                                                "401":  {
+                                                                            "$ref":  "#/components/responses/Unauthorized"
+                                                                        },
+                                                                "429":  {
+                                                                            "$ref":  "#/components/responses/RateLimited"
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/reports":  {
+                                   "get":  {
+                                               "x-scope":  "events:read",
+                                               "x-experimental":  true,
+                                               "summary":  "List public reports",
+                                               "description":  "Newest public, fully-processed reports first. This is the entry point for event-level work: list reports, pick one, read its encounters, then read that encounter\u0027s events. Requires the \u0027events:read\u0027 scope.",
+                                               "parameters":  [
+                                                                  {
+                                                                      "name":  "limit",
+                                                                      "in":  "query",
+                                                                      "required":  false,
+                                                                      "description":  "Reports per page (1-200).",
+                                                                      "schema":  {
+                                                                                     "type":  "integer"
+                                                                                 },
+                                                                      "example":  50
+                                                                  },
+                                                                  {
+                                                                      "name":  "offset",
+                                                                      "in":  "query",
+                                                                      "required":  false,
+                                                                      "description":  "Reports to skip.",
+                                                                      "schema":  {
+                                                                                     "type":  "integer"
+                                                                                 },
+                                                                      "example":  0
+                                                                  },
+                                                                  {
+                                                                      "name":  "since",
+                                                                      "in":  "query",
+                                                                      "required":  false,
+                                                                      "description":  "Only reports created at or after this ISO 8601 date.",
+                                                                      "schema":  {
+                                                                                     "type":  "string",
+                                                                                     "format":  "date-time"
+                                                                                 }
+                                                                  }
+                                                              ],
+                                               "responses":  {
+                                                                 "200":  {
+                                                                             "description":  "A page of public reports.",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/ReportsResponse"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         },
+                                                                 "401":  {
+                                                                             "$ref":  "#/components/responses/Unauthorized"
+                                                                         },
+                                                                 "403":  {
+                                                                             "$ref":  "#/components/responses/Forbidden"
+                                                                         },
+                                                                 "429":  {
+                                                                             "$ref":  "#/components/responses/RateLimited"
+                                                                         }
+                                                             }
+                                           }
+                               },
+                  "/reports/{reportId}":  {
+                                              "get":  {
+                                                          "x-scope":  "events:read",
+                                                          "x-experimental":  true,
+                                                          "summary":  "Get a report and its encounters",
+                                                          "description":  "The report plus every encounter in it, with ids, names and durations. Only public, completed reports are addressable; anything else answers 404, including reports that exist but are private. Requires the \u0027events:read\u0027 scope.",
+                                                          "parameters":  [
+                                                                             {
+                                                                                 "name":  "reportId",
+                                                                                 "in":  "path",
+                                                                                 "required":  true,
+                                                                                 "description":  "Report id.",
+                                                                                 "schema":  {
+                                                                                                "type":  "integer"
+                                                                                            }
+                                                                             }
+                                                                         ],
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "The report and its encounters.",
+                                                                                        "content":  {
+                                                                                                        "application/json":  {
+                                                                                                                                 "schema":  {
+                                                                                                                                                "$ref":  "#/components/schemas/ReportResponse"
+                                                                                                                                            }
+                                                                                                                             }
+                                                                                                    }
+                                                                                    },
+                                                                            "401":  {
+                                                                                        "$ref":  "#/components/responses/Unauthorized"
+                                                                                    },
+                                                                            "403":  {
+                                                                                        "$ref":  "#/components/responses/Forbidden"
+                                                                                    },
+                                                                            "404":  {
+                                                                                        "$ref":  "#/components/responses/NotFound"
+                                                                                    },
+                                                                            "429":  {
+                                                                                        "$ref":  "#/components/responses/RateLimited"
+                                                                                    }
+                                                                        }
+                                                      }
+                                          },
+                  "/reports/{reportId}/encounters/{encounterId}/events":  {
+                                                                              "get":  {
+                                                                                          "x-scope":  "events:read",
+                                                                                          "x-experimental":  true,
+                                                                                          "summary":  "Get one encounter\u0027s combat events",
+                                                                                          "description":  "The event stream for a single encounter, keyset paged.\n\n**Timestamps** are `timestamp_ms`, milliseconds from that encounter\u0027s combat start, not a wall clock.\n\n**Melee swings** are `event_type: \"damage\"` with `spell_id: -1`. A swing that did NOT land is its own event type instead: `parry`, `dodge`, `miss`, `block`, `deflect`, `immune`, `resist`, `reflect` or `evade`. Pair the two and you have a complete swing sequence with outcomes, which is what swing-timer and parry-haste analysis needs. `melee_only=true` narrows the stream to exactly those rows.\n\n**`is_glancing` / `is_crushing`** are recorded on swing-derived rows only. `null` means not applicable or not recorded: they are populated going forward from 2026-08-23 and cannot be backfilled, so older encounters carry null.\n\n**Actor ids** are bare; resolve them once via the /actors endpoint rather than expecting names on every row.\n\n**Page size**: prefer LARGE pages. The cost of this endpoint is per request, not per row, so one request for a whole encounter is far cheaper for both of us than a hundred small ones. Requires the \u0027events:read\u0027 scope.",
+                                                                                          "parameters":  [
+                                                                                                             {
+                                                                                                                 "name":  "reportId",
+                                                                                                                 "in":  "path",
+                                                                                                                 "required":  true,
+                                                                                                                 "description":  "Report id.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "encounterId",
+                                                                                                                 "in":  "path",
+                                                                                                                 "required":  true,
+                                                                                                                 "description":  "Encounter id. Must belong to reportId.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "groups",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Comma-separated event groups: damage, healing, overheal, absorb, casts, buffs, debuffs, avoidance, interrupts, dispels, deaths.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            },
+                                                                                                                 "example":  "damage,avoidance"
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "event_types",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Comma-separated raw event types, combined with groups.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "melee_only",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Only white-hit (swing) rows.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "boolean"
+                                                                                                                            },
+                                                                                                                 "example":  true
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "source_ids",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Comma-separated actor ids to match as the source.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "target_ids",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Comma-separated actor ids to match as the target.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "spell_ids",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Comma-separated spell ids. -1 is the melee sentinel.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "start_ms",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Only events at or after this ms offset.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "end_ms",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Only events at or before this ms offset.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "limit",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "Events per page (1-50000).",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            },
+                                                                                                                 "example":  10000
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "cursor",
+                                                                                                                 "in":  "query",
+                                                                                                                 "required":  false,
+                                                                                                                 "description":  "next_cursor from the previous page.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "string"
+                                                                                                                            }
+                                                                                                             }
+                                                                                                         ],
+                                                                                          "responses":  {
+                                                                                                            "200":  {
+                                                                                                                        "description":  "A page of events.",
+                                                                                                                        "content":  {
+                                                                                                                                        "application/json":  {
+                                                                                                                                                                 "schema":  {
+                                                                                                                                                                                "$ref":  "#/components/schemas/EventsResponse"
+                                                                                                                                                                            }
+                                                                                                                                                             }
+                                                                                                                                    }
+                                                                                                                    },
+                                                                                                            "400":  {
+                                                                                                                        "description":  "Unknown event type or group, or a malformed parameter."
+                                                                                                                    },
+                                                                                                            "401":  {
+                                                                                                                        "$ref":  "#/components/responses/Unauthorized"
+                                                                                                                    },
+                                                                                                            "403":  {
+                                                                                                                        "$ref":  "#/components/responses/Forbidden"
+                                                                                                                    },
+                                                                                                            "404":  {
+                                                                                                                        "$ref":  "#/components/responses/NotFound"
+                                                                                                                    },
+                                                                                                            "429":  {
+                                                                                                                        "$ref":  "#/components/responses/RateLimited"
+                                                                                                                    }
+                                                                                                        }
+                                                                                      }
+                                                                          },
+                  "/reports/{reportId}/encounters/{encounterId}/actors":  {
+                                                                              "get":  {
+                                                                                          "x-scope":  "events:read",
+                                                                                          "x-experimental":  true,
+                                                                                          "summary":  "Get an encounter\u0027s actor dictionary",
+                                                                                          "description":  "Maps the bare source_id / target_id values on the event stream to names and types (player, pet, creature, boss). Fetch once per encounter. Requires the \u0027events:read\u0027 scope.",
+                                                                                          "parameters":  [
+                                                                                                             {
+                                                                                                                 "name":  "reportId",
+                                                                                                                 "in":  "path",
+                                                                                                                 "required":  true,
+                                                                                                                 "description":  "Report id.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             },
+                                                                                                             {
+                                                                                                                 "name":  "encounterId",
+                                                                                                                 "in":  "path",
+                                                                                                                 "required":  true,
+                                                                                                                 "description":  "Encounter id. Must belong to reportId.",
+                                                                                                                 "schema":  {
+                                                                                                                                "type":  "integer"
+                                                                                                                            }
+                                                                                                             }
+                                                                                                         ],
+                                                                                          "responses":  {
+                                                                                                            "200":  {
+                                                                                                                        "description":  "The actors in this encounter.",
+                                                                                                                        "content":  {
+                                                                                                                                        "application/json":  {
+                                                                                                                                                                 "schema":  {
+                                                                                                                                                                                "$ref":  "#/components/schemas/ActorsResponse"
+                                                                                                                                                                            }
+                                                                                                                                                             }
+                                                                                                                                    }
+                                                                                                                    },
+                                                                                                            "401":  {
+                                                                                                                        "$ref":  "#/components/responses/Unauthorized"
+                                                                                                                    },
+                                                                                                            "403":  {
+                                                                                                                        "$ref":  "#/components/responses/Forbidden"
+                                                                                                                    },
+                                                                                                            "404":  {
+                                                                                                                        "$ref":  "#/components/responses/NotFound"
+                                                                                                                    },
+                                                                                                            "429":  {
+                                                                                                                        "$ref":  "#/components/responses/RateLimited"
+                                                                                                                    }
+                                                                                                        }
+                                                                                      }
+                                                                          },
+                  "/health":  {
+                                  "get":  {
+                                              "summary":  "Check API health",
+                                              "description":  "Liveness probe. No API key required.",
+                                              "security":  [
+
+                                                           ],
+                                              "parameters":  [
+
+                                                             ],
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "The API is serving requests.",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/HealthResponse"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/openapi.json":  {
+                                        "get":  {
+                                                    "summary":  "Get the OpenAPI document",
+                                                    "description":  "This document. No API key required.",
+                                                    "security":  [
+
+                                                                 ],
+                                                    "parameters":  [
+
+                                                                   ],
+                                                    "responses":  {
+                                                                      "200":  {
+                                                                                  "description":  "OpenAPI 3.1 document."
+                                                                              }
+                                                                  }
+                                                }
+                                    }
+              }
+}

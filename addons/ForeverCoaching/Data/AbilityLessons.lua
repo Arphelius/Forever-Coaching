@@ -1,0 +1,80 @@
+ForeverCoaching = ForeverCoaching or {}
+local FC = ForeverCoaching
+-- Spell effects/range/cost are read from the client. Categories below describe
+-- intended use; readiness and dispel types must still be observed at runtime.
+FC.AbilityLessons = {
+ SHAMAN = {
+  {ids={8042,8044,8045,8046,10412,10413,10414},kind="interrupt",name="Earth Shock",why="Stops an interruptible cast; using it for damage can leave it unavailable for the next cast.",when="An assigned dangerous cast is interruptible and you are in range.",how="Target the caster and use it before the cast finishes."},
+  {ids={331,332,547,913,939,959,8005,10395,10396},kind="heal",name="Healing Wave",why="Provides direct healing; its cast time requires a safe window.",when="A friendly player needs recovery and you can finish the cast safely.",how="Target the injured ally; account for incoming damage and other healers."},
+  {ids={8004,8008,8010,10466,10467,10468},kind="heal",name="Lesser Healing Wave",why="Trades mana efficiency for a shorter response time.",when="An ally needs a faster direct heal.",how="Select the endangered friendly target and watch your mana reserve."},
+  {ids={1064,10622,10623},kind="heal",name="Chain Heal",why="Group healing depends on injured allies being close enough for jumps.",when="Several nearby allies need healing.",how="Start from an injured ally near other injured players."},
+  {ids={51886},kind="dispel",types={Curse=true},name="Cleanse Spirit",why="Removes a supported harmful effect when removal is appropriate.",when="An ally has a removable curse and the mechanic permits removal.",how="Check the effect before targeting the ally and cleansing."},
+  {ids={526},kind="dispel",types={Poison=true},name="Cure Poison",why="Removes a poison effect instead of healing through its remaining damage.",when="An ally has a removable poison that should be removed.",how="Target the affected ally; verify that removal will not trigger a harmful mechanic."},
+  {ids={2870},kind="dispel",types={Disease=true},name="Cure Disease",why="Removes a supported disease.",when="A removable disease is present and safe to remove.",how="Target the affected ally and cure the disease."},
+  {ids={2645},kind="speed",name="Ghost Wolf",why="Travel speed can help meet a movement requirement, but shifting can cost an action.",when="Movement is needed and changing form is safe.",how="Move toward the safe location; leave the form when ready to act."},
+  {ids={403,529,548,915,943,6041,10391,10392,15207,15208},kind="damage",name="Lightning Bolt",why="A ranged cast whose value depends on your damage talents, resource budget and available cast window.",when="You have a safe stationary damage window or an observed instant-cast effect.",how="Select the intended enemy; avoid committing a hard cast during required movement."},
+  {ids={17364},kind="damage",name="Stormstrike",why="Sets up the next empowered lightning or Earth Shock hit in builds that learn it.",when="In melee with a safe opportunity to attack and follow up.",how="Use in melee and plan the follow-up spell around mechanics."},
+ },
+ MAGE = {
+  {ids={2139},kind="interrupt",name="Counterspell",why="Reserves a ranged stop for dangerous casts.",when="An assigned cast is interruptible.",how="Target the caster and interrupt before completion."},
+  {ids={475},kind="dispel",types={Curse=true},name="Remove Lesser Curse",why="Removes harmful curses your party cannot safely ignore.",when="A removable curse is present and removal is safe.",how="Target the affected ally and remove the curse."},
+ },
+ ROGUE = {{ids={1766,1767,1768,1769},kind="interrupt",name="Kick",why="Stops casts but requires melee access and energy.",when="An assigned interruptible cast is in reach.",how="Move safely into range and kick before completion."}},
+ WARRIOR = {{ids={6552,6554},kind="interrupt",name="Pummel",why="Provides a melee interrupt when its stance and resource requirements are met.",when="An assigned cast can be interrupted.",how="Meet the ability requirements and interrupt before completion."}},
+ PALADIN = {
+  {ids={4987},kind="dispel",types={Magic=true,Poison=true,Disease=true},name="Cleanse",why="Removes supported debuffs and can reduce pressure on healing.",when="A removable effect is present and safe to remove.",how="Target the affected ally and cleanse."},
+  {ids={1152},kind="dispel",types={Poison=true,Disease=true},name="Purify",why="Removes poison or disease when learned.",when="A supported removable effect is present.",how="Target the affected ally and purify."},
+  {ids={635,639,647,1026,1042,3472,10328,10329},kind="heal",name="Holy Light",why="Direct healing requires a safe cast window and sufficient mana.",when="A friendly target needs healing.",how="Select the injured ally and complete the cast safely."},
+ },
+ PRIEST = {
+  {ids={527,988},kind="dispel",types={Magic=true},name="Dispel Magic",why="Removes supported magic effects; hostile and friendly removal serve different purposes.",when="A friendly removable magic effect should be removed.",how="Check the target and effect before dispelling."},
+  {ids={528,552},kind="dispel",types={Disease=true},name="Cure/Abolish Disease",why="Removes disease pressure.",when="A removable disease is present.",how="Target the affected ally and use the learned disease removal."},
+  {ids={2061,9472,9473,9474,10915,10916,10917},kind="heal",name="Flash Heal",why="Offers a quick direct heal at a mana cost.",when="An ally needs prompt recovery.",how="Target the endangered ally and check whether a slower efficient heal is safe instead."},
+ },
+ DRUID = {
+  {ids={2782},kind="dispel",types={Curse=true},name="Remove Curse",why="Removes supported curses.",when="A removable curse should be removed.",how="Select the affected ally and remove the curse."},
+  {ids={8946,2893},kind="dispel",types={Poison=true},name="Cure/Abolish Poison",why="Removes poison pressure.",when="A removable poison is present.",how="Target the affected ally and use your learned poison removal."},
+  {ids={5185,5186,5187,5188,5189,6778,8903,9758,9888,9889},kind="heal",name="Healing Touch",why="A direct heal whose cast time and mana cost must fit the situation.",when="An injured ally can safely wait for the cast.",how="Target the ally and cast from a safe position."},
+ },
+ HUNTER = {}, WARLOCK = {},
+}
+
+-- Broad class toolkit lessons. Only a learned rank is shown; effects, ranks,
+-- duration and costs come from the running client rather than retail data.
+local function add(class,ids,kind,name,why,when,how)
+ local list=FC.AbilityLessons[class]
+ list[#list+1]={ids=ids,kind=kind,name=name,why=why,when=when,how=how}
+end
+add("SHAMAN",{421,930,2860,10605},"damage","Chain Lightning","Multiple nearby targets can increase its value; its cost and cast time still matter.","A safe cast window with targets close enough for jumps.","Choose the primary enemy and compare the value of extra hits with mana needs.")
+add("SHAMAN",{8050,8052,8053,10447,10448,29228},"damage","Flame Shock","Periodic damage needs enough target lifetime to pay back its application.","The intended target will survive long enough for useful ticks.","Apply to the priority target; check remaining duration before refreshing.")
+add("SHAMAN",{16166},"cooldown","Elemental Mastery","A throughput cooldown should serve a planned damage window rather than be spent during forced downtime.","A useful burst window with safe follow-up casts.","Check the client effect and line up the benefiting spells with the target's vulnerable window.")
+add("SHAMAN",{425336},"cooldown","Rage of the Farseer","An attack-speed window benefits from sustained melee access.","You can stay in melee for the useful portion of the effect.","Coordinate the timing with target uptime and the next pull; avoid losing a use without a reason.")
+add("SHAMAN",{324,325,905,945,8134,10431,10432},"buff","Lightning Shield","A self buff contributes only while its effect remains active.","Before a pull when safe, or when refreshing is worth an action.","Check the current aura and the client description before reapplying.")
+add("MAGE",{133,143,145,3140,8400,8401,8402,10148,10149,10150,10151},"damage","Fireball","A hard cast commits time; fire-focused talents can change its value.","A safe stationary damage window against the intended target.","Check range, target lifetime and your current build before committing the cast.")
+add("MAGE",{116,205,837,7322,8406,8407,8408,10179,10180,10181},"damage","Frostbolt","A ranged cast can provide damage and a slowing effect where the target permits it.","A safe cast window where damage or a slow serves the plan.","Use the appropriate learned rank and watch for movement or control requirements.")
+add("MAGE",{1953},"speed","Blink","A movement tool can shorten exposure but its destination must be safe.","A movement mechanic requires rapid repositioning and the path is clear.","Face the safe destination and account for terrain before using it.")
+add("MAGE",{118,12824,12825,12826},"cc","Polymorph","Crowd control can remove a dangerous enemy from the active pull if damage will not break it.","An eligible target is assigned for control.","Mark the target, coordinate with the group, and avoid damaging the controlled enemy.")
+add("ROGUE",{1752,1757,1758,1759,1760,8621,11293,11294},"damage","Sinister Strike","A builder spends energy to prepare a finisher.","Your build uses this builder and the target is in melee.","Avoid wasting energy or combo-point generation and preserve resources for assigned utility.")
+add("ROGUE",{2098,6760,6761,6762,8623,8624,11299,11300},"damage","Eviscerate","A finisher converts accumulated combo points into damage.","A damage finisher is appropriate for the remaining target lifetime.","Check combo points and energy before committing; avoid spending a finisher on a target about to become unavailable.")
+add("ROGUE",{2983,8696,11305},"speed","Sprint","Movement speed can help reach a mechanic or regain melee uptime.","A planned movement requirement justifies the cooldown.","Use it along a safe route and consider the next movement requirement.")
+add("ROGUE",{6770,2070,11297},"cc","Sap","Pre-pull control can reduce the enemies engaged together.","An eligible target is assigned before combat.","Meet stealth and target requirements and coordinate to avoid breaking the control.")
+add("WARRIOR",{78,284,285,1608,11564,11565,11566,11567},"damage","Heroic Strike","A weapon attack modifier competes with other rage uses.","The current build and rage budget justify its cost.","Preserve resources for essential abilities and assigned interrupts; read the current client behavior.")
+add("WARRIOR",{1719},"cooldown","Recklessness","A major offensive cooldown needs useful target uptime and awareness of its risk.","A planned burst window where the client effect is safe.","Read the current effect, coordinate support and avoid forced downtime during the window.")
+add("WARRIOR",{871},"defensive","Shield Wall","A defensive is most useful before predictable damage reaches you.","A dangerous damage window warrants it and equipment requirements are met.","Use before the hit rather than after the danger has passed; coordinate external defensives.")
+add("PALADIN",{19750,19939,19940,19941,19942,19943},"heal","Flash of Light","A short direct heal can provide efficient recovery when it meets the incoming pressure.","An ally needs a direct heal that fits the cast window.","Select the injured ally and compare urgency, mana and the next incoming damage.")
+add("PALADIN",{633,2800,10310},"defensive","Lay on Hands","A long-cooldown emergency resource should solve a real survival problem.","A friendly target needs urgent recovery that ordinary actions cannot safely provide.","Check the current effect and restrictions, select the endangered ally and coordinate follow-up healing.")
+add("PALADIN",{853,5588,5589,10308},"cc","Hammer of Justice","A stun can stop an eligible enemy's actions when control is useful.","An eligible target needs control according to the pull plan.","Target the assigned enemy; account for immunity and control overlap.")
+add("PRIEST",{17,592,600,3747,6065,6066,10898,10899,10900,10901},"defensive","Power Word: Shield","An absorb helps before damage and interacts with the target's shield restrictions.","An ally is about to take damage or needs immediate protection.","Select the ally and check existing effects before shielding.")
+add("PRIEST",{139,6074,6075,6076,6077,6078,10927,10928,10929},"heal","Renew","Healing over time needs useful ticks on an injured or soon-to-be-injured target.","Sustained healing is needed and the target can survive until ticks land.","Avoid unnecessary early refreshes and account for expected incoming healing.")
+add("PRIEST",{10060},"cooldown","Power Infusion","A throughput window is stronger when the recipient can act throughout it.","An agreed burst window with an appropriate recipient.","Coordinate the recipient and timing, then avoid overlapping forced downtime.")
+add("DRUID",{774,1058,1430,2090,2091,3627,8910,9839,9840,9841},"heal","Rejuvenation","Healing over time works when ticks will restore useful health.","An ally needs sustained recovery rather than an immediate full heal.","Apply to the intended ally and avoid unnecessary refreshes.")
+add("DRUID",{1850,9821},"speed","Dash","A movement cooldown helps meet a safe-position deadline.","Rapid repositioning is needed and form requirements can be met safely.","Choose the safe route and consider the next movement requirement.")
+add("DRUID",{29166},"cooldown","Innervate","Resource recovery should support the player whose remaining mana limits the encounter plan.","A player needs recovery and can benefit from the current client effect.","Coordinate the recipient and use before mana shortage prevents essential actions.")
+add("HUNTER",{3044,14281,14282,14283,14284,14285,14286,14287},"damage","Arcane Shot","An instant ranged attack can fit movement windows when range and resources permit.","The build uses it and the target is in its valid range.","Select the priority target and preserve resources for upcoming utility.")
+add("HUNTER",{2643,14288,14289,14290},"damage","Multi-Shot","Extra targets can add value but can also break control or pull unwanted enemies.","The pull plan permits hitting the affected targets.","Check nearby controlled enemies and target placement before using it.")
+add("HUNTER",{5384},"defensive","Feign Death","A threat-management action requires awareness of the group's current control of the encounter.","Threat or a specific mechanic makes it appropriate.","Use according to the mechanic and verify that the situation is safe before resuming attacks.")
+add("HUNTER",{5118},"speed","Aspect of the Cheetah","A movement aspect has tradeoffs described by the current client.","Travel speed is useful and its downside is acceptable.","Read the current effect and change aspect when incoming attacks make it unsafe.")
+add("WARLOCK",{686,695,705,1088,1106,7641,11659,11660,11661},"damage","Shadow Bolt","A hard cast benefits from a safe cast window and the appropriate damage build.","You can remain stationary long enough to finish against the intended target.","Check target lifetime and procs before committing the cast.")
+add("WARLOCK",{172,6222,6223,7648,11671,11672},"damage","Corruption","Periodic damage needs useful ticks and can break control.","The intended enemy will remain available long enough for the effect.","Apply to the priority target and avoid refreshing away useful remaining duration.")
+add("WARLOCK",{1454,1455,1456,11687,11688,11689},"mana","Life Tap","Resource conversion trades health for mana and can increase healing pressure.","Mana recovery is useful and your health and incoming damage make the exchange safe.","Check health, mechanics and healer pressure before converting health.")
+add("WARLOCK",{5782,6213,6215},"cc","Fear","Control can reduce pressure but fleeing enemies may create another pull.","An eligible enemy needs control and its movement is safe.","Choose the target and consider its escape route and nearby enemies.")

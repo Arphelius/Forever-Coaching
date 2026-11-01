@@ -1,0 +1,41 @@
+## Interface: 16001
+## Title: Forever Coaching
+## Notes: Your personal WoW: Forever coaching addon
+## Author: Forever Coaching
+## SavedVariables: ForeverCoachingDB
+
+Core\Character.lua
+Data\LevelingBuilds.lua
+Data\Level60Builds.lua
+Data\TalentBorderStyles.lua
+Data\ForeverLogsReview.lua
+Data\ForeverLogsStatistics.lua
+Core\BuildPlanner.lua
+Data\AbilityLessons.lua
+Data\TalentLessonEffects.lua
+Core\TalentLessons.lua
+Data\SpecScenarios.lua
+Data\ScenarioActions.lua
+Data\CombatSituations.lua
+Data\EncounterWarnings.lua
+Core\SpecScenarios.lua
+Core\GearGuide.lua
+Core\FightRecorder.lua
+Core\EncounterCoach.lua
+Core\RotationCoach.lua
+Core\LiveRotation.lua
+Core\RoleWarnings.lua
+Core\CombatReview.lua
+UI\ClassicTheme.lua
+UI\BuildsWindow.lua
+UI\EncounterLearning.lua
+UI\GearGuide.lua
+UI\FightTimeline.lua
+UI\RotationSettings.lua
+UI\BlizzardTalentGuide.lua
+UI\TalentArtPreview.lua
+ForeverCoaching.lua
+UI\MinimapButton.lua
+UI\CombatNotification.lua
+UI\CombatHUD.lua
+UI\RoleWarnings.lua

@@ -1,0 +1,36 @@
+{
+  "DRUID": {
+    "Primal Bite": {"effect":"A melee attack that deals a weapon-damage component plus additional damage.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Blood Frenzy": {"effect":"Critical strikes can generate additional Rage in Bear forms; critical strikes from Cat combo-point builders can generate an additional combo point.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Natural Instinct": {"effect":"Increases the critical-strike damage bonus of melee abilities.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Shifting Power": {"effect":"An activated Cat-form ability that spends mana to restore Energy, subject to its cooldown.","file":"sim/druid/shifting_power.go","optimal":"Use when the restored Energy will fit below your cap and you have safe melee uptime to spend it. Check the mana cost and upcoming downtime first."},
+    "Improved Shifting Power": {"effect":"Reduces the cooldown of Shifting Power.","file":"sim/druid/shifting_power.go","optimal":"Plan extra Energy recovery windows around the shorter cooldown. Avoid using Shifting Power into an Energy cap or immediately before forced downtime."}
+  },
+  "MAGE": {
+    "Arcane Wrath": {"effect":"An Arcane damage cast with a cooldown. Its additional spell-damage contribution scales with maximum Mana.","file":"sim/mage/arcane_wrath.go","optimal":"Fit the cast into a safe damage window. Its maximum-Mana scaling does not mean current Mana can be ignored; preserve resources for the remaining encounter."},
+    "Improved Fire Blast": {"effect":"Reduces Fire Blast's cooldown. Killing a non-trivial target increases the critical-strike chance of the next Fire Blast within the resulting buff window.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Improved Fireball": {"effect":"Reduces the casting time of Fireball and Frostfire Bolt.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Heating Up": {"effect":"Non-periodic critical strikes from Fireball, Frostfire Bolt, Fire Blast and Scorch grant stacking Hot Streak, reducing Pyroblast's cast time.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv","optimal":"Watch the actual Hot Streak stacks and remaining duration. Use the resulting Pyroblast cast window when safe; do not assume every critical strike makes Pyroblast instant."}
+  },
+  "PRIEST": {
+    "Dark Inspiration": {"effect":"Temporarily increases Spirit after completing Mind Blast or the final periodic tick of Mind Flay in the pinned simulator implementation.","file":"sim/priest/talents_shadow.go","optimal":"Account for the Spirit window when evaluating resource sustain. Avoid clipping Mind Flay solely to chase a buff; check the remaining ticks and the mechanic first."}
+  },
+  "ROGUE": {
+    "Flawless Execution": {"effect":"Reduces the Energy cost of Eviscerate.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv","optimal":"Use the lower finisher cost when planning Energy and combo points. Preserve resources for an assigned Kick and avoid finishing a target that is about to become unavailable."}
+  },
+  "SHAMAN": {
+    "Trial by Fire": {"effect":"Increases Fire Nova damage and reduces its cooldown.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv","optimal":"Plan Fire Nova when the active fire totem can reach useful targets. A shorter cooldown does not justify breaking crowd control or spending mana on an empty area."},
+    "Elemental Mastery": {"effect":"An activated window that shortens Lightning Bolt and Lava Burst casts and removes Chain Lightning's cooldown in the pinned simulator implementation.","file":"sim/shaman/talents_elemental.go"}
+  },
+  "WARLOCK": {
+    "Soul Harvest": {"effect":"A victim dying while afflicted by Drain Soul grants Soul Harvest, allowing mana regeneration during casting and increasing mana regeneration for its duration.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv","optimal":"Consider a useful Drain Soul finish on the assigned dying target when safe. Do not abandon a higher-priority mechanic or target merely to secure the regeneration buff."},
+    "Grim Reach": {"effect":"Increases the range of Affliction spells.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"},
+    "Wrack": {"effect":"Deals periodic Shadow damage and increases damage taken from your other Shadow damage-over-time effects for its duration.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv"}
+  },
+  "WARRIOR": {
+    "Lingering Rage": {"effect":"Delays out-of-combat Rage decay. The pinned simulator notes that this out-of-combat behavior is not modeled.","file":"sim/warrior/talents_fury.go","optimal":"Plan the next safe pull around retained Rage. Do not rush the group before mana and preparation are ready; this benefit cannot be judged from a stationary single-fight DPS simulation."},
+    "Furious Precision": {"effect":"Increases the hit chance of off-hand melee attacks.","file":"sim/warrior/talents_fury.go","optimal":"Its benefit requires off-hand melee attacks and safe target uptime. Consider it with your actual hit chance and weapon setup rather than assuming a universal damage gain."},
+    "Blood Craze": {"effect":"Regenerates a portion of total Health after being critically struck, dealing damage with Bloodthirst, or taking a sufficiently large single hit.","file":"tools/data_watch/.cache/Spell_1.60.1.69893.csv","optimal":"Treat the regeneration as recovery after its listed triggers. It does not make avoidable damage worthwhile or replace a defensive before a dangerous hit."},
+    "Gore Drinker": {"effect":"Provides healing from melee attacks after an Enrage. The pinned simulator notes this healing is not modeled.","file":"sim/warrior/talents_fury.go"}
+  }
+}

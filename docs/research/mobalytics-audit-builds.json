@@ -1,0 +1,249 @@
+[
+  {
+    "Class": "Hunter",
+    "Slug": "hunter",
+    "Id": "mobalytics-audit-beast-mastery-leveling-guide",
+    "Title": "Beast Mastery: pet leveling",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/beast-mastery-leveling-guide",
+    "Updated": "2026-10-16",
+    "Level": 30,
+    "Points": 26,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling"
+    ],
+    "Note": "Pets handle incoming damage while you attack from range; the published plan needs 5 extra talent points.",
+    "Ranks": {
+      "Deadly Aspects": 5,
+      "Focused Fire": 2,
+      "Pathfinding": 2,
+      "Improved Revive Pet": 1,
+      "Bestial Swiftness": 1,
+      "Unleashed Fury": 5,
+      "Ferocity": 5,
+      "Summon Hawk": 1,
+      "Intimidation": 1,
+      "Bestial Discipline": 2,
+      "Frenzy": 1
+    }
+  },
+  {
+    "Class": "Rogue",
+    "Slug": "rogue",
+    "Id": "mobalytics-audit-rogue-leveling-donthecrown",
+    "Title": "Combat: leveling and dungeon cleave",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/rogue-leveling-donthecrown",
+    "Updated": "2026-10-22",
+    "Level": 30,
+    "Points": 21,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling",
+      "dungeon_damage"
+    ],
+    "Note": "Riposte adds defense and efficient damage; Blade Flurry helps against two enemies.",
+    "Ranks": {
+      "Improved Eviscerate": 3,
+      "Improved Sinister Strike": 2,
+      "Deflection": 3,
+      "Precision": 3,
+      "Endurance": 2,
+      "Riposte": 1,
+      "Improved Sprint": 1,
+      "Flawless Execution": 1,
+      "Dual Wield Specialization": 4,
+      "Blade Flurry": 1
+    }
+  },
+  {
+    "Class": "Warrior",
+    "Slug": "warrior",
+    "Id": "mobalytics-audit-warrior-leveling-guide",
+    "Title": "Protection: shield leveling and dungeons",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/warrior-leveling-guide",
+    "Updated": "2026-10-18",
+    "Level": 30,
+    "Points": 21,
+    "Role": "tank",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling",
+      "dungeon_tanking"
+    ],
+    "Note": "Shield talents improve rage generation and reduce incoming melee damage; the guide also covers dungeon tanking.",
+    "Ranks": {
+      "Improved Bloodrage": 2,
+      "Shield Specialization": 5,
+      "Improved Revenge": 3,
+      "Improved Thunder Clap": 3,
+      "Last Stand": 1,
+      "Master of Defense": 2,
+      "Improved Sunder Armor": 3,
+      "Vanguard": 1,
+      "Bastion": 1
+    }
+  },
+  {
+    "Class": "Mage",
+    "Slug": "mage",
+    "Id": "mobalytics-audit-frost-mage-guide",
+    "Title": "Frost: leveling and dungeon control",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/frost-mage-guide",
+    "Updated": "2026-10-18",
+    "Level": 30,
+    "Points": 21,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling",
+      "dungeon_damage"
+    ],
+    "Note": "Slows and freezes help control enemies; Shatter and Fingers of Frost support damage.",
+    "Ranks": {
+      "Improved Frostbolt": 5,
+      "Elemental Precision": 2,
+      "Ice Shards": 5,
+      "Frostbite": 3,
+      "Ice Lance": 1,
+      "Ice Block": 1,
+      "Shatter": 3,
+      "Fingers of Frost": 1
+    }
+  },
+  {
+    "Class": "Priest",
+    "Slug": "priest",
+    "Id": "mobalytics-audit-priest-leveling-guide",
+    "Title": "Shadow: low-downtime leveling",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/priest-leveling-guide",
+    "Updated": "2026-10-22",
+    "Level": 30,
+    "Points": 21,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling"
+    ],
+    "Note": "Spirit Tap and wand damage help sustain mana; Mind Flay adds ranged damage and a slow.",
+    "Ranks": {
+      "Wand Specialization": 2,
+      "Shadow Focus": 3,
+      "Spirit Tap": 5,
+      "Improved Shadow Word: Pain": 2,
+      "Shadow Reach": 2,
+      "Mind Flay": 1,
+      "Improved Mind Flay": 2,
+      "Vampiric Embrace": 1,
+      "Shadow Weaving": 3
+    }
+  },
+  {
+    "Class": "Druid",
+    "Slug": "druid",
+    "Id": "mobalytics-audit-feral-druid-guide",
+    "Title": "Feral: cat leveling and Bear option",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/feral-druid-guide",
+    "Updated": "2026-10-22",
+    "Level": 60,
+    "Points": 51,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling",
+      "dungeon_tanking"
+    ],
+    "Note": "Mobility and shifting talents support solo play. Cat-focused reference; Bear tanking is discussed, not survival-ranked.",
+    "Ranks": {
+      "Ferocity": 5,
+      "Heart of the Wild": 5,
+      "Feral Swiftness": 2,
+      "Shredding Attacks": 3,
+      "Savage Fury": 2,
+      "Feral Charge": 1,
+      "Sharpened Claws": 2,
+      "Shifting Power": 1,
+      "Predatory Strikes": 3,
+      "Blood Frenzy": 2,
+      "Improved Shifting Power": 2,
+      "Leader of the Pack": 1,
+      "Natural Instinct": 2,
+      "Rend and Tear": 5,
+      "Berserk": 1,
+      "Furor": 5,
+      "Naturalist": 5,
+      "Natural Shapeshifter": 3,
+      "Gift of the Earthmother": 1
+    }
+  },
+  {
+    "Class": "Paladin",
+    "Slug": "paladin",
+    "Id": "mobalytics-audit-paladin-leveling-guide",
+    "Title": "Retribution: leveling mobility and sustain",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/paladin-leveling-guide",
+    "Updated": "2026-10-17",
+    "Level": 30,
+    "Points": 21,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling"
+    ],
+    "Note": "Pursuit of Justice improves travel; Sanctified Judgement supports mana efficiency.",
+    "Ranks": {
+      "Deflection": 5,
+      "Conviction": 5,
+      "Vindication": 3,
+      "Sanctified Judgement": 3,
+      "Seal of Command": 1,
+      "Pursuit of Justice": 2,
+      "Sacred Arbiter": 1,
+      "Vengeance": 1
+    }
+  },
+  {
+    "Class": "Warlock",
+    "Slug": "warlock",
+    "Id": "mobalytics-audit-warlock-leveling-guide",
+    "Title": "Affliction: drain-tank leveling",
+    "Source": "Mobalytics",
+    "URL": "https://mobalytics.gg/wow-forever/classes/warlock-leveling-guide",
+    "Updated": "2026-10-21",
+    "Level": 30,
+    "Points": 26,
+    "Role": "damage",
+    "Evidence": "guide",
+    "Fit": "leveling",
+    "Activities": [
+      "leveling"
+    ],
+    "Note": "Drain talents and DoTs support self-healing and low downtime; requires 5 extra talent points.",
+    "Ranks": {
+      "Suppression": 3,
+      "Improved Corruption": 5,
+      "Soul Harvest": 2,
+      "Improved Drains": 3,
+      "Fel Concentration": 3,
+      "Pandemic": 3,
+      "Malevolence": 2,
+      "Nightfall": 2,
+      "Soul Siphon": 3
+    }
+  }
+]

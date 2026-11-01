@@ -1,0 +1,13 @@
+.local/
+tools/preview-runtime/node_modules/
+.tmp/
+.vscode/
+art/
+dist/
+FreezeTrace-analysis/
+FreezeTrace-summary.txt
+debug.log
+Forever coaching/
+*.log
+*- Copy.lua
+*.backup.lua

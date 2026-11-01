@@ -1,0 +1,23 @@
+{
+  "reportId": 42,
+  "encounterId": 7,
+  "actorId": 1,
+  "build": {"id": "replace-with-fight-time-build", "capturedAt": "2026-10-28T18:00:00Z", "role": "damage"},
+  "rules": [{
+    "id": "assigned-interrupt-1",
+    "domain": "interrupt",
+    "title": "Assigned dangerous cast",
+    "startMs": 10000,
+    "endMs": 12500,
+    "triggerEventIds": ["replace-with-real-enemy-cast-event-id"],
+    "targetId": 2,
+    "spellIds": [8042],
+    "responseType": "interrupt",
+    "assigned": true,
+    "safe": true,
+    "availability": {"learned": true, "ready": true, "inRange": true, "resources": true, "freeToAct": true, "throughMs": 12500},
+    "sourceUrl": "https://foreverlogs.gg/",
+    "why": "Replace with the verified consequence of this enemy cast and a specific supporting source.",
+    "next": "Reserve the assigned interrupt and stop the cast before this window ends."
+  }]
+}

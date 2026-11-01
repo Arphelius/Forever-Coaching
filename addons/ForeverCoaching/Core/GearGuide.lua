@@ -1,0 +1,41 @@
+local FC=ForeverCoaching
+local Guide={url='https://www.curseforge.com/wow/addons/simgearforever'};FC.GearGuide=Guide
+local function stat(name,why) return {name=name,why=why} end
+function Guide:ForBuild(class,build,level)
+ local out={url=self.url,level=level,importance='Gear is crucial to overall performance. Match equipment to the build you actually play: weapon choice, useful stats and resource sustain determine whether your ability plan works. Recheck upgrades after talent or gear changes.',
+  companion='SimGearForever compares items with your equipped gear, shows estimated gains in tooltips and lists upgrades for your class, specialization and level. Its scores use published stat weights; this is not a fresh full-character simulation for every item.',
+  steps={'Install SimGearForever from the link below, then reload the game.','Open its minimap button or type /sgf help. Select the spec and level that match your character.','Use its Guide for stat weights. Hover an item for estimated gain/loss; hold Shift for the stat breakdown.','For an exact-character comparison, use its MythicSim export/import workflow or import your own MythicSim weights.'},
+  limits='This is a build-aware gearing guide, not personal stat weights, a universal hit cap or a guaranteed item ranking. SimGearForever labels healer weights as curated placeholders; check its source labels.'}
+ if not build then out.available=false;out.notice='Select a build in Talent Builds to see what stats support that allocation.';return out end
+ out.available=true;out.title=build.title;out.role=build.role;out.buildId=build.id;out.source=build.source
+ local context=FC.SpecScenarios and FC.SpecScenarios:ForPreview(class,build);local tree=context and context.treeIndex
+ out.spec=context and context.spec or build.specialization or build.title
+ local talents={};for _,talent in ipairs(build.talents or {}) do if (talent.rank or 0)>0 then talents[talent.name]=true end end
+ if build.role=='healer' then
+  out.stats={stat('Healing power / spell power','Look for useful healing throughput on the spells you cast. Evaluate missing Health and overhealing as well as a larger tooltip.'),stat('Intellect','Supports the Mana pool for sustained healing and emergency responses.'),stat('Mana regeneration: MP5 / Spirit','Check regeneration while casting and the gaps your healing assignment actually permits.'),stat('Spell critical strike','Compare its benefit for your actual heal and talent interactions; it does not replace reliable recovery.'),stat('Stamina','Keep enough Health to survive encounter damage while performing your healing assignment.')}
+  out.plan='Choose enough throughput to keep your assigned targets alive, then check whether your Mana lasts through the encounter. Do not trade away sustain based only on the largest heal.'
+ elseif build.role=='tank' then
+  out.stats={stat('Armor and Stamina','Build a survival margin against the damage you are assigned to take.'),stat('Defense / avoidance','Compare relevant defensive stats against the encounter and your current equipment; a damage score alone does not judge these.'),stat('Shield stats, where your build uses a shield','Shield Block, Holy Shield and other shield tools require the correct equipment. Feral tanks need form-specific scoring instead.'),stat('Hit and threat-producing stats','Keep attacks reliable enough to hold assigned enemies without sacrificing essential survival.'),stat('Role-specific resource sustain','Protection Paladin and Shaman builds also need Mana for required threat and utility; Warriors and Bears must preserve Rage for defenses.')}
+  out.plan='Meet survival and equipment requirements first. Compare threat upgrades separately from damage reduction; do not call a DPS gain a defensive upgrade.'
+ elseif class=='SHAMAN' and (tree==2 or talents.Stormstrike) then
+  out.stats={stat('Weapons and weapon damage','Use weapons supported by your allocation. Stormstrike and weapon swings need the correct setup; do not select a weapon from caster stats alone.'),stat('Melee hit, while additional hit is useful','Reduces failed melee connections; compare the correct hit requirement for your target and weapon setup rather than copying one universal cap.'),stat('Attack power / Strength','Supports the physical part of your damage. Compare the total item, including weapon damage and lost spell stats.'),stat('Agility / melee critical strike','Supports melee critical interactions such as Flurry where those talents are selected.'),stat('Spell power, spell hit and spell critical strike','Your Lightning Bolt, Chain Lightning and Earth Shock contribution matters too. Hybrid allocations need comparison of both melee and spell output.'),stat('Intellect and enough Stamina','Preserve Mana for spell follow-ups and Earth Shock; survive the mechanics that permit your melee uptime.')}
+  out.plan='For Enhancement, compare complete weapon/item setups rather than stacking only caster or only melee stats. Check both Stormstrike/weapon damage and your lightning/shock follow-ups in the comparison.'
+ elseif class=='HUNTER' then
+  out.stats={stat('Ranged weapon damage','Your shot plan requires an appropriate ranged weapon; compare its damage with the stats on the replacement.'),stat('Ranged attack power / Agility','Supports the ranged portion of your output; check pet contribution separately in pet-focused builds.'),stat('Hit, while useful','Compare against the actual target and current hit amount; extra hit past the relevant cap is not an upgrade.'),stat('Critical strike','Compare its effect on shots and the critical interactions selected in this build.'),stat('Intellect and Stamina','Keep the Mana and Health needed for the encounter instead of ignoring sustain and survival.')};out.plan='Compare the complete ranged setup and pet-focused assumptions, not just the item level.'
+ elseif class=='ROGUE' or class=='WARRIOR' or (class=='PALADIN' and tree==3) or (class=='DRUID' and tree==2) then
+  out.stats={stat('Weapon setup / form-specific damage','Rogues and Warriors must match weapon requirements. Cat/Bear builds need form-specific scoring; ordinary weapon DPS alone is not a reliable comparison.'),stat('Attack power, Strength and Agility','Compare the physical stats that benefit your actual attack plan and talent interactions.'),stat('Hit, while useful','Match the current weapon setup and target. Do not continue valuing hit after the relevant requirement is satisfied.'),stat('Critical strike','Check its value with your selected critical, combo-point or attack-speed interactions.'),stat('Stamina and required resource sustain','Melee uptime ends when you die or cannot afford an assigned utility action.')};out.plan='Match the weapon or form requirements first, then compare full items with your actual talents and hit amount.'
+ else
+  out.stats={stat('Spell hit, while useful','Make offensive spells reliable against the actual target; do not copy a cap from another level or encounter.'),stat('Spell power','Supports spell output. Mixed-school builds must compare bonuses to both schools rather than treating a school-only bonus as universal.'),stat('Intellect','Supports the Mana pool and the spell interactions defined by the current client.'),stat('Spell critical strike','Compare its benefit with the critical/proc talents in this allocation.'),stat('Mana regeneration and Stamina','Maintain enough resources and Health to keep casting through the encounter.')};out.plan='Compare the spells and schools this allocation actually uses. Recheck weights when target count, fight length or movement changes.'
+ end
+ out.talentNotes={}
+ for _,talent in ipairs(build.talents or {}) do
+  if FC.TalentLessons then
+   local lesson=FC.TalentLessons:GetLesson(class,build,talent);local text=lesson.effect:lower()
+   if text:find('critical',1,true) or text:find('attack power',1,true) or text:find('intellect',1,true) or text:find('agility',1,true) or text:find('strength',1,true) or talent.name=='Stormstrike' or talent.name=='Maelstrom Weapon' then
+    out.talentNotes[#out.talentNotes+1]={name=talent.name,effect=lesson.effect,sourceUrl=lesson.sourceUrl,provenance=lesson.provenance}
+    if #out.talentNotes>=4 then break end
+   end
+  end
+ end
+ return out
+end

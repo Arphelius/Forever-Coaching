@@ -1,0 +1,11 @@
+[
+  {
+    "Class":"Shaman","Slug":"shaman","Id":"mobalytics-nicktew-enhancement-20",
+    "Title":"Enhancement: leveling to 20","Source":"Mobalytics / NickTew",
+    "URL":"https://mobalytics.gg/wow-forever/classes/shaman-leveling-guide",
+    "Updated":"2026-10-21","Level":20,"Points":11,"Role":"damage","Evidence":"guide",
+    "Fit":"leveling","Activities":["leveling","dungeon_damage"],
+    "Note":"Crit and Intellect scaling improve damage; cheaper shocks reduce mana use. Ghost Wolf improves travel.",
+    "Ranks":{"Thundering Strikes":5,"Mental Dexterity":3,"Improved Ghost Wolf":2,"Shamanistic Focus":1}
+  }
+]

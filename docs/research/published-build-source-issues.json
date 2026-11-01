@@ -1,0 +1,70 @@
+[
+    {
+        "URL":  "https://damagemeters.com/forever/builds/druid/40-leveling",
+        "Issues":  [
+                       "Published ranks spend 18 points; expected 31"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/druid/60-pvp",
+        "Issues":  [
+                       "Published ranks spend 43 points; expected 51"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/mage/40-leveling",
+        "Issues":  [
+                       "Talent incompatible with pinned layout: Piercing Ice",
+                       "Insufficient earlier-tier points: Ice Barrier"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/mage/60-pvp",
+        "Issues":  [
+                       "Talent incompatible with pinned layout: Piercing Ice",
+                       "Published ranks spend 47 points; expected 51"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/paladin/40-leveling",
+        "Issues":  [
+                       "Published ranks spend 29 points; expected 31"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/paladin/60-pvp",
+        "Issues":  [
+                       "Published ranks spend 47 points; expected 51"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/priest/40-leveling",
+        "Issues":  [
+                       "Published ranks spend 19 points; expected 31"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/priest/60-pvp",
+        "Issues":  [
+                       "Published ranks spend 34 points; expected 51"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/shaman/60-pvp",
+        "Issues":  [
+                       "Published ranks spend 44 points; expected 51"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/warlock/40-leveling",
+        "Issues":  [
+                       "Published ranks spend 18 points; expected 31"
+                   ]
+    },
+    {
+        "URL":  "https://damagemeters.com/forever/builds/warrior/60-pvp",
+        "Issues":  [
+                       "Published ranks spend 48 points; expected 51"
+                   ]
+    }
+]
