@@ -38,17 +38,29 @@ local P={
  ROGUE={{{spell('Envenom',{combo=4,requires='Deadly Poison'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true})}},
  {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true})}},
  {{spell('Eviscerate',{combo=4}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{spell('Fan of Knives',{area=true})}}},
- WARRIOR={{{spell('Execute',{execute=20}),spell('Mortal Strike'),spell('Overpower'),spell('Slam')},{spell('Thunder Clap',{area=true})}},
+ WARRIOR={{{spell('Execute',{execute=20}),spell('Mortal Strike'),spell('Overpower'),spell('Slam')},{spell('Thunder Clap',{area=true,self=true})}},
  {{spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true}),spell('Slam')},{spell('Whirlwind',{area=true})}},
- {{spell('Shield Slam'),spell('Revenge'),spell('Devastate'),spell('Sunder Armor',{dot=true})},{spell('Thunder Clap',{area=true}),spell('Shockwave',{area=true})}}},
- PALADIN={{{spell('Judgement'),spell('Holy Shock')},{}},{{spell('Shield of Righteousness'),spell('Hammer of the Righteous'),spell('Judgement')},{spell('Consecration',{area=true})}},
- {{spell('Hammer of Wrath',{execute=20}),spell('Crusader Strike'),spell('Divine Storm',{area=true}),spell('Judgement')},{spell('Divine Storm',{area=true}),spell('Consecration',{area=true})}}},
+ -- Tank profiles (Protection Warrior, Protection Paladin, Bear below) follow MythicSim's Forever tank APLs
+ -- (github.com/sage3648/mythicsim-forever-engine-go, MIT), translated to spell names so every rank the
+ -- player knows resolves. The sim also casts Thunder Clap and Consecration on one target; here they stay
+ -- area spells, which wait for /fcrotation aoe so crowd-controlled enemies are not broken.
+ {{spell('Defensive Stance',{stance=true,self=true}),spell('Shield Slam'),spell('Revenge'),spell('Battle Shout',{selfBuff=true,self=true}),
+   spell('Sunder Armor',{stacksBelow=5}),spell('Heroic Strike',{rage=45}),spell('Sunder Armor')},
+  {spell('Thunder Clap',{area=true,self=true}),spell('Cleave',{area=true,rage=45})}}},
+ PALADIN={{{spell('Judgement'),spell('Holy Shock')},{}},
+ {{spell('Lay on Hands',{selfHealth=10,unit='player'}),spell('Righteous Fury',{selfBuff=true,self=true}),
+   spell('Judgement',{requiresSelf='Seal of Righteousness'}),spell('Seal of Righteousness',{selfBuff=true,refresh=1,self=true}),
+   spell('Holy Shield',{selfBuff=true,self=true}),spell('Hammer of Wrath',{execute=20}),spell('Holy Strike')},
+  {spell('Hammer of the Righteous',{area=true}),spell('Consecration',{area=true,self=true})}},
+ {{spell('Hammer of Wrath',{execute=20}),spell('Crusader Strike'),spell('Divine Storm',{area=true}),spell('Judgement')},{spell('Divine Storm',{area=true}),spell('Consecration',{area=true,self=true})}}},
  DRUID={{{dot('Moonfire'),dot('Insect Swarm'),spell('Wrath'),spell('Starfire')},{spell('Hurricane',{area=true})}},
  {{spell('Rip',{combo=5,dot=true}),dot('Rake'),spell('Mangle (Cat)',{builder=true}),spell('Claw',{builder=true})},{spell('Swipe (Cat)',{area=true})}},{{dot('Moonfire'),spell('Wrath')},{}}}
 }
 -- Finishers must never be suggested at zero combo points.
 P.ROGUE[1][1][2].combo=4
-local bear={{spell('Mangle (Bear)'),spell('Lacerate',{dot=true}),spell('Maul')},{spell('Swipe (Bear)',{area=true})}}
+-- Forever's Bear: Primal Bite replaces Mangle and the bear swipe is named Swipe.
+local bear={{dot('Faerie Fire (Feral)'),spell('Demoralizing Roar',{dot=true,self=true}),spell('Primal Bite'),
+  spell('Lacerate',{stacksBelow=5,refresh=4.5}),spell('Maul',{rage=25}),spell('Lacerate')},{spell('Swipe',{area=true})}}
 local function resolve(name)
  for _,l in ipairs(FC.EncounterCoach and FC.EncounterCoach.lessons or {}) do
   if l.name==name or l.canonicalName==name then
@@ -63,20 +75,78 @@ local function resolve(name)
   return {id=id,name=data and read(function()return data.name end) or n or name,icon=data and read(function()return data.iconID end) or icon}
  end
 end
-local function aura(name)
+-- nil: unknown (hidden or unreadable), false: absent, table: {remaining=seconds,stacks=n}.
+local function findAura(unit,filter,name)
  if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return nil end
  local s=resolve(name);name=s and s.name or name
  for i=1,40 do
-  local ok,a=pcall(C_UnitAuras.GetAuraDataByIndex,'target',i,'HARMFUL|PLAYER')
+  local ok,a=pcall(C_UnitAuras.GetAuraDataByIndex,unit,i,filter)
   if not ok or (issecretvalue and issecretvalue(a)) then return nil end
   if not a then return false end
-  local n,expiration=read(function()return a.name,a.expirationTime end)
+  local n,expiration,stacks=read(function()return a.name,a.expirationTime,a.applications end)
   if not n then return nil end
-  if n==name then if type(expiration)~='number' then return nil end;return expiration==0 or expiration-now()>3 end
+  if n==name then
+   if type(expiration)~='number' then return nil end
+   return {remaining=expiration==0 and math.huge or expiration-now(),stacks=type(stacks)=='number' and stacks or 1}
+  end
  end
  return nil
 end
-local repeatable={['Arcane Blast']=true,['Arcane Missiles']=true,Fireball=true,Frostbolt=true,Smite=true,['Shadow Bolt']=true,['Mind Flay']=true,Incinerate=true,['Steady Shot']=true,['Sinister Strike']=true,Mutilate=true,Hemorrhage=true,Backstab=true,Devastate=true,Wrath=true,Starfire=true,Claw=true}
+local function aura(name)
+ local a=findAura('target','HARMFUL|PLAYER',name)
+ if type(a)~='table' then return a end
+ return a.remaining>3
+end
+-- Is the player in this stance or form? nil when the client does not say.
+local function inStance(name)
+ local count=read(GetNumShapeshiftForms)
+ if type(count)~='number' then return nil end
+ for i=1,count do
+  local _,a,b,c=read(GetShapeshiftFormInfo,i)
+  local active,formName=a,nil
+  if type(a)=='string' then formName,active=a,b elseif c then formName=read(GetSpellInfo,c) end
+  if active then if not formName then return nil end;return formName==name end
+ end
+ return false
+end
+local function playerHealthPercent()
+ local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
+ if type(health)=='number' and type(max)=='number' and max>0 then return health/max*100 end
+end
+local repeatable={['Arcane Blast']=true,['Arcane Missiles']=true,Fireball=true,Frostbolt=true,Smite=true,['Shadow Bolt']=true,['Mind Flay']=true,Incinerate=true,['Steady Shot']=true,['Sinister Strike']=true,Mutilate=true,Hemorrhage=true,Backstab=true,Devastate=true,Wrath=true,Starfire=true,Claw=true,['Sunder Armor']=true,Lacerate=true}
+-- Tank rule checks. Each returns true only when the state is read and the rule applies; unknown never fires.
+local function selfRulesPass(rule,s,applied,resources)
+ if rule.selfBuff then
+  if applied['self:'..rule.name] then return false end
+  local a=findAura('player','HELPFUL',rule.name)
+  if a==nil or (a and a.remaining>(rule.refresh or 0)) then return false end
+ end
+ if rule.stance then
+  if applied['self:'..rule.name] or inStance(s.name)~=false then return false end
+ end
+ if rule.requiresSelf and not applied['self:'..rule.requiresSelf] and type(findAura('player','HELPFUL',rule.requiresSelf))~='table' then return false end
+ if rule.selfHealth then
+  local hp=playerHealthPercent()
+  if not hp or hp>=rule.selfHealth then return false end
+ end
+ if rule.stacksBelow then
+  local a=findAura('target','HARMFUL|PLAYER',rule.name)
+  if a==nil or (a and a.stacks>=rule.stacksBelow and not (rule.refresh and a.remaining<=rule.refresh)) then return false end
+ end
+ if rule.rage then
+  if resources[1]==nil then resources[1]=read(UnitPower,'player',1) end
+  if type(resources[1])~='number' or resources[1]<rule.rage then return false end
+ end
+ return true
+end
+local function ruleReason(rule,spec,mode)
+ if rule.stance then return 'Enter '..rule.name..' before tanking.' end
+ if rule.selfBuff then return 'Keep '..rule.name..' active.' end
+ if rule.selfHealth then return 'Your health is below '..rule.selfHealth..'%.' end
+ if rule.stacksBelow then return 'Build or refresh '..rule.name..' on your target.' end
+ if rule.dot then return 'Apply '..rule.name..' while your effect is missing.' end
+ return 'Use '..rule.name..' from the current '..spec.spec..' '..mode..' priority.'
+end
 local function ready(s,unit,moving)
  local usable,noPower
  if C_Spell and C_Spell.IsSpellUsable then usable,noPower=read(C_Spell.IsSpellUsable,s.id) else usable,noPower=read(IsUsableSpell,s.id) end
@@ -86,9 +156,12 @@ local function ready(s,unit,moving)
  if cd then start,duration,enabled=read(function()return cd.startTime,cd.duration,cd.isEnabled end) else start,duration,enabled=read(GetSpellCooldown,s.id) end
  if type(start)~='number' or type(duration)~='number' or enabled==false or enabled==0 then return false end
  if start>0 and duration>1.5 and start+duration>now() then return false end
- local range
- if C_Spell and C_Spell.IsSpellInRange then range=read(C_Spell.IsSpellInRange,s.id,unit) else range=read(IsSpellInRange,s.name,unit) end
- if range~=true and range~=1 then return false end
+ -- unit nil: a self-centred spell (stance, own buff, Consecration) has no range to check.
+ if unit then
+  local range
+  if C_Spell and C_Spell.IsSpellInRange then range=read(C_Spell.IsSpellInRange,s.id,unit) else range=read(IsSpellInRange,s.name,unit) end
+  if range~=true and range~=1 then return false end
+ end
  local info=C_Spell and read(C_Spell.GetSpellInfo,s.id)
  local cast=info and read(function()return info.castTime end)
  if cast==nil then local _,_,_,v=read(GetSpellInfo,s.id);cast=v end
@@ -137,7 +210,8 @@ function Live:ProfileRecommendation()
    local required=not rule.requires or applied[rule.requires] or aura(rule.requires)==true
    local dotMissing=not rule.dot or (not applied[rule.name] and aura(rule.name)==false)
    if s and (not rule.area or mode=='aoe') and required and dotMissing and (not rule.execute or hp and hp<=rule.execute)
-    and (not rule.combo or type(combo)=='number' and combo>=rule.combo) and not used[s.id] and ready(s,'target',moving) then
+    and (not rule.combo or type(combo)=='number' and combo>=rule.combo) and not used[s.id]
+    and selfRulesPass(rule,s,applied,resources) and ready(s,not rule.self and (rule.unit or 'target') or nil,moving) then
     local costs=resourceCosts(s.id);local affordable=true
     if step>1 and not costs then affordable=false end
     for kind,cost in pairs(costs or {}) do
@@ -145,7 +219,8 @@ function Live:ProfileRecommendation()
      if type(resources[kind])~='number' or resources[kind]<cost then affordable=false end
     end
     if affordable then
-     chosen=s;s.costs=costs;s.reason=rule.dot and ('Apply '..rule.name..' while your effect is missing.') or ('Use '..rule.name..' from the current '..spec.spec..' '..mode..' priority.')
+     chosen=s;s.costs=costs;s.reason=ruleReason(rule,spec,mode)
+     if rule.selfBuff or rule.stance then applied['self:'..rule.name]=true end
      for kind,cost in pairs(costs or {}) do resources[kind]=resources[kind]-cost end
      if not repeatable[rule.name] or rule.dot then used[s.id]=true end
      if rule.dot then applied[rule.name]=true end
