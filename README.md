@@ -2,7 +2,7 @@
 
 Scenarios, Learn and Gear include class/spec menus for browsing guides. Scenarios and Learn also offer a direct scenario/lesson picker. Browsing does not activate a talent build. Combat Review defaults to a short summary; **Show details** reveals the complete findings. See [guide browsing](docs/guide-browsing.md).
 
-Choose **Language** in the addon sidebar for English (default), Română, Español, Français, Deutsch or Português. `/fclanguage` opens the selector. Class, spell and talent names stay unchanged. The browser preview has a separate saved language selector.
+Choose **Language** at the right of the dashboard's tab row for English (default), Română, Español, Français, Deutsch or Português. `/fclanguage` opens the selector. Class, spell and talent names stay unchanged. The browser preview has a separate saved language selector.
 
 **Talent Builds → Custom Builds** opens the built-in calculator. Left-click to add points, right-click to remove them, then save and choose **Use this build**. Your saved point order drives the existing talent-window highlight and specialization artwork when an in-game point is available. See [custom build instructions](docs/custom-builds.md).
 

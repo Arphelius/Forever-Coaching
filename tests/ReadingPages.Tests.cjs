@@ -26,7 +26,7 @@ for(const file of ['UI/ClassicTheme.lua','UI/GuideSelectors.lua','UI/EncounterLe
 run(`local fc=ForeverCoaching;local parent=CreateFrame('Frame');parent:SetSize(730,580)
 local doc=fc.ClassicTheme:Document(parent,-136);doc.scroll:SetSize(640,200)
 doc:Line(string.rep('Long readable text ',80));doc:Line('Next section',true);doc:Finish()
-assert(doc.panel.color[4]==1 and doc.scroll.clipped,'Reading surface must be opaque and clip its viewport')
+assert(doc.panel.color[4]>=0.75 and doc.panel.color[4]<1 and doc.scroll.clipped,'Reading surface must stay readable, let the background show through and clip its viewport')
 assert(doc.pool[1].width==640 and doc.pool[1].wrap,'Text must wrap at the viewport width')
 assert(doc.pool[2].anchor[3]<-doc.pool[1]:GetStringHeight(),'Next section must follow measured wrapped height')
 doc.scroll.scripts.OnMouseWheel(doc.scroll,-1000)
@@ -49,7 +49,7 @@ fc:BuildEncounterLearningPage(parent,'Learn');fc:BuildEncounterLearningPage(pare
 local scrolls=0
 for _,frame in ipairs(TestFrames)do if frame.clipped then scrolls=scrolls+1;assert(frame.child and frame.child:GetHeight()>0);frame:SetSize(600,240);frame.scripts.OnSizeChanged();frame.scripts.OnMouseWheel(frame,-1000);assert(frame:GetVerticalScroll()>=0)end end
 assert(scrolls==4,'Shared document must serve Learn, Scenarios and Gear')
-print('PASS: opaque reading panels, viewport clipping, measured wrapping, resize reflow, wheel limits, slide reset and all three real page builders.')`);
+print('PASS: readable translucent reading panels, viewport clipping, measured wrapping, resize reflow, wheel limits, slide reset and all three real page builders.')`);
 run(`local fc=ForeverCoaching
 ForeverCoachingDB={activeTalentBuilds={player='keep-active'}}
 fc.BuildPlanner.classes={'ROGUE','MAGE'}
@@ -75,7 +75,22 @@ run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
 for index=1,6 do
  local button=navigation[index];assert(button and button.scripts.OnClick);button.scripts.OnClick(button)
- assert(ForeverCoachingFrame.width==760 and ForeverCoachingFrame.height==560,'Every tab must retain the compact window size')
+ assert(ForeverCoachingFrame.width==940 and ForeverCoachingFrame.height==620,'Every tab must use the one dashboard size')
+ assert(button.parent==navigation[1].parent and button.height==22,'Tabs stay in the header row on every tab')
+ -- Toolbar rows: shown widgets at the same top offset must not overlap.
+ local rows={}
+ for _,frame in ipairs(TestFrames)do
+  local a=frame.anchor
+  local inside=false;local up=frame.parent;while up do if up==ForeverCoachingFrame then inside=true end;up=up.parent end
+  if inside and frame:IsShown() and a and a[1]=='TOPLEFT' and type(a[4])=='number' and type(a[5])=='number' and a[5]==-34 and frame.width then
+   local row=rows[a[2]] or {};rows[a[2]]=row;row[#row+1]={x=a[4],w=frame.width}
+  end
+ end
+ for _,row in pairs(rows)do
+  table.sort(row,function(p,q)return p.x<q.x end)
+  for k=2,#row do assert(row[k].x>=row[k-1].x+row[k-1].w,'Toolbar controls must not overlap') end
+  assert(row[#row].x+row[#row].w<=924,'Toolbar must fit inside the content panel')
+ end
  local menus,icons=0,0
  for _,frame in ipairs(TestFrames)do if frame:IsShown() then
   if frame.guideMenu then menus=menus+1 end
@@ -104,7 +119,14 @@ for index=1,6 do
   squares[1].scripts.OnEnter(squares[1]);assert(table.concat(tooltipLines,' '):find('Level 10'),'Hover must show the point level and talent rank')
  else assert(menus>=2,'Every dashboard section needs class/spec selection')end
 end
-print('PASS: all six real dashboard sections expose selectors; talent class icons retain their original colors.')`);
+-- Tabs are as wide as their labels and laid out left to right without overlap.
+local previousRight=0
+for index=1,6 do
+ local tab=navigation[index];assert(tab.width>=#(tab.text or '')*7+24,'Tab must be wider than its label')
+ previousRight=previousRight+tab.width+4
+end
+assert(previousRight<=940-200,'All six tabs fit on one header row with room for Language')
+print('PASS: all six real dashboard sections expose selectors in non-overlapping toolbars, one window size, fitted tabs; talent class icons retain their original colors.')`);
 run(`local browser=ForeverCoaching.GuideBrowser;local planner=ForeverCoaching.BuildPlanner
 browser.activity='raids'
 for _,class in ipairs(planner.classes)do
