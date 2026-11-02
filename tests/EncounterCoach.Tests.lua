@@ -1,5 +1,6 @@
 local FC=ForeverCoaching
 local coach=FC.EncounterCoach
+UnitGroupRolesAssigned=function()return 'HEALER'end
 local guid={player='self',target='enemy',party1='ally'}
 local names={player='Self',target='Enemy',party1='Ally'}
 UnitGUID=function(unit) return guid[unit] end

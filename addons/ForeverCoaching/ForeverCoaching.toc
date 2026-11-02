@@ -35,6 +35,7 @@ Core\CombatReview.lua
 UI\ClassicTheme.lua
 UI\BuildsWindow.lua
 UI\CustomBuilds.lua
+UI\GuideSelectors.lua
 UI\EncounterLearning.lua
 UI\GearGuide.lua
 UI\FightTimeline.lua

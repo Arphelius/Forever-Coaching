@@ -20,10 +20,21 @@ function S:Begin()
   for _,id in ipairs(spell and spell.ids or {}) do self.burstIDs[id]=name end
  end
  local coach=FC.EncounterCoach
+ self.identity=coach and coach.GetCombatContext and coach:GetCombatContext() or nil
  if coach and FC.SpecScenarios then
-  local ok,context=pcall(coach.GetBuildContext,coach)
+  local ok,context=true,self.identity
+  if not context then ok,context=pcall(coach.GetBuildContext,coach) end
   if ok and context then local success,spec=pcall(FC.SpecScenarios.ForCurrent,FC.SpecScenarios,context)
-   if success and spec then for _,entry in ipairs(spec.scenarios or {}) do self.checklists[entry.id]=entry end end
+   if success and spec and not spec.available and self.identity and self.identity.fallbackBuildID then
+    for _,build in ipairs(FC.BuildPlanner:GetBuilds(self.identity.class)) do if build.id==self.identity.fallbackBuildID then spec=FC.SpecScenarios:ForPreview(self.identity.class,build);break end end
+   end
+   if success and spec then
+    if self.identity then self.identity.tips={} end
+    for _,entry in ipairs(spec.scenarios or {}) do
+     self.checklists[entry.id]=entry
+     if self.identity then for _,step in ipairs(entry.steps or {}) do if not step.spell or self.identity.known[step.spell] then self.identity.tips[entry.id]=step.action..' When: '..step.when;break end end end
+    end
+   end
   end
  end
 end
@@ -52,7 +63,7 @@ function S:Observe()
  local allies={'player'};for i=1,4 do allies[#allies+1]='party'..i end;for i=1,40 do allies[#allies+1]='raid'..i end
  for _,unit in ipairs(allies) do
   local hp,hmax=read(UnitHealth,unit),read(UnitHealthMax,unit)
-  if read(UnitCanAssist,'player',unit)==true and read(UnitIsDeadOrGhost,unit)==false and type(hp)=='number' and type(hmax)=='number' and hmax>0 and hp/hmax<.35 then flags.heal=true;evidence.heal='A living friendly unit is below 35% health.' end
+  if (unit=='player' or self.identity and self.identity.role=='healer' and self.identity.canHeal) and read(UnitCanAssist,'player',unit)==true and read(UnitIsDeadOrGhost,unit)==false and type(hp)=='number' and type(hmax)=='number' and hmax>0 and hp/hmax<.35 then flags.heal=true;evidence.heal=unit=='player' and 'Player below 35% health.' or 'An ally below 35% health.' end
  end
  if count>0 then local id=count==1 and 'single' or count==2 and 'cleave' or 'aoe';flags[id]=true;evidence[id]=count..' distinct engaged enemies visible (minimum observed count).' end
  local _,instance=read(IsInInstance)
@@ -79,15 +90,15 @@ function S:Sample()
  local flags,evidence=self:Observe();local at=clock()-self.started
  for id,window in pairs(self.open) do if not flags[id] then
   window.ended=at;self.open[id]=nil
-  if FC.FightRecorder then FC.FightRecorder:Record('scenario_end',{scenario=id,message=titles[id]..' window ended.'}) end
+  if FC.FightRecorder then FC.FightRecorder:Record('scenario_end',{scenario=id,message=window.title..' window ended.'}) end
  end end
  self.primary=nil
  for _,id in ipairs(order) do if flags[id] then
   self.primary=self.primary or id
   if not self.open[id] and #self.windows<self.limit then
-   local w={id=id,title=titles[id],started=at,evidence=evidence[id],casts=0,failures=0,responses=0,actions={}}
+   local w={id=id,title=id=='heal' and self.identity and not self.identity.canHeal and 'Survival' or titles[id],started=at,evidence=evidence[id],casts=0,failures=0,responses=0,actions={}}
    self.windows[#self.windows+1]=w;self.open[id]=w
-   if FC.FightRecorder then FC.FightRecorder:Record('scenario_start',{scenario=id,message=titles[id]..': '..(evidence[id] or '')}) end
+   if FC.FightRecorder then FC.FightRecorder:Record('scenario_start',{scenario=id,message=w.title..': '..(evidence[id] or '')}) end
   elseif not self.open[id] then self.truncated=true end
  end end
  self.flags=flags
@@ -108,19 +119,39 @@ function S:GetGuidance()
  if not self.active or not self.primary then return end
  local labels={};for _,id in ipairs(order) do if self.flags[id] then labels[#labels+1]=titles[id] end end
  local checklist=self.checklists[self.primary]
- return table.concat(labels,' / ')..'\n'..advice[self.primary]..(checklist and checklist.avoid and '\n'..checklist.avoid or '')
+ return table.concat(labels,' / ')..'\n'..self:Advice(self.primary,self.identity)..(checklist and checklist.avoid and '\n'..checklist.avoid or '')
+end
+function S:Advice(id,identity)
+ identity=identity or {};local known=identity.known or {}
+ if id=='heal' then
+  if identity.canHeal and identity.role=='healer' then return 'Use a suitable learned heal on your assigned injured target; check range and resources.' end
+  if identity.role=='tank' then return 'Use a ready defensive, keep the tanking assignment covered and ask for healing.' end
+  if identity.canHeal then return 'Reduce incoming damage; use a ready self-heal only when safe.' end
+  if identity.class=='ROGUE' and known.Evasion then return 'Use Evasion against dodgeable attacks when ready, move to safety and ask for healing.' end
+  return 'Reduce incoming damage, move to safety and ask for healing.'
+ end
+ if id=='interrupt' then
+  if identity.canInterrupt and identity.interrupt then return 'Reserve '..identity.interrupt..' for your assigned interruptible cast; meet its range and resource requirements.' end
+  return 'No learned interrupt was confirmed. Coordinate cast coverage with a teammate.'
+ end
+ if id=='utility' and not identity.canDispel then return 'Coordinate the required utility with a teammate; use only control or support abilities you have learned.' end
+ if id=='resources' and identity.class=='ROGUE' then return 'Manage Energy and combo points; reserve Energy for assigned utility.' end
+ if identity.tips and identity.tips[id] then return identity.tips[id] end
+ return advice[id]
 end
 function S:Finish()
  if not self.active then return end
  local at=clock()-self.started;for id,window in pairs(self.open) do
   window.ended=at
-  if FC.FightRecorder then FC.FightRecorder:Record('scenario_end',{scenario=id,message=titles[id]..' window ended with combat.'}) end
+  if FC.FightRecorder then FC.FightRecorder:Record('scenario_end',{scenario=id,message=window.title..' window ended with combat.'}) end
  end
  self.active=false;self.primary=nil
  self.last={windows=self.windows,truncated=self.truncated,coverage='Overlapping scenarios inferred from readable engaged units, movement, health, mana and ready situational prompts. Enemy count is a visible minimum; kiting requires readable distance and enemy target. Burst reflects a recognized active effect or the player-enabled window. Successful casts confirm execution, not effect or optimal choice.'..(self.truncated and ' Scenario storage limit reached; partial review.' or '')}
+ self.last.identity=self.identity
  return self.last
 end
-function S:Summarize(result)
+function S:Summarize(result,identity)
+ identity=result.identity or identity or {}
  local good,wrong,nextSteps={},{},{}
  local grouped={}
  for _,w in ipairs(result.windows or {}) do
@@ -132,13 +163,13 @@ function S:Summarize(result)
   end
  end
  for _,id in ipairs(order) do local g=grouped[id];if g then
-  local label=g.title..' ('..string.format('%.1fs',g.seconds)..')'
+  local label=(id=='heal' and not identity.canHeal and 'Survival' or g.title)..' ('..string.format('%.1fs',g.seconds)..')'
   good[#good+1]=label..': '..g.casts..' successful casts; '..g.responses..' matching targeted responses. Effect outcomes are not established.'
   for _,a in ipairs(g.successes) do good[#good]=good[#good]..'\n'..string.format('%.1fs',a.at)..' / '..(a.spell or 'Spell')..' / '..(a.message or 'Successful cast.') end
   local lines={label..': '..g.failures..' failed/interrupted casts.'}
   for _,a in ipairs(g.actions) do lines[#lines+1]=string.format('%.1fs',a.at)..' / '..(a.spell or '')..' / '..(a.message or a.kind:gsub('_',' ')) end
   lines[#lines+1]=g.failures>0 and 'Check the adjacent client message and movement before assigning a cause.' or 'No confirmed cast failure in these observed windows; this does not establish optimal play.'
-  wrong[#wrong+1]=table.concat(lines,'\n');nextSteps[#nextSteps+1]=g.title..': '..advice[id]
+  wrong[#wrong+1]=table.concat(lines,'\n');nextSteps[#nextSteps+1]=(id=='heal' and not identity.canHeal and 'Survival' or g.title)..': '..self:Advice(id,identity)
  end end
  return table.concat(good,'\n\n'),table.concat(wrong,'\n\n'),table.concat(nextSteps,'\n\n')
 end

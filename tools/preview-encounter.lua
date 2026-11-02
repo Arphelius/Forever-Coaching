@@ -37,6 +37,7 @@ C_UnitAuras={GetAuraDataByIndex=function(unit,index)
  if unit=="party1" and index==1 and dispelType then return {name="Simulated "..dispelType,spellId=777,auraInstanceID=1,dispelName=dispelType} end
 end}
 local build=FC.BuildPlanner:GetBuilds(PreviewClass)[PreviewBuild]
+UnitGroupRolesAssigned=function()return build and (build.role=='healer' and 'HEALER' or build.role=='tank' and 'TANK' or 'DAMAGER') or 'NONE'end
 ForeverCoachingDB.activeTalentBuilds={['demo-player']=build and build.id}
 local coach=FC.EncounterCoach
 FC.FightRecorder:Begin()

@@ -13,6 +13,7 @@ local function button(parent,title,width,click)
 end
 function FC:BuildCustomTalentPage(parent)
  local model=FC.CustomBuilds;local _,class=UnitClass('player');local drafts={}
+ if FC.GuideBrowser and FC.GuideBrowser.class then class=FC.GuideBrowser.class end
  local activeID=ForeverCoachingDB and ForeverCoachingDB.activeTalentBuilds and ForeverCoachingDB.activeTalentBuilds[UnitGUID('player')]
  local activeBuild=activeID and model:Find(class,activeID);local draft=activeBuild and model:Draft(activeBuild) or model:New(class)
  local savedButtons,nodes={},{ };local selectedTalent;local deleteArmed=false;local refresh
@@ -22,6 +23,7 @@ function FC:BuildCustomTalentPage(parent)
   local selectedClass=token
   local b=button(parent,token:sub(1,1)..token:sub(2):lower(),94,function()
    drafts[class]=draft;class=selectedClass;draft=drafts[class] or model:New(class);selectedTalent=nil;deleteArmed=false;refresh()
+   if FC.GuideBrowser then FC.GuideBrowser.class=class;FC.GuideBrowser.buildID=nil end
   end)
   b:SetPoint('TOPLEFT',14+(index-1)*97,-58)
  end

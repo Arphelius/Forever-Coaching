@@ -94,9 +94,43 @@ function Coach:GetBuildContext()
  end
  return context
 end
+local function identityKey()return read(UnitGUID,'player') or read(UnitName,'player')end
+function Coach:SetCombatSpecFallback(class,build)
+ local _,actual=read(UnitClass,'player');local key=identityKey()
+ if actual and actual~=class then return nil,'Choose your current character\'s class.' end
+ if not key or not build then return nil,'Character identity or build is unavailable.' end
+ local spec=FC.SpecScenarios:ForPreview(class,build)
+ if not spec or not spec.available then return nil,'Choose a supported specialization.' end
+ ForeverCoachingDB=ForeverCoachingDB or {};ForeverCoachingDB.reviewSpecFallbacks=ForeverCoachingDB.reviewSpecFallbacks or {}
+ ForeverCoachingDB.reviewSpecFallbacks[key]={class=class,tree=spec.treeIndex,role=spec.role,spec=spec.spec,buildID=build.id}
+ return true,'Review spec saved. Automatic detection takes priority.'
+end
+function Coach:GetCombatContext()
+ local context=self:GetBuildContext();context.selectedTitle=context.title
+ local spec=FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
+ local fallback=ForeverCoachingDB and ForeverCoachingDB.reviewSpecFallbacks and ForeverCoachingDB.reviewSpecFallbacks[identityKey()]
+ if spec and spec.available then
+  context.spec=spec.spec;context.tree=spec.treeIndex;context.role=spec.role;context.identitySource='detected'
+ elseif fallback and (not context.class or fallback.class==context.class) then
+  context.class=context.class or fallback.class;context.spec=fallback.spec;context.tree=fallback.tree;context.role=fallback.role;context.identitySource='manual fallback';context.fallbackBuildID=fallback.buildID
+ else
+  local assigned=read(UnitGroupRolesAssigned,'player')
+  context.spec='Unknown specialization';context.role=assigned=='HEALER' and 'healer' or assigned=='TANK' and 'tank' or assigned=='DAMAGER' and 'damage' or 'unknown';context.identitySource='class only'
+ end
+ context.title=(context.class or 'Unknown class')..' / '..context.spec
+ context.known={};context.canHeal=false;context.canDispel=false;context.canInterrupt=false
+ for _,lesson in ipairs(self:RefreshLessons() or {}) do
+  context.known[lesson.canonicalName or lesson.name]=true
+  if lesson.kind=='heal' then context.canHeal=true end
+  if lesson.kind=='dispel' then context.canDispel=true end
+  if lesson.kind=='interrupt' then context.canInterrupt=true;context.interrupt=lesson.name end
+ end
+ context.powerType=read(UnitPowerType,'player')
+ return context
+end
 function Coach:Begin()
  self:RefreshLessons();self.opportunities={};self.history={};self.casts={};self.movement={};self.truncated=false;self.current=nil;self.currentOffers={};self.started=now();self.active=true;self.wasMoving=nil
- self.build=self:GetBuildContext()
+ self.build=self:GetCombatContext();self.combatContext=self.build
 end
 function Coach:Offer(key,kind,unit,lesson,reason,expires,detail)
  local opportunity=self.opportunities[key]
@@ -147,7 +181,7 @@ function Coach:Sample()
   if guid and not seen[guid] and read(UnitIsDeadOrGhost,unit)==false and read(UnitCanAssist,"player",unit)==true then
    seen[guid]=true
    local health,maxHealth=read(UnitHealth,unit),read(UnitHealthMax,unit)
-   if type(health)=="number" and type(maxHealth)=="number" and maxHealth>0 and health/maxHealth<.35 then
+   if type(health)=="number" and type(maxHealth)=="number" and maxHealth>0 and health/maxHealth<.35 and (unit=='player' or self.build.role=='healer') then
     for _,lesson in ipairs(self.lessons) do if lesson.kind=="heal" and ready(lesson.spellID,unit) then
      offer("heal:"..guid,"healing",unit,lesson,(read(UnitName,unit) or unit).." is below 35% health. Consider a safe heal if this is your responsibility.",nil,{health=health,maxHealth=maxHealth});break
     end end
@@ -212,10 +246,15 @@ function Coach:Finish()
 end
 function Coach:Summarize(result)
  local good,investigate,nextSteps={},{},{}
+ local build=result.build or {}
+ local healingClass=build.class=='PRIEST' or build.class=='SHAMAN' or build.class=='PALADIN' or build.class=='DRUID'
+ local canHeal=build.canHeal==true or build.canHeal==nil and healingClass and build.role=='healer'
  for _,o in ipairs(result.opportunities or {}) do
+  if o.kind~='healing' or canHeal and (o.unit=='player' or build.role=='healer') then
   local at=string.format("%.1fs",o.at-result.started)
   if o.status=="responded" then good[#good+1]=at..": "..o.name.." cast on the observed target after "..o.kind.." prompt. Response time: "..string.format("%.1fs",o.respondedAt-o.at)..". Effect success is not established by a cast event."
   else investigate[#investigate+1]=at..": "..o.reason.." No matching response on the observed target was confirmed; assignment, teammate actions and mechanic safety still need checking." end
+  end
  end
  if #investigate>0 then nextSteps[1]="Choose one unconfirmed response above. Check assignment and mechanic safety, then rehearse the appropriate action before the next pull." end
  if #(result.movement or {})>0 then

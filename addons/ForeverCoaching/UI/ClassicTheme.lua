@@ -32,7 +32,7 @@ function Theme:Document(parent,top)
  scroll:SetPoint('TOPLEFT',16,-16);scroll:SetPoint('BOTTOMRIGHT',-30,16)
  if scroll.SetClipsChildren then scroll:SetClipsChildren(true) end
  local content=CreateFrame('Frame',nil,scroll);content:SetSize(480,1);scroll:SetScrollChild(content)
- local doc={panel=panel,scroll=scroll,content=content,rows={},pool={},used=0,dividers={}}
+ local doc={panel=panel,scroll=scroll,content=content,rows={},pool={},used=0,dividers={},groups={},groupCount=0}
  function doc:Layout()
   local width=math.max(180,(self.scroll:GetWidth() or 0)>0 and self.scroll:GetWidth() or (parent:GetWidth() or 560)-76)
   self.content:SetWidth(width)
@@ -45,17 +45,45 @@ function Theme:Document(parent,top)
     divider:ClearAllPoints();divider:SetPoint('TOPLEFT',0,-offset+6);divider:SetSize(width,1);divider:Show()
    end
    local widget=row.widget;widget:ClearAllPoints();widget:SetPoint('TOPLEFT',0,-offset);widget:SetWidth(width)
-   offset=offset+(row.height or math.max(20,widget:GetStringHeight()))+(row.title and 8 or 12)
+   local height=row.height
+   if row.group then
+    widget.heading:SetWidth(width-28);widget.body:SetWidth(width-28)
+    local titleHeight=math.max(20,widget.heading:GetStringHeight())
+    widget.body:ClearAllPoints();widget.body:SetPoint('TOPLEFT',14,-12-titleHeight-10)
+    height=12+titleHeight+10+math.max(20,widget.body:GetStringHeight())+14
+    widget:SetHeight(height)
+   end
+   offset=offset+(height or math.max(20,widget:GetStringHeight()))+(row.title and 8 or 12)
   end
   for i=dividerCount+1,#self.dividers do self.dividers[i]:Hide() end
   self.content:SetHeight(math.max(1,offset))
  end
- function doc:Reset()self.rows={};self.used=0 end
- function doc:Line(value,title)
+ function doc:Reset()self.rows={};self.used=0;self.groupCount=0 end
+ function doc:Group(title,body)
+  self.groupCount=self.groupCount+1
+  local group=self.groups[self.groupCount]
+  if not group then
+   -- Plain frames and textures avoid extra templates and button states.
+   group=CreateFrame('Frame',nil,self.content)
+   local fill=group:CreateTexture(nil,'BACKGROUND');fill:SetAllPoints(group);fill:SetTexture('Interface\\Buttons\\WHITE8X8');fill:SetVertexColor(.065,.052,.035,1)
+   local edge=group:CreateTexture(nil,'BORDER');edge:SetTexture('Interface\\Buttons\\WHITE8X8');edge:SetPoint('TOPLEFT');edge:SetPoint('BOTTOMLEFT');edge:SetWidth(2);edge:SetVertexColor(.65,.49,.24,1)
+   group.heading=group:CreateFontString(nil,'OVERLAY','GameFontNormalLarge');group.heading:SetPoint('TOPLEFT',14,-12);group.heading:SetTextColor(1,.79,.4)
+   group.body=group:CreateFontString(nil,'OVERLAY','GameFontHighlight');group.body:SetTextColor(.82,.84,.86)
+   for _,label in ipairs({group.heading,group.body}) do
+    label:SetWordWrap(true);label:SetJustifyH('LEFT');label:SetJustifyV('TOP');if label.SetNonSpaceWrap then label:SetNonSpaceWrap(true) end
+    if label.SetSpacing then label:SetSpacing(2) end
+   end
+   self.groups[self.groupCount]=group
+  end
+  group.heading:SetText(title or '');group.body:SetText(body or '');group:Show()
+  self.rows[#self.rows+1]={widget=group,group=true}
+ end
+ function doc:Line(value,title,tone)
   self.used=self.used+1
   local fs=self.pool[self.used] or self.content:CreateFontString(nil,'OVERLAY','GameFontHighlight')
   self.pool[self.used]=fs;fs:Show();fs:SetFontObject(title and 'GameFontNormal' or 'GameFontHighlight')
   if fs.SetSpacing then fs:SetSpacing(2) end
+  if tone=='caution' then fs:SetTextColor(1,.55,.3) elseif tone=='muted' then fs:SetTextColor(.6,.65,.7) elseif title then fs:SetTextColor(1,.76,.32) else fs:SetTextColor(.88,.91,.94) end
   fs:SetWordWrap(true);if fs.SetNonSpaceWrap then fs:SetNonSpaceWrap(true) end
   fs:SetJustifyH('LEFT');fs:SetJustifyV('TOP');fs:SetText(value or '')
   self.rows[#self.rows+1]={widget=fs,title=title}
@@ -63,6 +91,7 @@ function Theme:Document(parent,top)
  function doc:AddWidget(widget,height)self.rows[#self.rows+1]={widget=widget,height=height} end
  function doc:Finish()
   for i=self.used+1,#self.pool do self.pool[i]:Hide() end
+  for i=self.groupCount+1,#self.groups do self.groups[i]:Hide() end
   self:Layout();self.scroll:SetVerticalScroll(0)
  end
  scroll:SetScript('OnSizeChanged',function()doc:Layout()end)

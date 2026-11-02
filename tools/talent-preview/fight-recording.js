@@ -1,5 +1,5 @@
 window.FightRecordingPage=(()=>{
- let host,example,recording=null,real=false,page=0,filter='all',status='';
+ let host,example,recording=null,real=false,page=0,filter='all',status='',selection;
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
  function button(text,action){const b=el('button',text);b.type='button';b.onclick=action;return b;}
  function validate(text){
@@ -23,6 +23,11 @@ window.FightRecordingPage=(()=>{
   if(status)host.append(el('p',status,'review-status'));
   host.append(el('p',real?'YOUR EXPORTED RECORDING':'EXAMPLE RECORDING — simulated preview, not your live fight.','review-status'));
   if(!fight){host.append(el('p','No recording loaded. Import a fight after playing.'));return;}
+  if(real&&selection){
+   const className=fight.class||fight.build?.class;
+   const matches=className===selection.class&&(!selection.tree||fight.specTree===selection.tree)&&(!fight.specRole||!selection.role||fight.specRole===selection.role);
+   if(!matches){host.append(el('p','No matching recording for the selected class/spec. Choose the matching class/spec or import another fight.'));return;}
+  }
   host.append(el('h3',(fight.player||'Player')+' · '+(fight.events?.length||0)+' observed events'));
   const tabs=el('div',undefined,'slide-nav');for(const [value,label] of [['all','All events'],['player','Player actions'],['casts','Casts'],['state','Health, resources & movement'],['auras','Auras'],['coaching','Coaching evidence']]){const b=button(label,()=>{filter=value;page=0;draw();});b.setAttribute('aria-pressed',String(filter===value));tabs.append(b);}host.append(tabs);
   const events=(fight.events||[]).filter(matches),pages=Math.max(1,Math.ceil(events.length/40));page=Math.min(page,pages-1);
@@ -41,5 +46,5 @@ window.FightRecordingPage=(()=>{
   }
   const coverage=el('details');coverage.append(el('summary','Recording coverage'),el('p',fight.coverage||'Coverage not supplied.'),el('p',fight.truncated?'Storage limit reached: this is a partial timeline.':'The recorder stores a bounded timeline of readable events.'),el('p','Missing/restricted categories: '+(Object.keys(fight.missing||{}).join(', ')||'none flagged')));host.append(coverage);
  }
- return {render(panel,replay){host=panel;example=replay;draw();},validate};
+ return {render(panel,replay,chosen){host=panel;example=replay;selection=chosen;draw();},validate};
 })();

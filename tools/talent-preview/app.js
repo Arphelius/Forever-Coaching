@@ -24,7 +24,7 @@ function render(){
  $('builds').replaceChildren();
  for(const choice of state.choices||[]){const b=element('button',undefined,choice.index===selected?'active':'');b.append(element('strong',choice.spec),element('span',choice.title));if(choice.recommended)b.append(element('small','Recommended · '+choice.role));b.onclick=()=>{selected=choice.index;refresh();};$('builds').append(b);}
  const choice=(state.choices||[]).find(c=>c.index===selected);
- $('title').textContent=state.build?.title||'Select a build';$('summary').textContent=choice?.summary||'Choose a build to activate simulated talent guidance.';
+ $('title').textContent=state.build?.title||'Select a build';$('summary').textContent=state.build?`${state.build.role||''} · ${state.build.distribution||''}`:'Choose a build.';
  $('source').hidden=!choice?.source;if(choice?.source)$('source').href=choice.source;
  $('stats').textContent=`Level ${state.level} · ${state.available} unspent · ${state.spent}/${state.budget} learned`;
  const next=state.nextPoint;
@@ -85,7 +85,13 @@ function renderFeature(){
  const buildPicker=element('select');buildPicker.add(new Option('Choose a build (optional for replay)','0'));
  for(const choice of state.choices||[])buildPicker.add(new Option(choice.title,choice.index));
  buildPicker.value=String(selected);buildPicker.onchange=()=>{selected=Number(buildPicker.value);refresh();};
- const buildLabel=element('label','Preview build ');buildLabel.append(buildPicker);if(page!=='review')panel.append(buildLabel);
+ const buildLabel=element('label','Specialization ');buildLabel.append(buildPicker);
+ {
+  const classLabel=element('label','Class '),classPicker=element('select');
+  for(const token of classes)classPicker.add(new Option(token[0]+token.slice(1).toLowerCase(),token));
+  classPicker.value=$('class').value;classPicker.onchange=()=>{$('class').value=classPicker.value;selected=0;learned={};refresh();};
+  classLabel.append(classPicker);panel.append(classLabel,buildLabel);
+ }
  if(page==='scenarios'||page==='learn'){
   const content=element('div');panel.append(content);window.EncounterCoaching.render(content,state,page,element);return;
  }
@@ -101,15 +107,15 @@ function renderFeature(){
  }
  if(page==='gear'){
   const guide=state.gearGuide;
-  panel.append(element('h2',guide?.title||'Gear for your selected build'),element('p',guide?.importance||'Select a build to see its gearing guide.'));
-  if(guide?.available){panel.append(element('p',guide.plan));for(const stat of guide.stats){const card=element('section',undefined,'review-card');card.append(element('h3',stat.name),element('p',stat.why));panel.append(card);}if(guide.talentNotes?.length){const details=element('details');details.append(element('summary','Talent interactions in this allocation'));for(const note of guide.talentNotes)details.append(element('p',note.name+': '+note.effect));panel.append(details);}}
+  panel.append(element('h2',guide?.title||'Choose a build'));
+  if(guide?.available){for(const stat of guide.stats){const card=element('section',undefined,'review-card');card.append(element('h3',stat.name),element('p',stat.why));panel.append(card);}}
   else if(guide)panel.append(element('p',guide.notice));
-  if(guide){const companion=element('section',undefined,'review-card');companion.append(element('h3','Compare your upgrades with SimGearForever'),element('p',guide.companion));for(const [i,text] of guide.steps.entries())companion.append(element('p',`${i+1}. ${text}`));const link=element('a','Get SimGearForever on CurseForge');link.href=guide.url;link.target='_blank';link.rel='noopener noreferrer';companion.append(link,element('p',guide.limits));panel.append(companion);}return;
+  if(guide){const companion=element('section',undefined,'review-card');companion.append(element('h3','Compare upgrades with SimGearForever'),element('p',guide.companion));for(const [i,step] of (guide.steps||[]).entries())companion.append(element('p',`${i+1}. ${step}`));const link=element('a','Get SimGearForever on CurseForge');link.href=guide.url;link.target='_blank';link.rel='noopener noreferrer';companion.append(link);panel.append(companion);}return;
  }
  const sources=element('div',undefined,'slide-nav');
  for(const [value,label] of [['replay','Recorded fight'],['logs','Forever Logs']]){const b=element('button',label);b.setAttribute('aria-pressed',String(reviewSource===value));b.onclick=()=>{reviewSource=value;renderFeature();};sources.append(b);}panel.append(sources);
  if(reviewSource==='logs'){const logsPanel=element('div',undefined,'rankings-dashboard-content');panel.append(logsPanel);window.CombatReviewPage.render(logsPanel,state.coachingReplay||state.review||{},{logsOnly:true});return;}
- const recordingPanel=element("div");panel.append(recordingPanel);window.FightRecordingPage.render(recordingPanel,state.coachingReplay);
+ const recordingPanel=element("div");panel.append(recordingPanel);window.FightRecordingPage.render(recordingPanel,state.coachingReplay,{class:$('class').value,tree:state.specScenarios?.treeIndex,role:state.specScenarios?.role});
 
 }
 for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{page=button.dataset.page;if(state)renderFeature();};

@@ -87,7 +87,7 @@ for class,data in pairs(catalog.classes) do
  for _,name in ipairs(names) do
   local spell=data.spells[name];local old=existing[name]
   if not old then for _,id in ipairs(spell.ids)do if byID[id] then old=byID[id];break end end end
-  local entry={ids=spell.ids,name=name,kind=old and old.kind or 'spellbook',types=old and old.types,
+  local entry={ids=spell.ids,name=name,description=spell.description,kind=old and old.kind or 'spellbook',types=old and old.types,
    why=(notes[class] or {})[name] or (old and old.why) or 'Part of the current Forever toolkit. Read the current client effect before choosing a target.',
    when=old and old.when or 'The spell is learned, ready, affordable and appropriate for your assignment.',
    how=old and old.how or 'Check the live tooltip, target requirements and the encounter before using it.',

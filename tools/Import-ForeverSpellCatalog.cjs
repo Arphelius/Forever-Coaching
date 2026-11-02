@@ -15,12 +15,14 @@ for(const cls of classes){
   const ids=[...new Set(ranks.map(r=>r.forever.spell_id))];
   if(!ids.length)continue;
   const rank=ranks[ranks.length-1].forever;
-  spells[spell.name]={ids,tab:tab.name,level:spell.level||0,status:spell.status,cost:rank.cost,cast:rank.cast,cooldown:rank.cooldown,range:rank.range};
+  const description=[...ranks].reverse().find(r=>typeof r.forever.text==='string'&&r.forever.text.trim())?.forever.text||null;
+  spells[spell.name]={ids,tab:tab.name,level:spell.level||0,status:spell.status,cost:rank.cost,cast:rank.cast,cooldown:rank.cooldown,range:rank.range,description,
+   effects:Object.fromEntries(ranks.map(r=>[r.forever.spell_id,{text:r.forever.text,level:r.forever.level||spell.level||0,rank:r.rank}]))};
  }
  const entries=objectAfter(rsc(fs.readFileSync(path.join(process.argv[2]||'.tmp','forever-changes-'+cls+'.html'),'utf8')),'entries',true);
  const talents={};
  for(const t of entries)if(t.kind==='talent'&&t.reported_change_kind!=='removed'){
-  talents[t.name]={ranks:Object.fromEntries(Object.entries(t.rank_texts||{}).map(([rank,text])=>[rank,signature(text)])),maxRank:t.max_rank,requires:typeof t.structure?.reported_prerequisite==='string'?t.structure.reported_prerequisite:null};
+  talents[t.name]={ranks:Object.fromEntries(Object.entries(t.rank_texts||{}).map(([rank,text])=>[rank,signature(text)])),effects:t.rank_texts||{},maxRank:t.max_rank,requires:typeof t.structure?.reported_prerequisite==='string'?t.structure.reported_prerequisite:null};
  }
  catalog.classes[cls.toUpperCase()]={sourceUrl:'https://foreverchanges.pro/spellbook/'+cls,changesUrl:'https://foreverchanges.pro/class/'+cls,spells,talents};
 }

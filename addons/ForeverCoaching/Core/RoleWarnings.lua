@@ -34,13 +34,17 @@ local function hasAura(unit,filter,id)
 end
 function W:Sample()
  local alerts,seen={},{};local combat=read(UnitAffectingCombat,'player')==true;local role=self:Role()
- local function add(key,kind,message,priority,blocks)
+ local function add(key,kind,message,priority,blocks,shortMessage)
   if seen[key]then return end;seen[key]=true
-  alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true}
+  alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true,shortMessage=shortMessage}
  end
  if combat then
   local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
-  if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.3 then add('self-health','health','LOW HEALTH — use a ready defensive or healing item; move to safety.',2) end
+  if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.3 then
+   local context=FC.EncounterCoach and FC.EncounterCoach.combatContext
+   local message=context and context.canHeal and 'Low health — use a ready defensive or self-heal.' or 'Low health — reduce damage and get to safety.'
+   add('self-health','health',message,2,false,message)
+  end
   local tanking,status=read(UnitDetailedThreatSituation,'player','target')
   if role=='tank' and tanking==false and type(status)=='number' and read(UnitCanAttack,'player','target')==true and read(UnitCanAssist,'player','targettarget')==true then
    add('threat','threat',(read(UnitName,'target') or 'Enemy')..' is targeting '..(read(UnitName,'targettarget') or 'an ally')..' — regain threat if assigned to you.',3)

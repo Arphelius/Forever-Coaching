@@ -43,7 +43,16 @@ function R:Begin()
  self.states={};self.auras={};self.abilities={};self.targets={};self.sent={};self.deaths={};self.elapsed=0
  local before=self.before or {};self.before={}
  for _,event in ipairs(before)do if clock()-event.at<=8 then local fields={};for k,v in pairs(event.fields)do fields[k]=v end;fields.time=event.at-self.active.started;fields.recordedBeforeCombat=true;self:Record(event.kind,fields) end end
- if FC.EncounterCoach then local ok,build=pcall(FC.EncounterCoach.GetBuildContext,FC.EncounterCoach);if ok then self.active.build=build end end
+ if FC.EncounterCoach then
+  local ok,build=pcall(FC.EncounterCoach.GetCombatContext or FC.EncounterCoach.GetBuildContext,FC.EncounterCoach)
+  if ok and build then
+   self.active.build=build;self.active.class=build.class;self.active.specTree=build.tree;self.active.specRole=build.role
+   if FC.SpecScenarios then
+    local readable,spec=pcall(FC.SpecScenarios.ForCurrent,FC.SpecScenarios,build,true)
+    if readable and spec and spec.available then self.active.specTree=spec.treeIndex;self.active.specRole=spec.role end
+   end
+  end
+ end
  if FC.ScenarioTracker then FC.ScenarioTracker:Begin();FC.ScenarioTracker:Sample() end
  self:Record('combat_start',{message='Combat recording started.'});self:Sample()
 end

@@ -4,6 +4,7 @@ local FC=ForeverCoaching
 local GOLD={1,.76,.32}
 local MUTED={.56,.62,.70}
 local ICONS={DRUID="Ability_Druid_Maul",HUNTER="INV_Weapon_Bow_07",MAGE="INV_Staff_13",PALADIN="INV_Hammer_01",PRIEST="INV_Staff_30",ROGUE="INV_ThrowingKnife_04",SHAMAN="Spell_Nature_BloodLust",WARLOCK="Spell_Nature_Drowsy",WARRIOR="INV_Sword_27"}
+local CLASS_COORDS={WARRIOR={0,.25,0,.25},MAGE={.25,.5,0,.25},ROGUE={.5,.75,0,.25},DRUID={.75,1,0,.25},HUNTER={0,.25,.25,.5},SHAMAN={.25,.5,.25,.5},PRIEST={.5,.75,.25,.5},WARLOCK={.75,1,.25,.5},PALADIN={0,.25,.5,.75}}
 local function text(owner,value,size,width,color)
     local t=owner:CreateFontString(nil,"OVERLAY","GameFontHighlight")
     t:SetFont("Fonts\\FRIZQT__.TTF",size,"");t:SetWidth(width);t:SetJustifyH("LEFT")
@@ -164,8 +165,10 @@ function FC:BuildPresetTalentPage(parent)
     local planner=FC.BuildPlanner
     local _,class=UnitClass("player")
     local playerClass=class
+    if FC.GuideBrowser and FC.GuideBrowser.class then class=FC.GuideBrowser.class end
     local level=UnitLevel("player") or 1
     local preview,selected,activity=60,nil,level<60 and 2 or 3
+    if FC.GuideBrowser and FC.GuideBrowser.activity then for i,entry in ipairs(planner.activities) do if entry.id==FC.GuideBrowser.activity then activity=i;break end end end
     local selectedSpec
     local selectedBuilds={}
     local choices={}
@@ -196,17 +199,27 @@ function FC:BuildPresetTalentPage(parent)
     recommendation:SetPoint("TOPLEFT",18,-36);recommendation:SetMaxLines(1)
     for index,token in ipairs(planner.classes) do
         local classToken=token
-        local b=button(parent,"",18+(index-1)*46,-58,38,function() class=classToken;selectedSpec=nil;refresh() end)
-        b:SetHeight(32)
-        local image=b:CreateTexture(nil,"ARTWORK");image:SetTexture("Interface\\Icons\\"..ICONS[token])
-        image:SetPoint("CENTER");image:SetSize(24,24);image:SetTexCoord(.08,.92,.08,.92)
+        local b=CreateFrame('Button',nil,parent)
+        b:SetSize(32,32);b:SetPoint('TOPLEFT',parent,'TOPLEFT',21+(index-1)*46,-58)
+        b:SetScript('OnClick',function()
+            class=classToken;selectedSpec=nil
+            if FC.GuideBrowser then FC.GuideBrowser.class=classToken;FC.GuideBrowser.buildID=nil end
+            refresh()
+        end)
+        local image=b:CreateTexture(nil,"OVERLAY",nil,1);image:SetTexture('Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES');image:SetVertexColor(1,1,1,1)
+        image:SetPoint("CENTER");image:SetSize(24,24);image:SetTexCoord(unpack(CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]))
+        b.classIcon=image
         b:SetScript("OnEnter",function(self) GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(classToken:sub(1,1)..classToken:sub(2):lower());GameTooltip:Show() end)
         b:SetScript("OnLeave",function() GameTooltip:Hide() end)
         classButtons[token]=b
     end
     for index,entry in ipairs(planner.activities) do
         local activityIndex=index
-        activityButtons[index]=button(parent,entry.title,444+(index-1)*114,-60,108,function() activity=activityIndex;refresh() end)
+        activityButtons[index]=button(parent,entry.title,444+(index-1)*114,-60,108,function()
+            activity=activityIndex
+            if FC.GuideBrowser then FC.GuideBrowser.activity=entry.id end
+            refresh()
+        end)
     end
     local library=text(parent,"SPECIALIZATIONS",10,210,MUTED);library:SetPoint("TOPLEFT",18,-110)
     local scroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
@@ -335,50 +348,50 @@ function FC:BuildPresetTalentPage(parent)
     routeWindow:SetSize(650,100);routeWindow:SetPoint("TOPLEFT",0,-474)
     surface(routeWindow,.035,.043,.055,GOLD)
     local routeTitle=text(routeWindow,"",15,575,GOLD);routeTitle:SetPoint("TOPLEFT",14,-14);routeTitle:SetMaxLines(1)
-    local routeNote=text(routeWindow,"Published point order. Levels 31–60 are untested; baseline points, without Legacy bonuses.",11,590,MUTED)
-    routeNote:SetPoint("TOPLEFT",14,-42);routeNote:SetHeight(34);routeNote:SetMaxLines(2)
-    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-84);routeList:SetSize(598,1)
+    local routeNote=text(routeWindow,"Hover a square for the talent and rank.",11,590,MUTED)
+    routeNote:SetPoint("TOPLEFT",14,-42);routeNote:SetHeight(20);routeNote:SetMaxLines(1)
+    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-70);routeList:SetSize(598,1)
     local routeRows={}
     local function showRoute()
         local build=current();if not build then return end
         for _,row in ipairs(routeRows) do row:Hide() end
-        local order,orderType=planner:GetTalentProgression(class,build)
+        local order=planner:GetTalentProgression(class,build)
         local shift=class==playerClass and talentLevelShift or 0
         local endLevel=(order and #order+9 or build.maxLevel)-shift
         routeTitle:SetText("LEVEL "..(10-shift).."-"..endLevel.." / TALENT PROGRESSION")
         if not order then
-            routeNote:SetText(orderType or "Talent progression unavailable for this allocation.")
+            routeNote:SetText("Point order unavailable for this build.")
             routeList:SetHeight(1);routeWindow:SetHeight(110);detail:SetHeight(594)
         else
-            routeNote:SetText(orderType=="published"
-                and "Guide's point order. Hover each talent for its effect; levels 31-60 are untested."
-                or "Suggested point order for this allocation. Talent links need in-game confirmation.")
-            if shift>0 then routeNote:SetText("Talented detected: route levels moved "..shift.." earlier. The build still uses at most 51 talent points.") end
+            routeNote:SetText("Hover a square for the talent and rank. Gold marks your next point.")
             for index,step in ipairs(order) do
                 local row=routeRows[index]
                 if not row then
-                    row=button(routeList,"",0,-(index-1)*54,590,function() end);row:SetHeight(50);row.caption:Hide()
-                    row.title=text(row,"",11,570,GOLD);row.title:SetPoint("TOPLEFT",8,-7);row.title:SetMaxLines(1)
-                    row.benefit=text(row,"",10,570,MUTED);row.benefit:SetPoint("TOPLEFT",8,-26);row.benefit:SetMaxLines(1)
+                    row=CreateFrame('Frame',nil,routeList,'BackdropTemplate');row:SetSize(40,40);row:EnableMouse(true)
+                    row.icon=row:CreateTexture(nil,'ARTWORK');row.icon:SetPoint('TOPLEFT',2,-2);row.icon:SetPoint('BOTTOMRIGHT',-2,2);row.icon:SetTexCoord(.08,.92,.08,.92)
+                    local badge=CreateFrame('Frame',nil,row,'BackdropTemplate');badge:SetSize(20,14);badge:SetPoint('BOTTOMRIGHT',-2,2);surface(badge,.015,.015,.02)
+                    row.levelLabel=text(badge,'',10,18);row.levelLabel:SetPoint('CENTER');row.levelLabel:SetJustifyH('CENTER');row.levelLabel:SetWordWrap(false);row.levelLabel:SetMaxLines(1)
                     routeRows[index]=row
                 end
-                row.title:SetText("Level "..(step.level-shift).." / "..step.name.." "..step.rank.."/"..step.maxRank)
+                row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%12*50,-math.floor((index-1)/12)*50)
+                row.icon:SetTexture(icon(step.spellId) or 'Interface\\Icons\\INV_Misc_QuestionMark')
+                row.levelLabel:SetText(tostring(step.level-shift))
                 local nextPoint=activeStep and activeStep.treeIndex==step.treeIndex
                     and activeStep.talentIndex==step.talentIndex and activeStep.rank==step.rank
                 surface(row,.07,.08,.10,nextPoint and GOLD or {.18,.20,.24})
-                if nextPoint then row.title:SetText("NEXT POINT / "..step.name.." "..step.rank.."/"..step.maxRank) end
-                local description=C_Spell and C_Spell.GetSpellDescription and C_Spell.GetSpellDescription(step.spellId)
-                if description then description=description:gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r",""):gsub("[\r\n]+"," ") end
-                row.benefit:SetText(description and description~="" and description or step.why)
-                local spell=step.spellId
+                row.levelLabel:SetTextColor(unpack(nextPoint and GOLD or {.9,.91,.94}))
+                local spell,name,rank,maxRank,pointLevel,why=step.spellId,step.name,step.rank,step.maxRank,step.level-shift,step.why
                 row:SetScript("OnEnter",function(self)
                     GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-                    if GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(spell) else GameTooltip:SetText(step.name) end
+                    if GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(spell) else GameTooltip:SetText(name) end
+                    GameTooltip:AddLine('Level '..pointLevel..' / '..name..' '..rank..'/'..maxRank,1,.76,.32,true)
+                    if why then GameTooltip:AddLine(why,.85,.88,.92,true) end
                     GameTooltip:Show()
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end);row:Show()
             end
-            routeList:SetHeight(#order*54);routeWindow:SetHeight(94+#order*54);detail:SetHeight(578+#order*54)
+            local gridHeight=math.max(1,math.ceil(#order/12)*50-10)
+            routeList:SetHeight(gridHeight);routeWindow:SetHeight(84+gridHeight);detail:SetHeight(578+gridHeight)
         end
         routeWindow:Show()
     end
@@ -391,7 +404,7 @@ function FC:BuildPresetTalentPage(parent)
         popup.box:ClearFocus();popup:Hide()
         local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         accent=color and {color.r,color.g,color.b} or GOLD
-        for token,b in pairs(classButtons) do b:SetBackdropBorderColor(unpack(token==class and accent or {.18,.20,.24}));b:SetAlpha(token==class and 1 or .55) end
+        for token,b in pairs(classButtons) do local size=token==class and 28 or 24;b.classIcon:SetSize(size,size) end
         for _,card in ipairs(cards) do card:Hide() end
         choices=planner:GetVisibleSpecBuilds(class,planner.activities[activity].id,preview)
         local builds=planner:GetBuilds(class)
@@ -404,7 +417,7 @@ function FC:BuildPresetTalentPage(parent)
             return choice.activityRecommended==true
         end
         selectedSpec=nil
-        local chosenID=selectedBuilds[selectionKey()]
+        local chosenID=FC.GuideBrowser and FC.GuideBrowser.class==class and FC.GuideBrowser.buildID or selectedBuilds[selectionKey()]
         if chosenID then
             for index,choice in ipairs(choices) do
                 if choice.build and choice.build.id==chosenID then selectedSpec=index;break end
@@ -422,9 +435,9 @@ function FC:BuildPresetTalentPage(parent)
             local card=cards[index]
             if not card then
                 card=button(list,"",0,0,196,function() end);card:SetHeight(80);card.caption:Hide()
-                card.title=text(card,"",12,174);card.title:SetPoint("TOPLEFT",10,-9);card.title:SetMaxLines(2)
-                card.detail=text(card,"",11,174,MUTED);card.detail:SetPoint("BOTTOMLEFT",10,27)
-                card.badge=text(card,"",10,174,GOLD);card.badge:SetPoint("BOTTOMLEFT",10,9)
+                card.title=text(card,"",12,174);card.title:SetPoint("TOPLEFT",10,-14);card.title:SetHeight(26);card.title:SetMaxLines(2)
+                card.detail=text(card,"",11,174,MUTED);card.detail:SetPoint("BOTTOMLEFT",10,24)
+                card.badge=text(card,"",10,174,GOLD);card.badge:SetPoint("BOTTOMLEFT",10,8)
                 cards[index]=card
             end
             local build=choice.build
@@ -442,6 +455,7 @@ function FC:BuildPresetTalentPage(parent)
             card:SetScript("OnClick",function()
                 if not build then return end
                 selectedBuilds[selectionKey()]=build.id
+                if FC.GuideBrowser then FC.GuideBrowser.class=class;FC.GuideBrowser.buildID=build.id end
                 if characterKey and ForeverCoachingDB then
                     ForeverCoachingDB.selectedTalentBuilds=ForeverCoachingDB.selectedTalentBuilds or {}
                     ForeverCoachingDB.selectedTalentBuilds[characterKey]=selectedBuilds
@@ -478,12 +492,12 @@ function FC:BuildPresetTalentPage(parent)
         showRoute()
         hero:SetText(build.title)
         local evidence={simulation="SIM REFERENCE",guide="GUIDE",guide_conflict="SOURCE CONFLICT",overview="OVERVIEW",theorycraft="PROPOSED BUILD",tournament="TOURNAMENT / FINALS",experimental="EXPERIMENTAL"}
-        meta:SetText((choice.provisional and "PROVISIONAL ACTIVITY PICK" or evidence[build.evidence] or "UNVERIFIED").."  /  LEVEL "..build.maxLevel.."  /  "..build.distribution.."  /  "..build.source.name)
+        meta:SetText("Level "..build.maxLevel.." / "..build.distribution.." / "..build.role)
         selectedBadge.text:SetText("Recommended")
         if isRecommended(selectedSpec,choice) then selectedBadge:Show() else selectedBadge:Hide() end
         local badgeColor=GOLD
         selectedBadge:SetBackdropBorderColor(unpack(badgeColor));selectedBadge.text:SetTextColor(unpack(badgeColor))
-        status:SetText(planner:GetBuildSummary(choice,planner.activities[activity].id,choices))
+        status:SetText(planner.activities[activity].title..' / '..(build.kind=='custom' and 'Custom build' or 'Published build'))
         local ranks={};for _,talent in ipairs(plan.rows) do ranks[talent.treeIndex..":"..talent.talentIndex]=talent.rank end
         for treeIndex,tree in ipairs(build.treeLayout or (FC.TalentTrees or {})[class] or {}) do
             local panel=panels[treeIndex];panel.title:SetText(tree.name);panel.wash:SetVertexColor(accent[1],accent[2],accent[3],.12)
@@ -527,7 +541,7 @@ function FC:BuildPresetTalentPage(parent)
             end
             panel.total:SetText(total)
         end
-        footnote:SetText("SOURCE: "..choice.proof.." / Scroll down for talent progression")
+        footnote:SetText("Source: "..build.source.name.." / Talent progression below")
     end
     local events=CreateFrame("Frame",nil,parent)
     for _,event in ipairs({"PLAYER_LEVEL_UP","PLAYER_TALENT_UPDATE","CHARACTER_POINTS_CHANGED","PLAYER_ENTERING_WORLD","TRAIT_CONFIG_UPDATED","SPECIALIZATION_DATA_INITIALIZED","ACTIVE_TALENT_GROUP_CHANGED","TRAIT_TREE_CURRENCY_INFO_UPDATED","TRAIT_NODE_CHANGED"}) do

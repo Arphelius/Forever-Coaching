@@ -67,6 +67,7 @@ end
     run(`PreviewDemoCase="${demoCase}"`);
     run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/Core/EncounterCoach.lua'),'utf8'));
     run(fs.readFileSync(path.join(__dirname,'preview-encounter.lua'),'utf8'));
+    run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/UI/GuideSelectors.lua'),'utf8'));
     run(String.raw`
 local fc=ForeverCoaching;local p=fc.BuildPlanner
 local choices=p:GetVisibleSpecBuilds(PreviewClass,PreviewActivity,PreviewLevel)
@@ -122,7 +123,7 @@ if build and not nextPoint then
 end
 if build and PreviewClass=='DRUID' and build.role=='tank' then themeName='earth' end
 if build and PreviewClass=='MAGE' and (build.id or ''):find('frostfire',1,true) then themeName='frostfire' end
-local result={custom=customResult,gearGuide=fc.GearGuide:ForBuild(PreviewClass,build,PreviewLevel),specScenarios=specScenarios,talentLessons=talentLessons,coachingReplay=fc.PreviewCoachingReplay,abilityLessons=fc.AbilityLessons[PreviewClass],choices=list,layout=layout,build=build,ranks=ranks,spent=spent,budget=budget,available=math.max(0,budget-spent),overBudget=spent>budget,order=order,orderType=kind,nextPoint=nextPoint,designPreviewPoint=designPreviewPoint,locked=locked or false,level=PreviewLevel,legacy=PreviewLegacy,effect=PreviewThemes and PreviewThemes[themeName],review=fc.CombatReview:GetLatestSummary()}
+local result={custom=customResult,gearGuide=fc.GearGuide:ForBuild(PreviewClass,build,PreviewLevel),specScenarios=specScenarios,talentLessons=talentLessons,coachingReplay=fc.PreviewCoachingReplay,abilityLessons=build and fc.GuideBrowser:LessonsFor(PreviewClass,build) or fc.AbilityLessons[PreviewClass],choices=list,layout=layout,build=build,ranks=ranks,spent=spent,budget=budget,available=math.max(0,budget-spent),overBudget=spent>budget,order=order,orderType=kind,nextPoint=nextPoint,designPreviewPoint=designPreviewPoint,locked=locked or false,level=PreviewLevel,legacy=PreviewLegacy,effect=PreviewThemes and PreviewThemes[themeName],review=fc.CombatReview:GetLatestSummary()}
 local function quote(s)
  return '"'..s:gsub('[%z\1-\31\\"]',function(c)
   if c=='"' then return '\\"' elseif c=='\\' then return '\\\\' end

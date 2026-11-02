@@ -243,13 +243,14 @@ local function AddResourceRow(parent, heading, description, url, y)
         self:ClearFocus()
     end)
 
+    row.title=rowTitle;row.description=rowDescription;row.urlBox=urlBox
     return row
 end
 
 local pages = {
     Rotation = {
         heading = "After-Combat Review",
-        description = "Understand what went well, what went wrong, and what to improve, with explanations from recorded combat.",
+        description = "What went well, what needs work, and what to try next.",
         cards = {},
     },
     Talents = {
@@ -259,17 +260,17 @@ local pages = {
     },
     Scenarios = {
         heading = "Combat Scenarios",
-        description = "Practice encounter responses and inspect recorded opportunities for your build.",
+        description = "Browse a class, specialization and combat situation.",
         cards = {},
     },
     Learn = {
         heading = "Learn Your Class",
-        description = "Learn your actual abilities: when, how and why to use them.",
+        description = "Choose an ability or talent: when, how and why to use it.",
         cards = {},
     },
     Gear = {
         heading = "Gear & Optimization",
-        description = "Stats for your selected build and tools for comparing actual upgrades.",
+        description = "Useful stats and upgrade comparisons for your chosen build.",
         cards = {},
     },
     Resources = {
@@ -283,15 +284,26 @@ local navButtons = {}
 local currentTab = "Rotation"
 local reviewText
 local reviewWidgets
+local reviewExpanded=false
+local function reviewDisplay(value)
+    if reviewExpanded then return value or '' end
+    local lines={}
+    for line in (value or ''):gmatch('[^\n]+') do
+        lines[#lines+1]=line
+        if #lines>=4 then break end
+    end
+    return table.concat(lines,'\n\n')
+end
 
 local function UpdateReviewText()
     if reviewWidgets and FC.CombatReview and FC.CombatReview.GetLatestSummary then
-        local ok,result=pcall(FC.CombatReview.GetLatestSummary,FC.CombatReview)
+        local filter=FC.GuideBrowser and FC.GuideBrowser:GetReviewFilter()
+        local ok,result=pcall(FC.CombatReview.GetLatestSummary,FC.CombatReview,filter)
         if ok and result then
             reviewWidgets.metrics:SetText(result.metrics)
-            reviewWidgets.observation:SetText(result.goodText or result.observation or "")
-            reviewWidgets.takeaway:SetText(result.wrongText or result.takeaway or "")
-            reviewWidgets.nextStep:SetText(result.improveText or result.nextStep or "")
+            reviewWidgets.observation:SetText(reviewDisplay(result.goodText or result.observation))
+            reviewWidgets.takeaway:SetText(reviewDisplay(result.wrongText or result.takeaway))
+            reviewWidgets.nextStep:SetText(reviewDisplay(result.improveText or result.nextStep))
             if reviewWidgets.coverage then reviewWidgets.coverage:SetText(result.coverage or "Local cast observations; no full encounter event stream is loaded.") end
             if reviewWidgets.cards then
                 local offset=0
@@ -302,10 +314,13 @@ local function UpdateReviewText()
                     card:ClearAllPoints();card:SetPoint("TOPLEFT",reviewWidgets.content,"TOPLEFT",18,-offset);card:SetHeight(height)
                     offset=offset+height+12
                 end
-                reviewWidgets.coverage:ClearAllPoints();reviewWidgets.coverage:SetPoint("TOPLEFT",20,-offset)
-                offset=offset+math.max(50,reviewWidgets.coverage:GetStringHeight())+18
-                reviewWidgets.attribution:ClearAllPoints();reviewWidgets.attribution:SetPoint("TOPLEFT",20,-offset)
-                reviewWidgets.content:SetHeight(offset+70)
+                reviewWidgets.coverage:SetShown(reviewExpanded)
+                reviewWidgets.attribution:Hide()
+                if reviewExpanded then
+                    reviewWidgets.coverage:ClearAllPoints();reviewWidgets.coverage:SetPoint("TOPLEFT",20,-offset)
+                    offset=offset+math.max(50,reviewWidgets.coverage:GetStringHeight())+18
+                end
+                reviewWidgets.content:SetHeight(offset+20)
             end
         else
             reviewWidgets.metrics:SetText("Review unavailable")
@@ -358,16 +373,9 @@ local function ShowTab(tabName)
             button:SetPoint("TOPLEFT",sidebar,"TOPLEFT",10,-12-(button.navigationIndex-1)*52);button:SetSize(148,42)
         end
     end
-    if tabName == "Talents" then
-        frame:SetSize(900,650)
-        frame:SetScale(math.min(1,((UIParent:GetWidth() or 940)-40)/900,((UIParent:GetHeight() or 690)-40)/650))
-    elseif tabName == 'Learn' or tabName == 'Scenarios' or tabName == 'Gear' then
-        frame:SetSize(960,700)
-        frame:SetScale(math.min(1,((UIParent:GetWidth() or 1000)-40)/960,((UIParent:GetHeight() or 740)-40)/700))
-    else
-        frame:SetSize(760, 500)
-        frame:SetScale(1)
-    end
+    frame:SetSize(760,560)
+    frame:SetScale(math.min(1,((UIParent:GetWidth() or 800)-40)/760,((UIParent:GetHeight() or 600)-40)/560))
+    talentNav:SetScale(compactHeader and .8 or 1)
 
     if currentPage then
         currentPage:Hide()
@@ -392,7 +400,7 @@ local function ShowTab(tabName)
     end
 
     currentPage = CreateFrame("Frame", nil, content)
-    currentPage:SetScale(compactHeader and .94 or 1)
+    currentPage:SetScale(compactHeader and .8 or 1)
     currentPage:SetPoint("TOPLEFT", content, "TOPLEFT", 0,compactHeader and -40 or 0)
     currentPage:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 0, 0)
 
@@ -417,14 +425,28 @@ local function ShowTab(tabName)
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
 
     if tabName == "Rotation" then
+        FC:BuildGuideSelectors(currentPage,function()
+            FC.CombatReview:SetSource('local');UpdateReviewText()
+        end)
         local noticeButton = CreateFrame("Button", nil, currentPage, "UIPanelButtonTemplate")
         noticeButton:SetSize(190, 26)
-        noticeButton:SetPoint("TOPLEFT", currentPage, "TOPLEFT", 18, -94)
+        noticeButton:SetPoint("TOPLEFT", currentPage, "TOPLEFT", 18, -134)
         local function UpdateNoticeButton()
             local enabled = not FC.CombatReview or FC.CombatReview:GetReadyNoticeEnabled()
             noticeButton:SetText("Analysis reminders: " .. (enabled and "On" or "Off"))
         end
         UpdateNoticeButton()
+        local detailButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate')
+        detailButton:SetSize(150,26);detailButton:SetPoint('TOPLEFT',220,-134)
+        local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details')end
+        detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
+        local specButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate')
+        specButton:SetSize(130,26);specButton:SetPoint('TOPLEFT',380,-134);specButton:SetText('Use this spec')
+        specButton:SetScript('OnClick',function()
+            local class,build=FC.GuideBrowser:GetContext()
+            local ok,message=FC.EncounterCoach:SetCombatSpecFallback(class,build)
+            print('Forever Coaching: '..message)
+        end)
         noticeButton:SetScript("OnClick", function()
             if FC.CombatReview then
                 FC.CombatReview:SetReadyNoticeEnabled(not FC.CombatReview:GetReadyNoticeEnabled())
@@ -432,15 +454,15 @@ local function ShowTab(tabName)
             end
         end)
         if FC.OpenFightTimeline then
-            local timelineButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate');timelineButton:SetSize(160,24);timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',-20,-126);timelineButton:SetText('View fight timeline');timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)
+            local timelineButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate');timelineButton:SetSize(160,24);timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',-20,-166);timelineButton:SetText('View fight timeline');timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)
         end
 
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
-        reviewWidgets.metrics:SetPoint("TOPLEFT",20,-128)
+        reviewWidgets.metrics:SetPoint("TOPLEFT",20,-168);reviewWidgets.metrics:SetWidth(310);reviewWidgets.metrics:SetMaxLines(1)
         local reviewScroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
-        reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,-158);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,18)
+        reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,-198);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,18)
         local reviewContent=CreateFrame("Frame",nil,reviewScroll);reviewContent:SetSize(536,1040);reviewScroll:SetScrollChild(reviewContent)
         local goodCard,observation=AddCard(reviewContent,"WHAT YOU DID WELL","",0,300)
         local wrongCard,takeaway=AddCard(reviewContent,"WHAT WENT WRONG","",-312,300)
@@ -456,15 +478,23 @@ local function ShowTab(tabName)
 
     if tabName == "Resources" then
         local scroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT",0,-94);scroll:SetPoint("BOTTOMRIGHT",-26,18)
-        local links=CreateFrame("Frame",nil,scroll);links:SetSize(536,480);scroll:SetScrollChild(links)
+        scroll:SetPoint("TOPLEFT",0,-136);scroll:SetPoint("BOTTOMRIGHT",-26,18)
+        local links=CreateFrame("Frame",nil,scroll);links:SetSize(536,600);scroll:SetScrollChild(links)
+        local guideRow=AddResourceRow(links,'Build guide','','',0)
+        local function updateGuideSource()
+            local class,build=FC.GuideBrowser:GetContext()
+            guideRow.title:SetText(build and build.title or class)
+            guideRow.description:SetText('Build guide / '..class)
+            guideRow.urlBox:SetText(FC.BuildPlanner:GetBuildEvidenceUrl(build))
+        end
+        FC:BuildGuideSelectors(currentPage,updateGuideSource);updateGuideSource()
         local resources={
             {"WARCRAFT LOGS - PARSES & RANKINGS","Check your parses and rankings for supported games. Inspiration for log analysis; Forever integration is deferred.","https://www.warcraftlogs.com/"},
             {"FOREVER LOGS - STATISTICS SOURCE","Source of recorded class/spec aggregate statistics. Explore the original data and website.","https://foreverlogs.gg/"},
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},
         }
-        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-(index-1)*116) end
+        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-index*116) end
     end
 
     UpdateCharacterInfo()
@@ -529,6 +559,7 @@ function FC:ToggleWindow()
 end
 
 function FC:OpenCombatReview()
+    if FC.GuideBrowser then FC.GuideBrowser.class=nil;FC.GuideBrowser.buildID=nil end
     ShowTab("Rotation")
     UpdateReviewText()
     UpdateCharacterInfo()
