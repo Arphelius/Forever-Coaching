@@ -31,10 +31,8 @@ local EDGE  = { 0.34, 0.27, 0.17 }
 
 -- Layout: SimGear-style slim header (title row, then a row of tabs sized to their text),
 -- no sidebar, one window size for every tab (UI/ClassicTheme.lua METRICS).
-local M = FC.ClassicTheme and FC.ClassicTheme.METRICS or {
-    width = 940, height = 620, gutter = 8, headerHeight = 62, tabHeight = 22, buttonHeight = 22,
-    pageTop = -10, toolbarTop = -34, documentTop = -66, pagePadding = 14, contentAlpha = .55, readingAlpha = .82,
-}
+local Theme = FC.ClassicTheme
+local M = Theme.METRICS
 local CONTENT_W = M.width - 2 * M.gutter
 local CARD_W = CONTENT_W - 2 * 18 - 26 -- inside a scroll frame: margins and the scroll bar
 
@@ -69,15 +67,11 @@ local function AddText(parent, text, size, color)
 end
 
 local function FitButton(button, minimum)
-    if FC.ClassicTheme then return FC.ClassicTheme:FitButton(button, minimum) end
-    return button
+    return Theme:FitButton(button, minimum, 18)
 end
 
 local function NewButton(parent, label, minimum)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetHeight(M.buttonHeight)
-    button:SetText(label)
-    return FitButton(button, minimum)
+    return Theme:NewButton(parent, label, minimum)
 end
 
 -- Main window
@@ -118,31 +112,77 @@ MakeBackdrop(header, { PANEL[1], PANEL[2], PANEL[3], .80 }, GOLD)
 
 local logo = header:CreateTexture(nil, "ARTWORK")
 logo:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
-logo:SetSize(20, 20)
+logo:SetSize(18, 18)
 logo:SetPoint("TOPLEFT", header, "TOPLEFT", 12, -7)
 
-local title = AddText(header, "FOREVER COACHING", 15, GOLD)
+local title = AddText(header, "FOREVER COACHING", 14, GOLD)
 title:SetPoint("LEFT", logo, "RIGHT", 8, 0)
 
-local characterText = AddText(header, "Loading character...", 11, TEXT)
+local characterText = AddText(header, "Loading character...", 11, MUTED)
 characterText:SetPoint("LEFT", title, "RIGHT", 20, 0)
-characterText:SetPoint("RIGHT", header, "TOPRIGHT", -34, -17)
+characterText:SetPoint("RIGHT", header, "TOPRIGHT", -32, -16)
 characterText:SetJustifyH("RIGHT")
 characterText:SetWordWrap(false)
 
 local close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
-close:SetSize(26, 26)
-close:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -2)
+close:SetSize(24, 24)
+close:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -3)
 close:SetScript("OnClick", function()
     frame:Hide()
 end)
 
-local TAB_TOP = -32
-local languageButton
-if FC.OpenLanguageSettings then
-    languageButton = NewButton(header, "Language", 72)
+local TAB_TOP = -28
+
+-- Language: a dropdown at the right of the tab row. Its list belongs to the header, so it
+-- always opens above the dashboard (the separate window opened behind it).
+local languageButton, languageMenu
+local localization = FC.Localization
+if localization and localization.languages then
+    languageButton = Theme:Dropdown(header, 112)
     languageButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -10, TAB_TOP)
-    languageButton:SetScript("OnClick", function() FC:OpenLanguageSettings() end)
+    languageMenu = Theme:Menu(languageButton, 112)
+    local rows = {}
+    local function languageName(code)
+        for _, language in ipairs(localization.languages) do
+            if language.code == code then return language.name end
+        end
+        return "English"
+    end
+    local function syncLanguage()
+        -- Native names stay untranslated: set them on the raw font string.
+        local label = languageButton:GetFontString()
+        if label then label:SetText(languageName(localization:GetLanguage())) end
+    end
+    for index, language in ipairs(localization.languages) do
+        local row = Theme:NewButton(languageMenu, language.name, false)
+        row:SetPoint("TOPLEFT", languageMenu, "TOPLEFT", 4, -4 - (index - 1) * 21)
+        row:SetPoint("RIGHT", languageMenu, "RIGHT", -4, 0)
+        local code = language.code
+        row:SetScript("OnClick", function()
+            languageMenu:Hide(); Theme:SetOpen(languageButton, false)
+            localization:SetLanguage(code)
+        end)
+        rows[index] = row
+    end
+    languageMenu:SetHeight(#rows * 21 + 7)
+    languageButton:SetScript("OnClick", function()
+        if languageMenu:IsShown() then languageMenu:Hide(); Theme:SetOpen(languageButton, false); return end
+        if FC.openGuidePicker then FC.openGuidePicker:Hide() end
+        FC.openGuidePicker = languageMenu
+        for index, row in ipairs(rows) do
+            Theme:SetSelected(row, localization.languages[index].code == localization:GetLanguage())
+        end
+        languageMenu:Show(); Theme:SetOpen(languageButton, true)
+    end)
+    languageButton:HookScript("OnShow", syncLanguage)
+    syncLanguage()
+    FC.languageListeners = FC.languageListeners or {}
+    table.insert(FC.languageListeners, syncLanguage)
+    -- /fclanguage and other callers open this menu on the dashboard.
+    function FC:OpenLanguageMenu()
+        if not frame:IsShown() then FC:ToggleWindow() end
+        if not languageMenu:IsShown() then languageButton:GetScript("OnClick")(languageButton) end
+    end
 end
 
 -- Content panel: its background stays in place when tabs change. Translucent, so the
@@ -207,13 +247,13 @@ local function AddCard(parent, heading, body, y, height)
     card:SetSize(CARD_W, height)
     MakeBackdrop(card, DARK, EDGE)
 
-    local cardTitle = AddText(card, heading, 13, GOLD)
+    local cardTitle = AddText(card, heading, 12, GOLD)
     card.title=cardTitle
-    cardTitle:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -14)
+    cardTitle:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -10)
 
-    local cardBody = AddText(card, body, 12, TEXT)
-    cardBody:SetPoint("TOPLEFT", cardTitle, "BOTTOMLEFT", 0, -12)
-    cardBody:SetPoint("RIGHT", card, "RIGHT", -14, 0)
+    local cardBody = AddText(card, body, 11, TEXT)
+    cardBody:SetPoint("TOPLEFT", cardTitle, "BOTTOMLEFT", 0, -8)
+    cardBody:SetPoint("RIGHT", card, "RIGHT", -12, 0)
     cardBody:SetJustifyH("LEFT")
     cardBody:SetJustifyV("TOP")
     cardBody:SetWordWrap(true)
@@ -225,22 +265,25 @@ end
 local function AddResourceRow(parent, heading, description, url, y)
     local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
-    row:SetSize(CARD_W, 92)
+    row:SetSize(CARD_W, 66)
     MakeBackdrop(row, DARK, EDGE)
 
-    local rowTitle = AddText(row, heading, 13, GOLD)
-    rowTitle:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -10)
+    local rowTitle = AddText(row, heading, 12, GOLD)
+    rowTitle:SetPoint("TOPLEFT", row, "TOPLEFT", 12, -9)
 
-    local rowDescription = AddText(row, description, 11, TEXT)
-    rowDescription:SetPoint("TOPLEFT", rowTitle, "BOTTOMLEFT", 0, -5)
-    rowDescription:SetWidth(CARD_W - 28)
+    local rowDescription = AddText(row, description, 10, MUTED)
+    rowDescription:SetPoint("TOPLEFT", rowTitle, "BOTTOMLEFT", 0, -4)
+    rowDescription:SetWidth(CARD_W - 24)
     rowDescription:SetJustifyH("LEFT")
-    rowDescription:SetWordWrap(true)
+    rowDescription:SetWordWrap(false)
 
     local urlBox = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    urlBox:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 18, 10)
-    urlBox:SetPoint("RIGHT", row, "RIGHT", -14, 0)
-    urlBox:SetHeight(22)
+    urlBox:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 16, 7)
+    urlBox:SetWidth(math.floor(CARD_W * .7))
+    urlBox:SetHeight(18)
+    urlBox:SetFontObject("GameFontHighlightSmall")
+    local copyHint = AddText(row, "Ctrl+C to copy", 10, MUTED)
+    copyHint:SetPoint("LEFT", urlBox, "RIGHT", 10, 0)
     urlBox:SetAutoFocus(false)
     urlBox:SetText(url)
     urlBox:SetScript("OnEditFocusGained", function(self)
@@ -317,9 +360,9 @@ local function UpdateReviewText()
                 for i,body in ipairs({reviewWidgets.observation,reviewWidgets.takeaway,reviewWidgets.nextStep}) do
                     local card=reviewWidgets.cards[i]
                     card.title:SetText(result.headings and result.headings[i] or ({"WHAT YOU DID WELL","WHAT WENT WRONG","WHAT TO IMPROVE"})[i])
-                    local height=math.max(110,body:GetStringHeight()+60)
+                    local height=math.max(84,body:GetStringHeight()+44)
                     card:ClearAllPoints();card:SetPoint("TOPLEFT",reviewWidgets.content,"TOPLEFT",18,-offset);card:SetHeight(height)
-                    offset=offset+height+10
+                    offset=offset+height+8
                 end
                 reviewWidgets.coverage:SetShown(reviewExpanded)
                 reviewWidgets.attribution:Hide()
@@ -369,17 +412,9 @@ local function ShowTab(tabName)
         currentPage = nil
     end
 
-    -- The open tab is lit, the others plain (SimGear's view tabs).
-    for name, button in pairs(navButtons) do
-        local label = button:GetFontString()
-        if name == tabName then
-            if button.LockHighlight then button:LockHighlight() end
-            if label then label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end
-        else
-            if button.UnlockHighlight then button:UnlockHighlight() end
-            if label then label:SetTextColor(TEXT[1], TEXT[2], TEXT[3]) end
-        end
-    end
+    -- The open tab is gold and underlined, the others plain.
+    for name, button in pairs(navButtons) do Theme:SelectTab(button, name == tabName) end
+    if FC.openGuidePicker then FC.openGuidePicker:Hide() end
 
     currentPage = CreateFrame("Frame", nil, content)
     currentPage:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
@@ -486,7 +521,7 @@ local function ShowTab(tabName)
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},
         }
-        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-index*102) end
+        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-index*72) end
     end
 
     UpdateCharacterInfo()
@@ -507,19 +542,16 @@ local function LayoutTabs()
     local previous
     for _, tab in ipairs(tabs) do
         local button = navButtons[tab.name]
-        FitButton(button, 64)
+        Theme:FitButton(button, 40, 20)
         button:ClearAllPoints()
-        if previous then button:SetPoint("LEFT", previous, "RIGHT", 4, 0)
-        else button:SetPoint("TOPLEFT", header, "TOPLEFT", 10, TAB_TOP) end
+        if previous then button:SetPoint("LEFT", previous, "RIGHT", 2, 0)
+        else button:SetPoint("TOPLEFT", header, "TOPLEFT", 6, TAB_TOP) end
         previous = button
     end
-    if languageButton then FitButton(languageButton, 72) end
 end
 
 for i, tab in ipairs(tabs) do
-    local button = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
-    button:SetHeight(M.tabHeight)
-    button:SetText(tab.label)
+    local button = Theme:Tab(header, tab.label)
     button:SetScript("OnClick", function()
         ShowTab(tab.name)
     end)

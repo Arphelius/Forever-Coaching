@@ -1,6 +1,8 @@
 ForeverCoaching=ForeverCoaching or {}
 local FC=ForeverCoaching
-local L={languages={{code='en',name='English'},{code='ro',name='Română'},{code='es',name='Español'},{code='fr',name='Français'},{code='de',name='Deutsch'},{code='pt',name='Português'}},bindings=setmetatable({},{__mode='k'})}
+-- The game font has no ă, ș or ț (they render as boxes), so Romanian is named and shown
+-- without diacritics; the translation file keeps the proper spelling (as SimGear does).
+local L={languages={{code='en',name='English'},{code='ro',name='Romana'},{code='es',name='Español'},{code='fr',name='Français'},{code='de',name='Deutsch'},{code='pt',name='Português'}},bindings=setmetatable({},{__mode='k'})}
 FC.Localization=L
 function L:GetLanguage()
  local code=ForeverCoachingDB and ForeverCoachingDB.settings and ForeverCoachingDB.settings.language
@@ -18,6 +20,12 @@ function L:GetProtectedNames()
  for _,builds in pairs(ForeverCoachingDB and ForeverCoachingDB.customTalentBuilds or {})do for _,build in ipairs(builds)do if type(build.title)=='string' then names[build.title]=true end end end
  local result={};for name in pairs(names)do result[#result+1]=name end
  table.sort(result,function(a,b)return #a>#b end);return result
+end
+local PLAIN={['\196\131']='a',['\196\130']='A',['\195\162']='a',['\195\130']='A',['\195\174']='i',['\195\142']='I',
+ ['\200\153']='s',['\200\152']='S',['\200\155']='t',['\200\154']='T',['\197\159']='s',['\197\158']='S',['\197\163']='t',['\197\162']='T'}
+local PLAIN_CODES={ro=true}
+function L:Plain(text)
+ return (text:gsub('[\195\196\197\200][\128-\191]',function(c)return PLAIN[c] or c end))
 end
 local function replaceLiteral(text,key,callback)
  local from,out=1,{}
@@ -49,6 +57,7 @@ function L:Text(value,code)
  for _,entry in ipairs(keys)do if text:find(entry.key,1,true)then text=replaceLiteral(text,entry.key,function()return hold(entry.target)end)end end
  local result=text:gsub('\001(%d+)\002',function(index)return tokens[tonumber(index)]end)
  result=result:gsub('\003(%d+)\004',function(index)return self.protected[tonumber(index)]end)
+ if PLAIN_CODES[code] then result=self:Plain(result) end
  self.cacheCount=(self.cacheCount or 0)+1;if self.cacheCount>2000 then self.cache={};self.cache[code]={};self.cacheCount=0 end
  self.cache[code][value]=result
  return result
@@ -82,9 +91,11 @@ function L:SetLanguage(code)
  return true
 end
 function FC:OpenLanguageSettings()
+ -- The dashboard's Language dropdown is the one place to choose; this window is only a fallback.
+ if self.OpenLanguageMenu then return self:OpenLanguageMenu() end
  if self.languageSettings then self.languageSettings:Show();return end
  local frame=FC.CreateLocalizedFrame('Frame','ForeverCoachingLanguageSettings',UIParent,'BasicFrameTemplateWithInset')
- frame:SetSize(320,292);frame:SetPoint('CENTER');frame:SetFrameStrata('DIALOG');frame.TitleText:SetText('Language')
+ frame:SetSize(320,292);frame:SetPoint('CENTER');frame:SetFrameStrata('FULLSCREEN_DIALOG');frame.TitleText:SetText('Language')
  self.languageSettings=frame
  for index,language in ipairs(L.languages)do
   local button=FC.CreateLocalizedFrame('Button',nil,frame,'UIPanelButtonTemplate');button:SetSize(270,28);button:SetPoint('TOPLEFT',25,-35-(index-1)*37)
