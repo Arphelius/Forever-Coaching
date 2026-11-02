@@ -184,7 +184,8 @@ function FC:BuildPresetTalentPage(parent)
     local PAD,LEFT_W,GAP=14,168,18
     local RIGHT_X=PAD+LEFT_W+GAP
     local RIGHT_W=804-RIGHT_X-PAD
-    local TREE_W,TREE_STEP,NODE_X,NODE_Y=186,191,43,42
+    local TREE_W,TREE_STEP,NODE_X,NODE_Y=186,191,43,46
+    local TREE_H,ROUTE_TOP,SQUARE,PITCH=392,-440,28,32 -- trees get the room; progression squares stay small
     local DETAIL_W=RIGHT_W-22 -- the scroll bar sits inside the column
     local function button(owner,title,x,y,width,click)
         local b=CreateFrame("Button",nil,owner,"BackdropTemplate")
@@ -204,21 +205,21 @@ function FC:BuildPresetTalentPage(parent)
     vfxButton=button(parent,"",0,0,64,function()
         FC:SetTalentVFXEnabled(not FC:IsTalentVFXEnabled());syncVFX()
     end)
-    vfxButton:ClearAllPoints();vfxButton:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-4)
+    vfxButton:ClearAllPoints();vfxButton:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-8)
     vfxButton:SetScript("OnShow",syncVFX);syncVFX()
     -- The spec rows carry "Recommended"; this line stays hidden (kept for refresh).
     local recommendation=text(parent,"",11,10,MUTED);recommendation:Hide()
     for index,token in ipairs(planner.classes) do
         local classToken=token
-        local b=CreateFrame('Button',nil,parent)
-        b:SetSize(26,26);b:SetPoint('TOPLEFT',parent,'TOPLEFT',PAD+(index-1)*28,-1)
+        local b=CreateFrame('Button',nil,parent,'BackdropTemplate')
+        b:SetSize(34,34);b:SetPoint('TOPLEFT',parent,'TOPLEFT',PAD+(index-1)*36,-1)
         b:SetScript('OnClick',function()
             class=classToken;selectedSpec=nil
             if FC.GuideBrowser then FC.GuideBrowser.class=classToken;FC.GuideBrowser.buildID=nil end
             refresh()
         end)
         local image=b:CreateTexture(nil,"OVERLAY",nil,1);image:SetTexture('Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES');image:SetVertexColor(1,1,1,1)
-        image:SetPoint("CENTER");image:SetSize(20,20);image:SetTexCoord(unpack(CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]))
+        image:SetPoint("CENTER");image:SetSize(26,26);image:SetTexCoord(unpack(CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]))
         b.classIcon=image
         b:SetScript("OnEnter",function(self) GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(classToken:sub(1,1)..classToken:sub(2):lower());GameTooltip:Show() end)
         b:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -239,23 +240,23 @@ function FC:BuildPresetTalentPage(parent)
     else
         for index,label in ipairs(activityLabels) do
             local activityIndex=index
-            activityButtons[index]=button(parent,label,300+(index-1)*82,-4,80,function() chooseActivity(activityIndex) end)
+            activityButtons[index]=button(parent,label,360+(index-1)*82,-8,80,function() chooseActivity(activityIndex) end)
         end
     end
-    local library=text(parent,"SPECIALIZATIONS",10,LEFT_W,MUTED);library:SetPoint("TOPLEFT",PAD,-36)
+    local library=text(parent,"SPECIALIZATIONS",10,LEFT_W,MUTED);library:SetPoint("TOPLEFT",PAD,-44)
     local scroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",PAD,-52);scroll:SetPoint("BOTTOMLEFT",PAD,34);scroll:SetWidth(LEFT_W-20)
+    scroll:SetPoint("TOPLEFT",PAD,-60);scroll:SetPoint("BOTTOMLEFT",PAD,34);scroll:SetWidth(LEFT_W-20)
     local list=CreateFrame("Frame",nil,scroll);list:SetSize(LEFT_W-22,400);scroll:SetScrollChild(list)
-    local hero=text(parent,"",14,RIGHT_W-120);hero:SetPoint("TOPLEFT",RIGHT_X,-34);hero:SetMaxLines(1);hero:SetWordWrap(false)
+    local hero=text(parent,"",14,RIGHT_W-120);hero:SetPoint("TOPLEFT",RIGHT_X,-42);hero:SetMaxLines(1);hero:SetWordWrap(false)
     local selectedBadge=CreateFrame("Frame",nil,parent,"BackdropTemplate")
-    selectedBadge:SetSize(100,18);selectedBadge:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-33)
+    selectedBadge:SetSize(100,18);selectedBadge:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-41)
     surface(selectedBadge,.10,.085,.045,GOLD)
     selectedBadge.text=text(selectedBadge,"",10,94,GOLD)
     selectedBadge.text:SetPoint("CENTER");selectedBadge.text:SetJustifyH("CENTER")
-    local meta=text(parent,"",10,RIGHT_W,MUTED);meta:SetPoint("TOPLEFT",RIGHT_X,-54);meta:SetMaxLines(1);meta:SetWordWrap(false)
-    local status=text(parent,"",10,RIGHT_W,MUTED);status:SetPoint("TOPLEFT",RIGHT_X,-68);status:SetHeight(14);status:SetMaxLines(1);status:SetWordWrap(false)
+    local meta=text(parent,"",10,RIGHT_W,MUTED);meta:SetPoint("TOPLEFT",RIGHT_X,-62);meta:SetMaxLines(1);meta:SetWordWrap(false)
+    local status=text(parent,"",10,RIGHT_W,MUTED);status:SetPoint("TOPLEFT",RIGHT_X,-76);status:SetHeight(14);status:SetMaxLines(1);status:SetWordWrap(false)
     local detailScroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    detailScroll:SetPoint("TOPLEFT",RIGHT_X,-86);detailScroll:SetPoint("BOTTOMLEFT",RIGHT_X,34);detailScroll:SetWidth(DETAIL_W)
+    detailScroll:SetPoint("TOPLEFT",RIGHT_X,-94);detailScroll:SetPoint("BOTTOMLEFT",RIGHT_X,34);detailScroll:SetWidth(DETAIL_W)
     local detail=CreateFrame("Frame",nil,detailScroll);detail:SetSize(DETAIL_W,480);detailScroll:SetScrollChild(detail)
     local liveLevel=text(detail,"",11,DETAIL_W,GOLD);liveLevel:SetPoint("TOPLEFT",0,-2);liveLevel:SetMaxLines(1)
     local liveHint=text(detail,"",11,DETAIL_W);liveHint:SetPoint("TOPLEFT",0,-18);liveHint:SetMaxLines(1)
@@ -338,7 +339,7 @@ function FC:BuildPresetTalentPage(parent)
     end
     for treeIndex=1,3 do
         local p=CreateFrame("Frame",nil,detail,"BackdropTemplate")
-        p:SetPoint("TOPLEFT",(treeIndex-1)*TREE_STEP,-38);p:SetHeight(352)
+        p:SetPoint("TOPLEFT",(treeIndex-1)*TREE_STEP,-38);p:SetHeight(TREE_H)
         p:SetWidth(TREE_W);surface(p,.035,.043,.055)
         p.emblem=p:CreateTexture(nil,"BACKGROUND")
         p.emblem:SetPoint("CENTER",0,-12);p.emblem:SetSize(160,160)
@@ -369,12 +370,12 @@ function FC:BuildPresetTalentPage(parent)
         footerRight=b
     end
     local routeWindow=CreateFrame("Frame",nil,detail,"BackdropTemplate")
-    routeWindow:SetSize(DETAIL_W,100);routeWindow:SetPoint("TOPLEFT",0,-400)
+    routeWindow:SetSize(DETAIL_W,60);routeWindow:SetPoint("TOPLEFT",0,ROUTE_TOP)
     surface(routeWindow,.035,.043,.055,GOLD)
-    local routeTitle=text(routeWindow,"",12,DETAIL_W-28,GOLD);routeTitle:SetPoint("TOPLEFT",14,-12);routeTitle:SetMaxLines(1)
-    local routeNote=text(routeWindow,"Hover a square for the talent and rank.",10,DETAIL_W-28,MUTED)
-    routeNote:SetPoint("TOPLEFT",14,-32);routeNote:SetHeight(16);routeNote:SetMaxLines(1)
-    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-56);routeList:SetSize(DETAIL_W-28,1)
+    local routeTitle=text(routeWindow,"",11,(DETAIL_W-28)*.45,GOLD);routeTitle:SetPoint("TOPLEFT",14,-9);routeTitle:SetMaxLines(1);routeTitle:SetWordWrap(false)
+    local routeNote=text(routeWindow,"Hover a square for the talent and rank.",10,(DETAIL_W-28)*.55,MUTED)
+    routeNote:SetPoint("TOPRIGHT",-14,-10);routeNote:SetHeight(14);routeNote:SetMaxLines(1);routeNote:SetWordWrap(false);routeNote:SetJustifyH("RIGHT")
+    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-30);routeList:SetSize(DETAIL_W-28,1)
     local routeRows={}
     local function showRoute()
         local build=current();if not build then return end
@@ -382,23 +383,23 @@ function FC:BuildPresetTalentPage(parent)
         local order=planner:GetTalentProgression(class,build)
         local shift=class==playerClass and talentLevelShift or 0
         local endLevel=(order and #order+9 or build.maxLevel)-shift
-        routeTitle:SetText("LEVEL "..(10-shift).."-"..endLevel.." / TALENT PROGRESSION")
+        routeTitle:SetText("LEVEL "..(10-shift).."-"..endLevel.."  PROGRESSION")
         if not order then
             routeNote:SetText("Point order unavailable for this build.")
-            routeList:SetHeight(1);routeWindow:SetHeight(80);detail:SetHeight(490)
+            routeList:SetHeight(1);routeWindow:SetHeight(40);detail:SetHeight(-ROUTE_TOP+44)
         else
-            routeNote:SetText("Hover a square for the talent and rank. Gold marks your next point.")
+            routeNote:SetText("Hover for the talent; gold is your next point.")
             for index,step in ipairs(order) do
                 local row=routeRows[index]
                 if not row then
-                    row=CreateFrame('Frame',nil,routeList,'BackdropTemplate');row:SetSize(40,40);row:EnableMouse(true)
+                    row=CreateFrame('Frame',nil,routeList,'BackdropTemplate');row:SetSize(SQUARE,SQUARE);row:EnableMouse(true)
                     row.icon=row:CreateTexture(nil,'ARTWORK');row.icon:SetPoint('TOPLEFT',2,-2);row.icon:SetPoint('BOTTOMRIGHT',-2,2);row.icon:SetTexCoord(.08,.92,.08,.92)
-                    local badge=CreateFrame('Frame',nil,row,'BackdropTemplate');badge:SetSize(20,14);badge:SetPoint('BOTTOMRIGHT',-2,2);surface(badge,.015,.015,.02)
-                    row.levelLabel=text(badge,'',10,18);row.levelLabel:SetPoint('CENTER');row.levelLabel:SetJustifyH('CENTER');row.levelLabel:SetWordWrap(false);row.levelLabel:SetMaxLines(1)
+                    local badge=CreateFrame('Frame',nil,row,'BackdropTemplate');badge:SetSize(16,11);badge:SetPoint('BOTTOMRIGHT',-1,1);surface(badge,.015,.015,.02)
+                    row.levelLabel=text(badge,'',8,16);row.levelLabel:SetPoint('CENTER');row.levelLabel:SetJustifyH('CENTER');row.levelLabel:SetWordWrap(false);row.levelLabel:SetMaxLines(1)
                     routeRows[index]=row
                 end
-                local perRow=math.max(1,math.floor((DETAIL_W-28+10)/50))
-                row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%perRow*50,-math.floor((index-1)/perRow)*50)
+                local perRow=math.max(1,math.floor((DETAIL_W-28+PITCH-SQUARE)/PITCH))
+                row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%perRow*PITCH,-math.floor((index-1)/perRow)*PITCH)
                 row.icon:SetTexture(icon(step.spellId) or 'Interface\\Icons\\INV_Misc_QuestionMark')
                 row.levelLabel:SetText(tostring(step.level-shift))
                 local nextPoint=activeStep and activeStep.treeIndex==step.treeIndex
@@ -415,8 +416,8 @@ function FC:BuildPresetTalentPage(parent)
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end);row:Show()
             end
-            local gridHeight=math.max(1,math.ceil(#order/math.max(1,math.floor((DETAIL_W-28+10)/50)))*50-10)
-            routeList:SetHeight(gridHeight);routeWindow:SetHeight(70+gridHeight);detail:SetHeight(480+gridHeight)
+            local gridHeight=math.max(1,math.ceil(#order/math.max(1,math.floor((DETAIL_W-28+PITCH-SQUARE)/PITCH)))*PITCH-(PITCH-SQUARE))
+            routeList:SetHeight(gridHeight);routeWindow:SetHeight(40+gridHeight);detail:SetHeight(-ROUTE_TOP+44+gridHeight)
         end
         routeWindow:Show()
     end
@@ -429,7 +430,10 @@ function FC:BuildPresetTalentPage(parent)
         popup.box:ClearFocus();popup:Hide()
         local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         accent=color and {color.r,color.g,color.b} or GOLD
-        for token,b in pairs(classButtons) do local size=token==class and 24 or 18;b.classIcon:SetSize(size,size);b.classIcon:SetAlpha(token==class and 1 or .75) end
+        for token,b in pairs(classButtons) do
+            local on=token==class;local size=on and 30 or 26;b.classIcon:SetSize(size,size);b.classIcon:SetAlpha(on and 1 or .7)
+            if on then surface(b,.10,.085,.045,GOLD) elseif b.SetBackdrop then b:SetBackdrop(nil) end
+        end
         for _,card in ipairs(cards) do card:Hide() end
         choices=planner:GetVisibleSpecBuilds(class,planner.activities[activity].id,preview)
         local builds=planner:GetBuilds(class)
@@ -497,7 +501,7 @@ function FC:BuildPresetTalentPage(parent)
         list:SetHeight(math.max(1,visibleCount*40))
         local choice=choices[selectedSpec]
         selected=choice and choice.index
-        if not selected then routeWindow:Hide();detail:SetHeight(392) end
+        if not selected then routeWindow:Hide();detail:SetHeight(TREE_H+42) end
         local plan,err
         if selected then plan,err=planner:GetPlan(class,preview,selected) end
         for _,panel in ipairs(panels) do for _,node in ipairs(panel.nodes) do node:Hide() end end

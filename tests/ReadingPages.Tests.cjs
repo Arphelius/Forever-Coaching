@@ -121,11 +121,13 @@ for index=1,6 do
   assert(#squares==51,'A complete route must show one square for each of 51 points')
   local occupied={}
   for _,square in ipairs(squares)do
-   assert(square.width==40 and square.height==40 and not square.scripts.OnClick,'Progression tiles must be small non-clickable squares')
-   assert(square.anchor[2]+40<=square.parent.width,'Squares must remain inside the progression panel')
+   assert(square.width==28 and square.height==28 and not square.scripts.OnClick,'Progression tiles must be small non-clickable squares')
+   assert(square.anchor[2]+28<=square.parent.width,'Squares must remain inside the progression panel')
    assert(tonumber(square.levelLabel.text) and #square.levelLabel.text<=2,'Only the level number belongs inside each square')
    local key=square.anchor[2]..':'..square.anchor[3];assert(not occupied[key],'Progression squares must not overlap');occupied[key]=true
   end
+  local rowsUsed={};local rowCount=0;for _,square in ipairs(squares)do if not rowsUsed[square.anchor[3]] then rowsUsed[square.anchor[3]]=true;rowCount=rowCount+1 end end
+  assert(rowCount<=3,'The 51-point progression must take at most three rows so the trees get the room')
   local tooltipLines={};GameTooltip={SetOwner=function()end,SetText=function(_,value)tooltipLines[#tooltipLines+1]=value end,AddLine=function(_,value)tooltipLines[#tooltipLines+1]=value end,Show=function()end,Hide=function()end}
   squares[1].scripts.OnEnter(squares[1]);assert(table.concat(tooltipLines,' '):find('Level 10'),'Hover must show the point level and talent rank')
  else assert(menus>=2,'Every dashboard section needs class/spec selection')end
