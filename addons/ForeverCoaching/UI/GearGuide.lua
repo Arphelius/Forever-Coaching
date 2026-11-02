@@ -1,9 +1,9 @@
 local CreateFrame=ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 function FC:BuildGearGuidePage(parent)
- local document=FC.ClassicTheme:Document(parent,-136)
+ local document=FC.ClassicTheme:Document(parent,FC.ClassicTheme.METRICS.documentTop)
  local draw
- local link=CreateFrame('EditBox',nil,document.content,'InputBoxTemplate');link:SetSize(480,30);link:SetAutoFocus(false)
+ local link=CreateFrame('EditBox',nil,document.content,'InputBoxTemplate');link:SetSize(480,24);link:SetAutoFocus(false)
  link:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);link:SetScript('OnEscapePressed',function(self)self:ClearFocus()end)
  draw=function()
   document:Reset()

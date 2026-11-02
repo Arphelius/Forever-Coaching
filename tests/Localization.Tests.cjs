@@ -17,6 +17,10 @@ for _,code in ipairs({'ro','es','fr','de','pt'})do
  assert(l:Text('https://example.test/Combat Review'):find('https://example.test/Combat',1,true))
  local marked=l:Text('|cffff0000Combat Review|r');assert(marked:find('|cffff0000',1,true) and marked:find('|r',1,true))
 end
+assert(l:SetLanguage('ro'));local plain=l:Text('Use this spec')..l:Text('Low health — reduce damage and get to safety.')
+for _,bytes in ipairs({{196,131},{200,153},{200,155},{195,162},{195,174}})do assert(not plain:find(string.char(bytes[1],bytes[2]),1,true),'Romanian must be shown without letters the game font lacks')end
+assert(plain~='Use this spec','Romanian text must still be translated')
+assert(l:SetLanguage('pt'))
 assert(not l:SetLanguage('xx'));assert(l:GetLanguage()=='pt')
 assert(l:SetLanguage('en'));assert(label.text=='Combat Review','Switching back must restore original text')
 assert(l:Text('Unknown future text')=='Unknown future text','Missing strings need an English fallback')

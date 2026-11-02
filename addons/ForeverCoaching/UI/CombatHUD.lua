@@ -77,6 +77,7 @@ local function makeGlow(button)
     frame:SetSize(button:GetWidth() + 6, button:GetHeight() + 6)
     frame:SetScale(button:GetEffectiveScale() / UIParent:GetEffectiveScale())
     frame:SetPoint("CENTER", button, "CENTER")
+    frame.parts, frame.target = {}, button
     for _, scale in ipairs({ 1.65, 1.3 }) do
         local halo = frame:CreateTexture(nil, "OVERLAY")
         halo:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
@@ -84,10 +85,13 @@ local function makeGlow(button)
         halo:SetPoint("CENTER")
         halo:SetSize(frame:GetWidth() * scale, frame:GetHeight() * scale)
         halo:SetVertexColor(1, 0.68, 0.08, 1)
+        frame.parts[#frame.parts + 1] = halo
     end
     for _, edge in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
         local line = frame:CreateTexture(nil, "OVERLAY")
-        line:SetColorTexture(1, 0.82, 0.18, 1)
+        line:SetColorTexture(1, 1, 1, 1)
+        line:SetVertexColor(1, 0.82, 0.18, 1)
+        frame.parts[#frame.parts + 1] = line
         if edge == "TOP" or edge == "BOTTOM" then
             line:SetSize(frame:GetWidth(), 3)
         else
@@ -128,6 +132,78 @@ local function updateGlows(buttons)
     end
     for button in pairs(desired) do active[button] = overlays[button] end
 end
+
+-- Tank border on the action bar: yellow on the best threat spell while threat slips, red on the
+-- taunt (or the threat spell when close) after a loss. Separate from the gold rotation glow.
+local TANK_COLORS = { yellow = { 1, 0.82, 0.1 }, red = { 1, 0.15, 0.1 } }
+local tankOverlays, tankActive, tankCacheName, tankCacheButtons = {}, {}, nil, nil
+local function spellNameOf(id)
+    if C_Spell and C_Spell.GetSpellName then
+        local ok, name = pcall(C_Spell.GetSpellName, id)
+        if ok and not secret(name) and name then return name end
+    end
+    if GetSpellInfo then
+        local ok, name = pcall(GetSpellInfo, id)
+        if ok and not secret(name) then return name end
+    end
+end
+local function findButtonsByName(name)
+    if tankCacheName == name and tankCacheButtons then return tankCacheButtons end
+    local buttons = {}
+    if GetActionInfo then
+        for _, group in ipairs(GROUPS) do
+            for index = 1, 12 do
+                local button = _G[group .. index]
+                if shown(button) then
+                    local ok, slot = pcall(function() return button.action end)
+                    if ok and not secret(slot) and type(slot) == "number" then
+                        local infoOK, kind, id = pcall(GetActionInfo, slot)
+                        if infoOK and not secret(kind) and not secret(id) then
+                            if kind == "macro" and GetMacroSpell then
+                                local macroOK, _, _, spellID = pcall(GetMacroSpell, id)
+                                id = macroOK and not secret(spellID) and type(spellID) == "number" and spellID or nil
+                            elseif kind ~= "spell" then
+                                id = nil
+                            end
+                            if type(id) == "number" and spellNameOf(id) == name then buttons[#buttons + 1] = button end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    tankCacheName, tankCacheButtons = name, buttons
+    return buttons
+end
+local function updateTankGlows(action)
+    local desired = {}
+    local color = action and action.spell and TANK_COLORS[action.color]
+    if color then
+        for _, button in ipairs(findButtonsByName(action.spell)) do
+            if shown(button) then
+                desired[button] = true
+                local glow = tankOverlays[button]
+                if not glow then
+                    glow = makeGlow(button)
+                    glow:SetFrameLevel(button:GetFrameLevel() + 21)
+                    tankOverlays[button] = glow
+                end
+                for _, part in ipairs(glow.parts) do part:SetVertexColor(color[1], color[2], color[3], 1) end
+                glow:Show()
+                if not glow.pulse:IsPlaying() then glow.pulse:Play() end
+            end
+        end
+    end
+    for button, glow in pairs(tankActive) do
+        if not desired[button] then
+            glow.pulse:Stop()
+            glow:Hide()
+            tankActive[button] = nil
+        end
+    end
+    for button in pairs(desired) do tankActive[button] = tankOverlays[button] end
+end
+FC.CombatHUDTank = { update = updateTankGlows, colors = TANK_COLORS }
 
 local strip = CreateFrame("Frame", "ForeverCoachingRotationStrip", UIParent)
 strip:SetSize(48, 56)
@@ -260,6 +336,73 @@ local function clearDisplay()
     updateGlows(nil)
 end
 
+-- Tank threat bar under the icons: colour by threat state (RoleWarnings.threat), filled to the closest
+-- other player's share of the pull point, or to yours after a loss. Hidden when threat is unreadable.
+local threatBar = CreateFrame("StatusBar", "ForeverCoachingThreatBar", UIParent)
+threatBar:SetSize(180, 10)
+threatBar:SetPoint("TOP", strip, "BOTTOM", 0, -4)
+threatBar:SetFrameStrata("HIGH")
+threatBar:EnableMouse(false)
+threatBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+threatBar:SetMinMaxValues(0, 100)
+local threatBackground = threatBar:CreateTexture(nil, "BACKGROUND")
+threatBackground:SetAllPoints()
+threatBackground:SetColorTexture(0.015, 0.02, 0.03, 0.8)
+threatBar.label = threatBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+threatBar.label:SetPoint("TOP", threatBar, "BOTTOM", 0, -2)
+-- The spell to press while threat is not secure: yellow border (slipping) or red (lost).
+threatBar.press = CreateFrame("Frame", nil, threatBar, "BackdropTemplate")
+threatBar.press:SetSize(24, 24)
+threatBar.press:SetPoint("RIGHT", threatBar, "LEFT", -6, -4)
+threatBar.press:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+threatBar.press.icon = threatBar.press:CreateTexture(nil, "ARTWORK")
+threatBar.press.icon:SetPoint("TOPLEFT", 2, -2)
+threatBar.press.icon:SetPoint("BOTTOMRIGHT", -2, 2)
+threatBar.press.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+threatBar.press:Hide()
+threatBar:Hide()
+local function spellTexture(name)
+    if C_Spell and C_Spell.GetSpellTexture then
+        local ok, texture = pcall(C_Spell.GetSpellTexture, name)
+        if ok and not secret(texture) and texture then return texture end
+    end
+    if GetSpellTexture then
+        local ok, texture = pcall(GetSpellTexture, name)
+        if ok and not secret(texture) and texture then return texture end
+    end
+end
+local THREAT_COLORS = {
+    secure = { 0.2, 0.8, 0.25 }, warning = { 1, 0.82, 0 }, ["other-tank"] = { 0.3, 0.55, 1 },
+    ["lost-close"] = { 0.95, 0.2, 0.1 }, ["lost-far"] = { 0.95, 0.2, 0.1 }, lost = { 0.95, 0.2, 0.1 },
+}
+local function updateThreatBar()
+    local t = FC.RoleWarnings and FC.RoleWarnings.threat
+    local color = t and THREAT_COLORS[t.state]
+    if not color then threatBar:Hide(); return end
+    local lost = t.state ~= "secure" and t.state ~= "warning"
+    local value
+    if lost then value = t.mine else value = t.percent end
+    threatBar:SetStatusBarColor(color[1], color[2], color[3])
+    threatBar:SetValue(math.max(0, math.min(100, type(value) == "number" and value or 0)))
+    local who = t.name or "an ally"
+    local text
+    if t.state == "secure" then text = t.percent and ("Threat held — next: " .. who .. " " .. math.floor(t.percent) .. "%") or "Threat held"
+    elseif t.state == "warning" then text = who .. " " .. math.floor(t.percent) .. "% of your threat"
+    elseif t.state == "other-tank" then text = who .. " (tank) has it"
+    else text = "On " .. who .. (t.mine and (" — you " .. math.floor(t.mine) .. "%") or "") end
+    threatBar.label:SetText(text)
+    local action = FC.RoleWarnings.threatAction
+    local pressColor = action and action.spell and TANK_COLORS[action.color]
+    if pressColor then
+        threatBar.press.icon:SetTexture(spellTexture(action.spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
+        threatBar.press:SetBackdropBorderColor(pressColor[1], pressColor[2], pressColor[3], 1)
+        threatBar.press:Show()
+    else
+        threatBar.press:Hide()
+    end
+    threatBar:Show()
+end
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({
     "ACTIONBAR_SLOT_CHANGED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BONUS_ACTIONBAR",
@@ -275,6 +418,7 @@ events:SetScript("OnEvent", function(_, event, ...)
         end
     else
         cachedSpell, cachedButtons = nil, nil
+        tankCacheName, tankCacheButtons = nil, nil
         anchorElapsed, elapsed = 1, 1
     end
 end)
@@ -287,6 +431,8 @@ controller:SetScript("OnUpdate", function(_, dt)
     end
     if elapsed < 0.12 then return end
     elapsed = 0
+    if not pcall(updateThreatBar) then threatBar:Hide() end
+    pcall(updateTankGlows, FC.RoleWarnings and FC.RoleWarnings.threatAction)
     local engine=FC.LiveRotation or FC.RotationCoach
     if not engine or not engine.GetRecommendation then
         encounterText:Hide()

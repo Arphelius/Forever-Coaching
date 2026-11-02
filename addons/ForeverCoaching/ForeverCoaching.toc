@@ -9,6 +9,7 @@ Core\Localization.lua
 Core\Character.lua
 Data\LevelingBuilds.lua
 Data\Level60Builds.lua
+Data\TankThreat.lua
 Data\TalentBorderStyles.lua
 Data\ForeverLogsReview.lua
 Data\ForeverLogsStatistics.lua

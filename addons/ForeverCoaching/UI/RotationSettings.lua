@@ -3,7 +3,7 @@ local FC=ForeverCoaching
 function FC:OpenRotationSettings()
  if self.rotationSettings then self.rotationSettings:Show();self.rotationSettings.refresh();return end
  local frame=CreateFrame('Frame','ForeverCoachingRotationSettings',UIParent,'BasicFrameTemplateWithInset')
- frame:SetSize(570,470);frame:SetPoint('CENTER');frame:SetFrameStrata('DIALOG');frame.TitleText:SetText('Live rotation')
+ frame:SetSize(570,470);frame:SetPoint('CENTER');frame:SetFrameStrata('DIALOG');if frame.TitleText then frame.TitleText:SetText('Live rotation') end
  self.rotationSettings=frame
  local function label(text,y)
   local font=frame:CreateFontString(nil,'OVERLAY','GameFontHighlight');font:SetPoint('TOPLEFT',20,y);font:SetWidth(530);font:SetJustifyH('LEFT');font:SetText(text);return font

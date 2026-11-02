@@ -15,7 +15,7 @@ async function install(name,version){
   ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/CombatReviewFlow.Tests.lua'],
   ['tests/CombatReviewHarness.lua','tests/RotationCoachHarness.lua','addons/ForeverCoaching/Core/RotationCoach.lua','tests/RotationCoach.Tests.lua'],
   ['tests/CombatReviewHarness.lua','tests/CombatHUDHarness.lua','addons/ForeverCoaching/UI/CombatHUD.lua','tests/CombatHUD.Tests.lua'],
-  ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','tests/BuildPlanner.Tests.lua','addons/ForeverCoaching/UI/BuildsWindow.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/BuildsWindow.Tests.lua'],
+  ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','tests/BuildPlanner.Tests.lua','addons/ForeverCoaching/UI/BuildsWindow.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/UI/BlizzardTalentGuide.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/BuildsWindow.Tests.lua'],
  ];
  for(const files of (process.argv.includes('--combat-only')?suites.slice(0,3):suites)){
  const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);

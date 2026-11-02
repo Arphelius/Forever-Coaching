@@ -1,8 +1,8 @@
 # Addon languages
 
 English is the default, independently of the game client's locale. The addon
-offers Romanian, Spanish, French, German and Portuguese through **Language** in
-the dashboard sidebar. `/fclanguage` opens the same menu; `/fclanguage en`, `ro`,
+offers Romanian, Spanish, French, German and Portuguese through **Language** at
+the right of the dashboard's tab row. `/fclanguage` opens the same menu; `/fclanguage en`, `ro`,
 `es`, `fr`, `de` or `pt` switches directly. The choice is saved in
 `ForeverCoachingDB.settings.language` and applies without reloading.
 
