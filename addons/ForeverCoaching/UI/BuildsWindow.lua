@@ -178,65 +178,87 @@ function FC:BuildPresetTalentPage(parent)
     local refresh
     local accent=GOLD
     local cards,classButtons,panels,activityButtons={},{},{},{}
+    local Theme=FC.ClassicTheme
+    -- Layout (fits the 804px content panel): row 1 class icons, activity and VFX; then a
+    -- 168px spec column on the left and the build on the right (title, meta, status, trees).
+    local PAD,LEFT_W,GAP=14,168,18
+    local RIGHT_X=PAD+LEFT_W+GAP
+    local RIGHT_W=804-RIGHT_X-PAD
+    local TREE_W,TREE_STEP,NODE_X,NODE_Y=186,191,43,42
+    local DETAIL_W=RIGHT_W-22 -- the scroll bar sits inside the column
     local function button(owner,title,x,y,width,click)
         local b=CreateFrame("Button",nil,owner,"BackdropTemplate")
-        b:SetSize(width,28);b:SetPoint("TOPLEFT",owner,"TOPLEFT",x,y);surface(b,.07,.08,.10)
-        if FC.ClassicTheme then FC.ClassicTheme:Button(b) end
-        b.caption=text(b,title,11,width-12);b.caption:SetPoint("CENTER");b.caption:SetJustifyH("CENTER")
+        b:SetSize(width,20);b:SetPoint("TOPLEFT",owner,"TOPLEFT",x,y)
+        if Theme then Theme:Button(b) else surface(b,.07,.08,.10) end
+        b.caption=text(b,title,11,width-12);b.caption:SetPoint("CENTER");b.caption:SetJustifyH("CENTER");b.caption:SetWordWrap(false)
         b:SetScript("OnClick",click)
-        b:SetScript("OnEnter",function(self) self:SetBackdropBorderColor(unpack(accent)) end)
-        b:SetScript("OnLeave",function(self) self:SetBackdropBorderColor(.18,.20,.24) end)
         return b
     end
+    local function fit(b,minimum)
+        local width=b.caption:GetStringWidth()
+        if type(width)~="number" or width<=0 then width=#(b.caption:GetText() or "")*7 end
+        b:SetWidth(math.max(minimum or 48,math.ceil(width)+18));b.caption:SetWidth(b:GetWidth()-8)
+    end
     local vfxButton
-    local function syncVFX() vfxButton.caption:SetText(FC:IsTalentVFXEnabled() and "VFX: On" or "VFX: Off") end
-    vfxButton=button(parent,"",780,-8,116,function()
+    local function syncVFX() vfxButton.caption:SetText(FC:IsTalentVFXEnabled() and "VFX: On" or "VFX: Off");fit(vfxButton,64) end
+    vfxButton=button(parent,"",0,0,64,function()
         FC:SetTalentVFXEnabled(not FC:IsTalentVFXEnabled());syncVFX()
     end)
+    vfxButton:ClearAllPoints();vfxButton:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-4)
     vfxButton:SetScript("OnShow",syncVFX);syncVFX()
-    local recommendation=text(parent,"Choose any spec; recommendations never lock your selection.",11,740,MUTED)
-    recommendation:SetPoint("TOPLEFT",18,-14);recommendation:SetMaxLines(1)
+    -- The spec rows carry "Recommended"; this line stays hidden (kept for refresh).
+    local recommendation=text(parent,"",11,10,MUTED);recommendation:Hide()
     for index,token in ipairs(planner.classes) do
         local classToken=token
         local b=CreateFrame('Button',nil,parent)
-        b:SetSize(32,32);b:SetPoint('TOPLEFT',parent,'TOPLEFT',21+(index-1)*46,-34)
+        b:SetSize(26,26);b:SetPoint('TOPLEFT',parent,'TOPLEFT',PAD+(index-1)*28,-1)
         b:SetScript('OnClick',function()
             class=classToken;selectedSpec=nil
             if FC.GuideBrowser then FC.GuideBrowser.class=classToken;FC.GuideBrowser.buildID=nil end
             refresh()
         end)
         local image=b:CreateTexture(nil,"OVERLAY",nil,1);image:SetTexture('Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES');image:SetVertexColor(1,1,1,1)
-        image:SetPoint("CENTER");image:SetSize(24,24);image:SetTexCoord(unpack(CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]))
+        image:SetPoint("CENTER");image:SetSize(20,20);image:SetTexCoord(unpack(CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]))
         b.classIcon=image
         b:SetScript("OnEnter",function(self) GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(classToken:sub(1,1)..classToken:sub(2):lower());GameTooltip:Show() end)
         b:SetScript("OnLeave",function() GameTooltip:Hide() end)
         classButtons[token]=b
     end
-    for index,entry in ipairs(planner.activities) do
-        local activityIndex=index
-        activityButtons[index]=button(parent,entry.title,444+(index-1)*114,-36,108,function()
-            activity=activityIndex
-            if FC.GuideBrowser then FC.GuideBrowser.activity=entry.id end
-            refresh()
-        end)
+    -- Activity: joined choices, right of the class icons and left of VFX.
+    local activityLabels={};for index,entry in ipairs(planner.activities) do activityLabels[index]=entry.title end
+    local function chooseActivity(activityIndex)
+        activity=activityIndex
+        if FC.GuideBrowser then FC.GuideBrowser.activity=planner.activities[activityIndex].id end
+        refresh()
     end
-    local library=text(parent,"SPECIALIZATIONS",10,210,MUTED);library:SetPoint("TOPLEFT",18,-86)
+    local activityGroup
+    if Theme then
+        activityGroup=Theme:Segmented(parent,activityLabels,chooseActivity)
+        activityGroup:SetPoint("TOPRIGHT",vfxButton,"TOPLEFT",-10,0)
+        activityButtons=activityGroup.buttons
+    else
+        for index,label in ipairs(activityLabels) do
+            local activityIndex=index
+            activityButtons[index]=button(parent,label,300+(index-1)*82,-4,80,function() chooseActivity(activityIndex) end)
+        end
+    end
+    local library=text(parent,"SPECIALIZATIONS",10,LEFT_W,MUTED);library:SetPoint("TOPLEFT",PAD,-36)
     local scroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",18,-108);scroll:SetPoint("BOTTOMLEFT",18,70);scroll:SetWidth(200)
-    local list=CreateFrame("Frame",nil,scroll);list:SetSize(198,500);scroll:SetScrollChild(list)
-    local hero=text(parent,"",17,478);hero:SetPoint("TOPLEFT",246,-83);hero:SetMaxLines(1)
+    scroll:SetPoint("TOPLEFT",PAD,-52);scroll:SetPoint("BOTTOMLEFT",PAD,34);scroll:SetWidth(LEFT_W-20)
+    local list=CreateFrame("Frame",nil,scroll);list:SetSize(LEFT_W-22,400);scroll:SetScrollChild(list)
+    local hero=text(parent,"",14,RIGHT_W-120);hero:SetPoint("TOPLEFT",RIGHT_X,-34);hero:SetMaxLines(1);hero:SetWordWrap(false)
     local selectedBadge=CreateFrame("Frame",nil,parent,"BackdropTemplate")
-    selectedBadge:SetSize(160,24);selectedBadge:SetPoint("TOPLEFT",736,-82)
+    selectedBadge:SetSize(100,18);selectedBadge:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-33)
     surface(selectedBadge,.10,.085,.045,GOLD)
-    selectedBadge.text=text(selectedBadge,"",10,150,GOLD)
+    selectedBadge.text=text(selectedBadge,"",10,94,GOLD)
     selectedBadge.text:SetPoint("CENTER");selectedBadge.text:SetJustifyH("CENTER")
-    local meta=text(parent,"",10,650,MUTED);meta:SetPoint("TOPLEFT",246,-113)
-    local status=text(parent,"",11,650,GOLD);status:SetPoint("TOPLEFT",246,-135);status:SetHeight(30);status:SetMaxLines(2)
+    local meta=text(parent,"",10,RIGHT_W,MUTED);meta:SetPoint("TOPLEFT",RIGHT_X,-54);meta:SetMaxLines(1);meta:SetWordWrap(false)
+    local status=text(parent,"",10,RIGHT_W,MUTED);status:SetPoint("TOPLEFT",RIGHT_X,-68);status:SetHeight(14);status:SetMaxLines(1);status:SetWordWrap(false)
     local detailScroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    detailScroll:SetPoint("TOPLEFT",246,-177);detailScroll:SetPoint("BOTTOMLEFT",246,83);detailScroll:SetWidth(650)
-    local detail=CreateFrame("Frame",nil,detailScroll);detail:SetSize(650,540);detailScroll:SetScrollChild(detail)
-    local liveLevel=text(detail,"",12,640,GOLD);liveLevel:SetPoint("TOPLEFT",0,-3);liveLevel:SetMaxLines(1)
-    local liveHint=text(detail,"",11,640);liveHint:SetPoint("TOPLEFT",0,-24);liveHint:SetMaxLines(1)
+    detailScroll:SetPoint("TOPLEFT",RIGHT_X,-86);detailScroll:SetPoint("BOTTOMLEFT",RIGHT_X,34);detailScroll:SetWidth(DETAIL_W)
+    local detail=CreateFrame("Frame",nil,detailScroll);detail:SetSize(DETAIL_W,480);detailScroll:SetScrollChild(detail)
+    local liveLevel=text(detail,"",11,DETAIL_W,GOLD);liveLevel:SetPoint("TOPLEFT",0,-2);liveLevel:SetMaxLines(1)
+    local liveHint=text(detail,"",11,DETAIL_W);liveHint:SetPoint("TOPLEFT",0,-18);liveHint:SetMaxLines(1)
     local activeStep
     local focusPoint=false
     local talentLevelShift=0
@@ -316,40 +338,43 @@ function FC:BuildPresetTalentPage(parent)
     end
     for treeIndex=1,3 do
         local p=CreateFrame("Frame",nil,detail,"BackdropTemplate")
-        p:SetPoint("TOPLEFT",(treeIndex-1)*220,-54);p:SetHeight(400)
-        p:SetWidth(210);surface(p,.035,.043,.055)
+        p:SetPoint("TOPLEFT",(treeIndex-1)*TREE_STEP,-38);p:SetHeight(352)
+        p:SetWidth(TREE_W);surface(p,.035,.043,.055)
         p.emblem=p:CreateTexture(nil,"BACKGROUND")
-        p.emblem:SetPoint("CENTER",0,-12);p.emblem:SetSize(180,180)
+        p.emblem:SetPoint("CENTER",0,-12);p.emblem:SetSize(160,160)
         p.emblem:SetAlpha(.045)
         p.wash=p:CreateTexture(nil,"BACKGROUND");p.wash:SetTexture("Interface\\Buttons\\WHITE8X8")
-        p.wash:SetPoint("TOPLEFT",1,-1);p.wash:SetPoint("TOPRIGHT",-1,-1);p.wash:SetHeight(43)
-        p.title=text(p,"",12,150);p.title:SetPoint("TOPLEFT",12,-13)
-        p.total=text(p,"",12,38,GOLD);p.total:SetPoint("TOPRIGHT",-10,-13);p.total:SetJustifyH("RIGHT")
+        p.wash:SetPoint("TOPLEFT",1,-1);p.wash:SetPoint("TOPRIGHT",-1,-1);p.wash:SetHeight(34)
+        p.title=text(p,"",12,TREE_W-56);p.title:SetPoint("TOPLEFT",10,-10);p.title:SetWordWrap(false)
+        p.total=text(p,"",12,38,GOLD);p.total:SetPoint("TOPRIGHT",-8,-10);p.total:SetJustifyH("RIGHT")
         p.nodes={};panels[treeIndex]=p
     end
-    local footnote=text(parent,"",10,650,MUTED);footnote:SetPoint("BOTTOMLEFT",246,60)
+    local footnote=text(parent,"",10,RIGHT_W-230,MUTED);footnote:SetPoint("BOTTOMLEFT",RIGHT_X,13);footnote:SetMaxLines(1);footnote:SetWordWrap(false)
     local popup=CreateFrame("Frame",nil,parent,"BackdropTemplate")
-    popup:SetSize(650,94);popup:SetPoint("BOTTOMRIGHT",-18,48);popup:SetFrameLevel(parent:GetFrameLevel()+30)
+    popup:SetSize(RIGHT_W,86);popup:SetPoint("BOTTOMRIGHT",-PAD,32);popup:SetFrameLevel(parent:GetFrameLevel()+30)
     surface(popup,.045,.05,.065,{.7,.5,.2});popup:Hide()
-    popup.title=text(popup,"",12,580,GOLD);popup.title:SetPoint("TOPLEFT",14,-12)
+    popup.title=text(popup,"",12,RIGHT_W-50,GOLD);popup.title:SetPoint("TOPLEFT",12,-10)
     popup.box=CreateFrame("EditBox",nil,popup,"InputBoxTemplate")
-    popup.box:SetPoint("TOPLEFT",18,-38);popup.box:SetSize(604,24);popup.box:SetAutoFocus(false)
+    popup.box:SetPoint("TOPLEFT",16,-32);popup.box:SetSize(RIGHT_W-32,22);popup.box:SetAutoFocus(false)
     popup.box:SetScript("OnEscapePressed",function(self) self:ClearFocus();popup:Hide() end)
     popup.box:SetScript("OnEditFocusGained",function(self) self:HighlightText() end)
-    text(popup,"Ctrl+C to copy",10,280,MUTED):SetPoint("BOTTOMLEFT",14,9)
-    button(popup,"x",610,-6,28,function() popup.box:ClearFocus();popup:Hide() end)
+    text(popup,"Ctrl+C to copy",10,280,MUTED):SetPoint("BOTTOMLEFT",12,8)
+    button(popup,"x",RIGHT_W-28,-6,22,function() popup.box:ClearFocus();popup:Hide() end)
     local function copy(title,value) popup.title:SetText(title);popup.box:SetText(value or "");popup:Show();popup.box:SetFocus();popup.box:HighlightText() end
     local function current() return choices[selectedSpec] and choices[selectedSpec].build end
-    local function footer(title,x,width,click)
-        local b=button(parent,title,0,0,width,click);b:ClearAllPoints();b:SetPoint("BOTTOMLEFT",x,12)
+    local footerRight
+    local function footer(title,click)
+        local b=button(parent,title,0,0,80,click);fit(b,80);b:ClearAllPoints()
+        if footerRight then b:SetPoint("BOTTOMRIGHT",footerRight,"BOTTOMLEFT",-6,0) else b:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",-PAD,8) end
+        footerRight=b
     end
     local routeWindow=CreateFrame("Frame",nil,detail,"BackdropTemplate")
-    routeWindow:SetSize(650,100);routeWindow:SetPoint("TOPLEFT",0,-474)
+    routeWindow:SetSize(DETAIL_W,100);routeWindow:SetPoint("TOPLEFT",0,-400)
     surface(routeWindow,.035,.043,.055,GOLD)
-    local routeTitle=text(routeWindow,"",15,575,GOLD);routeTitle:SetPoint("TOPLEFT",14,-14);routeTitle:SetMaxLines(1)
-    local routeNote=text(routeWindow,"Hover a square for the talent and rank.",11,590,MUTED)
-    routeNote:SetPoint("TOPLEFT",14,-42);routeNote:SetHeight(20);routeNote:SetMaxLines(1)
-    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-70);routeList:SetSize(598,1)
+    local routeTitle=text(routeWindow,"",12,DETAIL_W-28,GOLD);routeTitle:SetPoint("TOPLEFT",14,-12);routeTitle:SetMaxLines(1)
+    local routeNote=text(routeWindow,"Hover a square for the talent and rank.",10,DETAIL_W-28,MUTED)
+    routeNote:SetPoint("TOPLEFT",14,-32);routeNote:SetHeight(16);routeNote:SetMaxLines(1)
+    local routeList=CreateFrame("Frame",nil,routeWindow);routeList:SetPoint("TOPLEFT",14,-56);routeList:SetSize(DETAIL_W-28,1)
     local routeRows={}
     local function showRoute()
         local build=current();if not build then return end
@@ -360,7 +385,7 @@ function FC:BuildPresetTalentPage(parent)
         routeTitle:SetText("LEVEL "..(10-shift).."-"..endLevel.." / TALENT PROGRESSION")
         if not order then
             routeNote:SetText("Point order unavailable for this build.")
-            routeList:SetHeight(1);routeWindow:SetHeight(110);detail:SetHeight(594)
+            routeList:SetHeight(1);routeWindow:SetHeight(80);detail:SetHeight(490)
         else
             routeNote:SetText("Hover a square for the talent and rank. Gold marks your next point.")
             for index,step in ipairs(order) do
@@ -372,7 +397,8 @@ function FC:BuildPresetTalentPage(parent)
                     row.levelLabel=text(badge,'',10,18);row.levelLabel:SetPoint('CENTER');row.levelLabel:SetJustifyH('CENTER');row.levelLabel:SetWordWrap(false);row.levelLabel:SetMaxLines(1)
                     routeRows[index]=row
                 end
-                row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%12*50,-math.floor((index-1)/12)*50)
+                local perRow=math.max(1,math.floor((DETAIL_W-28+10)/50))
+                row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%perRow*50,-math.floor((index-1)/perRow)*50)
                 row.icon:SetTexture(icon(step.spellId) or 'Interface\\Icons\\INV_Misc_QuestionMark')
                 row.levelLabel:SetText(tostring(step.level-shift))
                 local nextPoint=activeStep and activeStep.treeIndex==step.treeIndex
@@ -389,21 +415,21 @@ function FC:BuildPresetTalentPage(parent)
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end);row:Show()
             end
-            local gridHeight=math.max(1,math.ceil(#order/12)*50-10)
-            routeList:SetHeight(gridHeight);routeWindow:SetHeight(84+gridHeight);detail:SetHeight(578+gridHeight)
+            local gridHeight=math.max(1,math.ceil(#order/math.max(1,math.floor((DETAIL_W-28+10)/50)))*50-10)
+            routeList:SetHeight(gridHeight);routeWindow:SetHeight(70+gridHeight);detail:SetHeight(480+gridHeight)
         end
         routeWindow:Show()
     end
-    local levelButton=button(parent,"",0,0,198,function() previewIndex=previewIndex % #levels+1;preview=levels[previewIndex];refresh() end)
-    levelButton:ClearAllPoints();levelButton:SetPoint("BOTTOMLEFT",18,12)
-    footer("Talent code",246,122,function() local b=current();if b and (b.points or 0)>0 then local original=b.source.calculatorUrl and b.source.calculatorUrl~="";copy(original and "Original calculator / "..b.title or "Talent code / "..b.title,original and b.source.calculatorUrl or b.talentString) end end)
-    footer("Mobalytics",378,282,function() local choice=choices[selectedSpec];if choice and choice.build then copy('Mobalytics build guides',FC.BuildPlanner:GetBuildEvidenceUrl(choice.build)) end end)
+    local levelButton=button(parent,"",0,0,LEFT_W-20,function() previewIndex=previewIndex % #levels+1;preview=levels[previewIndex];refresh() end)
+    levelButton:ClearAllPoints();levelButton:SetPoint("BOTTOMLEFT",PAD,8)
+    footer("Talent code",function() local b=current();if b and (b.points or 0)>0 then local original=b.source.calculatorUrl and b.source.calculatorUrl~="";copy(original and "Original calculator / "..b.title or "Talent code / "..b.title,original and b.source.calculatorUrl or b.talentString) end end)
+    footer("Mobalytics",function() local choice=choices[selectedSpec];if choice and choice.build then copy('Mobalytics build guides',FC.BuildPlanner:GetBuildEvidenceUrl(choice.build)) end end)
     refresh=function()
         detailScroll:SetVerticalScroll(0)
         popup.box:ClearFocus();popup:Hide()
         local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         accent=color and {color.r,color.g,color.b} or GOLD
-        for token,b in pairs(classButtons) do local size=token==class and 28 or 24;b.classIcon:SetSize(size,size) end
+        for token,b in pairs(classButtons) do local size=token==class and 24 or 18;b.classIcon:SetSize(size,size);b.classIcon:SetAlpha(token==class and 1 or .75) end
         for _,card in ipairs(cards) do card:Hide() end
         choices=planner:GetVisibleSpecBuilds(class,planner.activities[activity].id,preview)
         local builds=planner:GetBuilds(class)
@@ -422,8 +448,8 @@ function FC:BuildPresetTalentPage(parent)
                 if choice.build and choice.build.id==chosenID then selectedSpec=index;break end
             end
         end
-        for index,b in ipairs(activityButtons) do
-            surface(b,index==activity and .13 or .07,.08,.10,index==activity and GOLD or {.18,.20,.24})
+        if activityGroup then activityGroup:Select(activity) else
+            for index,b in ipairs(activityButtons) do surface(b,index==activity and .13 or .07,.08,.10,index==activity and GOLD or {.18,.20,.24}) end
         end
         if previousClass~=class then scroll:SetVerticalScroll(0);previousClass=class end
         levelButton.caption:SetText("Level "..preview..(preview==level and " / You" or " / Preview"))
@@ -433,16 +459,16 @@ function FC:BuildPresetTalentPage(parent)
             visibleCount=visibleCount+1
             local card=cards[index]
             if not card then
-                card=button(list,"",0,0,196,function() end);card:SetHeight(80);card.caption:Hide()
-                card.title=text(card,"",12,174);card.title:SetPoint("TOPLEFT",10,-14);card.title:SetHeight(26);card.title:SetMaxLines(2)
-                card.detail=text(card,"",11,174,MUTED);card.detail:SetPoint("BOTTOMLEFT",10,24)
-                card.badge=text(card,"",10,174,GOLD);card.badge:SetPoint("BOTTOMLEFT",10,8)
+                card=button(list,"",0,0,LEFT_W-24,function() end);card:SetHeight(36);card.caption:Hide()
+                card.title=text(card,"",12,LEFT_W-40);card.title:SetPoint("TOPLEFT",8,-5);card.title:SetHeight(14);card.title:SetMaxLines(1);card.title:SetWordWrap(false)
+                card.detail=text(card,"",10,LEFT_W-100,MUTED);card.detail:SetPoint("TOPLEFT",8,-21);card.detail:SetWordWrap(false)
+                card.badge=text(card,"",10,70,GOLD);card.badge:SetPoint("TOPRIGHT",-6,-21);card.badge:SetJustifyH("RIGHT")
                 cards[index]=card
             end
             local build=choice.build
-            card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*86)
+            card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*40)
             card.title:SetText(choice.displayName or choice.spec)
-            card.detail:SetText(build and ("Level "..build.maxLevel.." / "..build.role) or "Source needed")
+            card.detail:SetText(build and build.role or "Source needed")
             card.badge:SetText(isRecommended(index,choice) and "Recommended" or "")
             card.badge:SetTextColor(unpack(build and GOLD or MUTED))
             local active=index==selectedSpec
@@ -468,10 +494,10 @@ function FC:BuildPresetTalentPage(parent)
             card:SetScript("OnLeave",function(self) self:SetBackdropBorderColor(unpack(buildIndex==selectedSpec and accent or {.16,.18,.22})) end)
             card:Show()
         end
-        list:SetHeight(math.max(1,visibleCount*86))
+        list:SetHeight(math.max(1,visibleCount*40))
         local choice=choices[selectedSpec]
         selected=choice and choice.index
-        if not selected then routeWindow:Hide();detail:SetHeight(400) end
+        if not selected then routeWindow:Hide();detail:SetHeight(392) end
         local plan,err
         if selected then plan,err=planner:GetPlan(class,preview,selected) end
         for _,panel in ipairs(panels) do for _,node in ipairs(panel.nodes) do node:Hide() end end
@@ -491,12 +517,12 @@ function FC:BuildPresetTalentPage(parent)
         showRoute()
         hero:SetText(build.title)
         local evidence={simulation="SIM REFERENCE",guide="GUIDE",guide_conflict="SOURCE CONFLICT",overview="OVERVIEW",theorycraft="PROPOSED BUILD",tournament="TOURNAMENT / FINALS",experimental="EXPERIMENTAL"}
-        meta:SetText("Level "..build.maxLevel.." / "..build.distribution.." / "..build.role)
+        meta:SetText("Level "..build.maxLevel.."  ·  "..build.distribution.."  ·  "..build.role)
         selectedBadge.text:SetText("Recommended")
         if isRecommended(selectedSpec,choice) then selectedBadge:Show() else selectedBadge:Hide() end
         local badgeColor=GOLD
         selectedBadge:SetBackdropBorderColor(unpack(badgeColor));selectedBadge.text:SetTextColor(unpack(badgeColor))
-        status:SetText(planner.activities[activity].title..' / '..(build.kind=='custom' and 'Custom build' or 'Published build'))
+        status:SetText(planner.activities[activity].title..'  ·  '..(build.kind=='custom' and 'Custom build' or 'Published build')..'  ·  Source: '..build.source.name)
         local ranks={};for _,talent in ipairs(plan.rows) do ranks[talent.treeIndex..":"..talent.talentIndex]=talent.rank end
         for treeIndex,tree in ipairs(build.treeLayout or (FC.TalentTrees or {})[class] or {}) do
             local panel=panels[treeIndex];panel.title:SetText(tree.name);panel.wash:SetVertexColor(accent[1],accent[2],accent[3],.12)
@@ -521,7 +547,7 @@ function FC:BuildPresetTalentPage(parent)
                     node.pointer:Hide()
                 end
                 local rank=ranks[treeIndex..":"..index] or 0;total=total+rank
-                node:ClearAllPoints();node:SetPoint("TOPLEFT",17+talent.col*47,-54-talent.row*42)
+                node:ClearAllPoints();node:SetPoint("TOPLEFT",12+talent.col*NODE_X,-44-talent.row*NODE_Y)
                 node.icon:SetTexture(icon(talent.spellId) or "Interface\\Icons\\INV_Misc_QuestionMark")
                 local highlighted=focusPoint and activeStep and activeStep.treeIndex==treeIndex and activeStep.talentIndex==index
                 local dimmed=focusPoint and not highlighted
@@ -540,7 +566,7 @@ function FC:BuildPresetTalentPage(parent)
             end
             panel.total:SetText(total)
         end
-        footnote:SetText("Source: "..build.source.name.." / Talent progression below")
+        footnote:SetText("Talent progression is below the trees")
     end
     local events=CreateFrame("Frame",nil,parent)
     for _,event in ipairs({"PLAYER_LEVEL_UP","PLAYER_TALENT_UPDATE","CHARACTER_POINTS_CHANGED","PLAYER_ENTERING_WORLD","TRAIT_CONFIG_UPDATED","SPECIALIZATION_DATA_INITIALIZED","ACTIVE_TALENT_GROUP_CHANGED","TRAIT_TREE_CURRENCY_INFO_UPDATED","TRAIT_NODE_CHANGED"}) do
@@ -562,20 +588,23 @@ function FC:BuildPresetTalentPage(parent)
 end
 function FC:BuildTalentPage(parent)
     if not FC.BuildCustomTalentPage then return self:BuildPresetTalentPage(parent) end
-    local preset=CreateFrame('Frame',nil,parent);preset:SetPoint('TOPLEFT',0,-38);preset:SetPoint('BOTTOMRIGHT')
-    local custom=CreateFrame('Frame',nil,parent);custom:SetPoint('TOPLEFT',0,-38);custom:SetPoint('BOTTOMRIGHT');custom:Hide()
+    local preset=CreateFrame('Frame',nil,parent);preset:SetPoint('TOPLEFT',0,-32);preset:SetPoint('BOTTOMRIGHT')
+    local custom=CreateFrame('Frame',nil,parent);custom:SetPoint('TOPLEFT',0,-32);custom:SetPoint('BOTTOMRIGHT');custom:Hide()
     local initialized=false
-    local function tab(title,x,click)
-        local b=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');b:SetSize(180,26);b:SetPoint('TOPLEFT',x,-5);b:SetText(title);b:SetScript('OnClick',click);return b
-    end
-    tab('Published builds',14,function()custom:Hide();preset:Show()end)
-    tab('Custom Builds',206,function()
+    local function showMode(index)
+        if index==1 then custom:Hide();preset:Show();return end
         preset:Hide();custom:Show()
         if not initialized then self:BuildCustomTalentPage(custom);initialized=true end
-    end)
+    end
+    -- Published / Custom as one joined choice at the top of the page.
+    local mode
+    if FC.ClassicTheme then
+        mode=FC.ClassicTheme:Segmented(parent,{'Published builds','Custom Builds'},showMode)
+        mode:SetPoint('TOPLEFT',parent,'TOPLEFT',14,-8)
+    end
     self:BuildPresetTalentPage(preset)
     local active=ForeverCoachingDB and ForeverCoachingDB.activeTalentBuilds and ForeverCoachingDB.activeTalentBuilds[UnitGUID('player')]
-    if type(active)=='string' and active:match('^custom%-') then
-        preset:Hide();custom:Show();self:BuildCustomTalentPage(custom);initialized=true
-    end
+    local start=type(active)=='string' and active:match('^custom%-') and 2 or 1
+    if mode then mode:Select(start) end
+    showMode(start)
 end
