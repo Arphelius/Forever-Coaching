@@ -87,9 +87,25 @@ local function quickThreatSpell()
  local ok,rec=pcall(function()return FC.LiveRotation and FC.LiveRotation.ProfileRecommendation and FC.LiveRotation:ProfileRecommendation()end)
  return ok and type(rec)=='table' and rec.spellName or nil
 end
+-- What a tank should press for a threat state: a yellow border on the best threat spell while
+-- threat slips, a red one when aggro is lost (taunt when far behind, else the threat spell).
+-- Returns nil while threat is held or unreadable.
+function W:ThreatAction(t)
+ local state=t and t.state
+ if state~='warning' and state~='lost-close' and state~='lost-far' and state~='lost' then return nil end
+ local enemy=read(UnitName,'target') or 'your target'
+ if state=='warning' then
+  local q=quickThreatSpell()
+  return {state=state,color='yellow',spell=q,message='Threat slipping'..(q and (' — '..q) or '')}
+ end
+ local spell
+ if state~='lost-close' then local _,class=read(UnitClass,'player');spell=TAUNT[class] and knownSpell(TAUNT[class]) end
+ spell=spell or quickThreatSpell()
+ return {state=state,color='red',spell=spell,message='Lost aggro on '..enemy..(spell and (' — '..spell) or '')}
+end
 function W:Sample()
  local alerts,seen={},{};local combat=read(UnitAffectingCombat,'player')==true;local role=self:Role()
- self.threat=nil
+ self.threat=nil;self.threatAction=nil
  local function add(key,kind,message,priority,blocks,shortMessage)
   if seen[key]then return end;seen[key]=true
   alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true,shortMessage=shortMessage}
@@ -104,21 +120,15 @@ function W:Sample()
   local _,status=read(UnitDetailedThreatSituation,'player','target')
   if role=='tank' then
    local t=self:TankThreat();self.threat=t
-   local enemy=read(UnitName,'target') or 'Enemy'
-   local state=t and t.state
-   if state=='warning' then
-    local q=quickThreatSpell()
-    add('threat','threat','THREAT LEAD SMALL — '..(t.name or 'an ally')..' is at '..math.floor(t.percent)..'%'..(q and ('. Use '..q..'.') or '.'),4)
-   elseif state=='lost-close' then
-    local q=quickThreatSpell()
-    add('threat','threat',enemy..' is on '..(t.name or 'an ally')..' — you are close: do not taunt, use '..(q or 'your strongest threat spell')..'.',3)
-   elseif state=='lost-far' then
-    local _,class=read(UnitClass,'player');local taunt=TAUNT[class] and knownSpell(TAUNT[class])
-    add('threat','threat',enemy..' is on '..(t.name or 'an ally')..' — '..(taunt and ('TAUNT now ('..taunt..').') or ('far behind: use '..(quickThreatSpell() or 'your strongest threat spell')..'.')),2)
-   elseif state=='lost' then
-    add('threat','threat',enemy..' is targeting '..(t.name or 'an ally')..' — regain threat if assigned to you.',3)
+   local action=self:ThreatAction(t);self.threatAction=action
+   local previous=self.lastTankState;self.lastTankState=t and t.state
+   -- Calm, short lines: what happened and what to press. Shown once per change (toast cooldown).
+   if action then
+    add('threat','threat',action.message,action.color=='red' and 2 or 4,false,action.message)
+   elseif t and t.state=='secure' and previous and previous:find('^lost') then
+    add('threat-back','threat','Aggro back',6,false,'Aggro back')
    end
-  elseif type(status)=='number' and status>=2 then add('threat','threat','HIGH THREAT — ease damage and let the tank recover; use an appropriate threat reduction if ready.',3) end
+  elseif type(status)=='number' and status>=2 then add('threat','threat','High threat — ease off so the tank keeps it; a threat drop helps if you have one.',3) end
   for _,o in ipairs(FC.EncounterCoach and FC.EncounterCoach.currentOffers or {})do
    if o.expires>=now() and o.status=='observed' then
     if o.kind=='interrupt' then add(o.key,'interrupt','INTERRUPT: '..o.reason,2)

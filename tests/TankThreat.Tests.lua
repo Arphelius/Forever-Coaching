@@ -36,19 +36,22 @@ local function threat()W:Sample();for _,a in ipairs(W.alerts)do if a.kind=='thre
 reset()
 assert(threat()==nil and W.threat.state=='secure','Holding the mob with a clear lead: no advice')
 state.threat.party1={false,2,85}
-local m=threat();assert(W.threat.state=='warning' and m:find('Mage is at 85%',1,true) and m:find('Use Shield Slam',1,true),'Warning names who is close and the quick threat spell: '..tostring(m))
+local m=threat();assert(W.threat.state=='warning' and m=='Threat slipping — Shield Slam' and W.threatAction.color=='yellow' and W.threatAction.spell=='Shield Slam','Warning: calm line and a yellow border on the quick threat spell: '..tostring(m))
 reset();state.threat.player={false,1,40};state.threat.party2={true,3,100};state.targettarget='party2'
 assert(threat()==nil and W.threat.state=='other-tank','Another tank holding it is information only (the bar shows it)')
 reset();state.threat.player={false,1,85};state.threat.party1={true,3,100}
-m=threat();assert(W.threat.state=='lost-close' and m:find('do not taunt',1,true) and m:find('Shield Slam',1,true),'Close loss: no taunt: '..tostring(m))
+m=threat();assert(W.threat.state=='lost-close' and m:find('Lost aggro on',1,true) and W.threatAction.spell=='Shield Slam' and W.threatAction.color=='red','Close loss: red border on the threat spell, no taunt: '..tostring(m))
 state.threat.player={false,1,30}
-m=threat();assert(W.threat.state=='lost-far' and m:find('TAUNT now (Taunt)',1,true),'Far loss: taunt: '..tostring(m))
+m=threat();assert(W.threat.state=='lost-far' and m:find('— Taunt',1,true) and W.threatAction.spell=='Taunt' and W.threatAction.color=='red' and not m:find('%u%u%u'),'Far loss: red border on the taunt, no capitals: '..tostring(m))
 state.class='PALADIN';state.known={}
-m=threat();assert(m:find('far behind: use Shield Slam',1,true) and not m:find('TAUNT',1,true),'No known taunt: never name one: '..tostring(m))
+m=threat();assert(m:find('Shield Slam',1,true) and not m:find('Taunt',1,true) and not m:find('Hand of Reckoning',1,true),'No known taunt: never name one: '..tostring(m))
+reset()
+local back;W:Sample();for _,a in ipairs(W.alerts)do if a.message=='Aggro back' then back=true end end
+assert(back and W.threatAction==nil,'Taking the mob back after a loss says so once, and clears the border')
 reset();state.hidden=true
 assert(threat()==nil and W.threat.state=='unknown','Hidden threat: no advice')
 reset();state.combat=false
 assert(threat()==nil and W.threat==nil,'Out of combat: nothing')
 reset();state.roles.player='DAMAGER';state.threat.player={false,3,110}
-assert(threat():find('HIGH THREAT',1,true),'Damage dealers keep the high-threat warning')
+assert(threat():find('High threat',1,true),'Damage dealers keep the high-threat warning, without capitals')
 print('PASS: tank threat states (secure, warning, other tank, close and far loss, hidden) and taunt only when far.')
