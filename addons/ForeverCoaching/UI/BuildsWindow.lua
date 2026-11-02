@@ -188,19 +188,18 @@ function FC:BuildPresetTalentPage(parent)
         b:SetScript("OnLeave",function(self) self:SetBackdropBorderColor(.18,.20,.24) end)
         return b
     end
-    text(parent,"Talent Builds",16,600,GOLD):SetPoint("TOPLEFT",18,-12)
     local vfxButton
     local function syncVFX() vfxButton.caption:SetText(FC:IsTalentVFXEnabled() and "VFX: On" or "VFX: Off") end
     vfxButton=button(parent,"",780,-8,116,function()
         FC:SetTalentVFXEnabled(not FC:IsTalentVFXEnabled());syncVFX()
     end)
     vfxButton:SetScript("OnShow",syncVFX);syncVFX()
-    local recommendation=text(parent,"Choose any spec; recommendations never lock your selection.",11,878,MUTED)
-    recommendation:SetPoint("TOPLEFT",18,-36);recommendation:SetMaxLines(1)
+    local recommendation=text(parent,"Choose any spec; recommendations never lock your selection.",11,740,MUTED)
+    recommendation:SetPoint("TOPLEFT",18,-14);recommendation:SetMaxLines(1)
     for index,token in ipairs(planner.classes) do
         local classToken=token
         local b=CreateFrame('Button',nil,parent)
-        b:SetSize(32,32);b:SetPoint('TOPLEFT',parent,'TOPLEFT',21+(index-1)*46,-58)
+        b:SetSize(32,32);b:SetPoint('TOPLEFT',parent,'TOPLEFT',21+(index-1)*46,-34)
         b:SetScript('OnClick',function()
             class=classToken;selectedSpec=nil
             if FC.GuideBrowser then FC.GuideBrowser.class=classToken;FC.GuideBrowser.buildID=nil end
@@ -215,26 +214,26 @@ function FC:BuildPresetTalentPage(parent)
     end
     for index,entry in ipairs(planner.activities) do
         local activityIndex=index
-        activityButtons[index]=button(parent,entry.title,444+(index-1)*114,-60,108,function()
+        activityButtons[index]=button(parent,entry.title,444+(index-1)*114,-36,108,function()
             activity=activityIndex
             if FC.GuideBrowser then FC.GuideBrowser.activity=entry.id end
             refresh()
         end)
     end
-    local library=text(parent,"SPECIALIZATIONS",10,210,MUTED);library:SetPoint("TOPLEFT",18,-110)
+    local library=text(parent,"SPECIALIZATIONS",10,210,MUTED);library:SetPoint("TOPLEFT",18,-86)
     local scroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",18,-132);scroll:SetPoint("BOTTOMLEFT",18,70);scroll:SetWidth(200)
+    scroll:SetPoint("TOPLEFT",18,-108);scroll:SetPoint("BOTTOMLEFT",18,70);scroll:SetWidth(200)
     local list=CreateFrame("Frame",nil,scroll);list:SetSize(198,500);scroll:SetScrollChild(list)
-    local hero=text(parent,"",17,478);hero:SetPoint("TOPLEFT",246,-107);hero:SetMaxLines(1)
+    local hero=text(parent,"",17,478);hero:SetPoint("TOPLEFT",246,-83);hero:SetMaxLines(1)
     local selectedBadge=CreateFrame("Frame",nil,parent,"BackdropTemplate")
-    selectedBadge:SetSize(160,24);selectedBadge:SetPoint("TOPLEFT",736,-106)
+    selectedBadge:SetSize(160,24);selectedBadge:SetPoint("TOPLEFT",736,-82)
     surface(selectedBadge,.10,.085,.045,GOLD)
     selectedBadge.text=text(selectedBadge,"",10,150,GOLD)
     selectedBadge.text:SetPoint("CENTER");selectedBadge.text:SetJustifyH("CENTER")
-    local meta=text(parent,"",10,650,MUTED);meta:SetPoint("TOPLEFT",246,-137)
-    local status=text(parent,"",11,650,GOLD);status:SetPoint("TOPLEFT",246,-159);status:SetHeight(30);status:SetMaxLines(2)
+    local meta=text(parent,"",10,650,MUTED);meta:SetPoint("TOPLEFT",246,-113)
+    local status=text(parent,"",11,650,GOLD);status:SetPoint("TOPLEFT",246,-135);status:SetHeight(30);status:SetMaxLines(2)
     local detailScroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
-    detailScroll:SetPoint("TOPLEFT",246,-201);detailScroll:SetPoint("BOTTOMLEFT",246,83);detailScroll:SetWidth(650)
+    detailScroll:SetPoint("TOPLEFT",246,-177);detailScroll:SetPoint("BOTTOMLEFT",246,83);detailScroll:SetWidth(650)
     local detail=CreateFrame("Frame",nil,detailScroll);detail:SetSize(650,540);detailScroll:SetScrollChild(detail)
     local liveLevel=text(detail,"",12,640,GOLD);liveLevel:SetPoint("TOPLEFT",0,-3);liveLevel:SetMaxLines(1)
     local liveHint=text(detail,"",11,640);liveHint:SetPoint("TOPLEFT",0,-24);liveHint:SetMaxLines(1)
