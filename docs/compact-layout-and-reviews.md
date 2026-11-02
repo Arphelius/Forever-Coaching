@@ -1,25 +1,32 @@
 # Compact layout and actionable reviews
 
-The dashboard follows SimGear Forever's panel layout (2026-11-02):
+The dashboard follows SimGear Forever's panel layout (2026-11-02, second pass after in-game screenshots):
 
-- **One window size**, 940 × 620, on every tab. It scales down when the screen is smaller.
-- **Slim header**, 62 pixels: an icon, the title and the character on one line, then one row
-  of tabs (Combat Review, Talent Builds, Scenarios, Learn, Gear, Resources), each as wide as
-  its label, with **Language** at the right. The sidebar, slogan and motto are gone.
-- **One toolbar row per page** under a one-line heading: class and specialization pickers
-  first, then the page's own controls (Previous / n of m / Next and the direct picker; Use this
-  spec and Show details on Combat Review). Buttons widen to their translated text; when a row
-  would run past the panel, the direct picker gives up width and cuts its label with "...".
-  A language change re-fits the tabs and rebuilds the open page.
-- **Background kept**, `Media/ClassicTheme/ClassicBackdrop.tga`. The content panel is
-  translucent (0.55) so the art shows; reading panels (0.82) and text groups keep darker
-  strips behind the text. Secondary text is a warm light grey.
-- **Talent Builds** runs at scale 1 (no 0.8 shrink) and starts with its recommendation line,
-  since the tab names the page.
+- **One window size**, 820 × 540, on every tab. It scales down when the screen is smaller.
+- **One control vocabulary** (`UI/ClassicTheme.lua`): tabs are text with a gold underline on the
+  open one; dropdowns are a dark field with the value and a small arrow; buttons are flat (20 px,
+  dark fill, bronze border, gold on hover); joined choices such as Published / Custom and
+  Dungeons / Leveling / Raids / PvP mark the selected one in gold. The red panel-button template
+  is no longer used in the dashboard.
+- **Header**, 56 px: icon, title and character on one line, then the tabs and the **Language**
+  dropdown. Its list belongs to the dashboard and opens above it; `/fclanguage` opens it too.
+  Romanian is shown without ă, â, î, ș, ț, which the game font lacks; the translation file keeps
+  the proper spelling, and the menu names it "Romana".
+- **One toolbar row per page** under a one-line heading: class and specialization dropdowns, then
+  the page's own controls (`<` n / m `>` and the direct picker on Scenarios and Learn; Use this
+  spec and Show details on Combat Review). When a row would leave the panel, the direct picker
+  narrows and cuts its label with "...".
+- **Talent Builds**: class icons, activity and VFX on one row; a 168 px column of compact spec
+  rows (name, role, Recommended); the build's title, meta and status lines; three 186 px trees
+  and the progression squares (11 per row) in one scroll area; level preview, Talent code and
+  Mobalytics in the footer. **Custom Builds** uses the same columns: a class dropdown, name,
+  role and points on one row, saved builds on the left, Delete apart from New / Reset / Save /
+  Use this build.
+- **Background kept**, `Media/ClassicTheme/ClassicBackdrop.tga`, behind translucent panels.
 
-Sizes live in `UI/ClassicTheme.lua` (`Theme.METRICS`); `Theme:FitButton` and `Theme:Toolbar`
-are shared by every page. `tests/ReadingPages.Tests.cjs` checks the window size, fitted tabs
-and that toolbar controls never overlap or leave the panel.
+`tests/ReadingPages.Tests.cjs` checks the window size, fitted tabs, non-overlapping toolbars,
+that nothing on Talent Builds runs past 804 px and that the Language list belongs to the
+dashboard; `tests/Localization.Tests.cjs` checks that Romanian has no letters the font lacks.
 
 Combat review now presents three short sections:
 

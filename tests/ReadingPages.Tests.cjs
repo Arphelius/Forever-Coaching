@@ -70,7 +70,7 @@ assert(selected and pickers[3].text:find('Second scenario'),'Scenario menu must 
 assert(ForeverCoachingDB.activeTalentBuilds.player=='keep-active','Guide browsing must never change the active talent allocation')
 print('PASS: interactive class/spec/scenario menus, direct scenario selection, refreshed content and isolated live build state.')`);
 run(`unpack=unpack or table.unpack;ForeverCoaching.IsTalentVFXEnabled=function()return false end`);
-for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+for(const file of ['Data/LocaleMessages.lua','Core/Localization.lua','Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
 for index=1,6 do
@@ -100,6 +100,14 @@ for index=1,6 do
  end end
  if index==2 then
   assert(icons==9,'Talent Builds must retain nine original Blizzard class icons')
+  -- Nothing on Talent Builds may start or end past the 804px content panel.
+  for _,frame in ipairs(TestFrames)do
+   local an=frame.anchor
+   if frame:IsShown() and an and an[1]=='TOPLEFT' and frame.width then
+    local x=type(an[2])=='number' and an[2] or (type(an[4])=='number' and an[4])
+    if x then assert(x+frame.width<=804,'Talent Builds widget runs past the panel: x '..x..' + '..frame.width) end
+   end
+  end
   local choices={};for _,frame in ipairs(TestFrames)do if frame:IsShown() and frame.title and frame.detail and frame.badge and frame.scripts.OnClick then choices[#choices+1]=frame end end
   local squares={}
   for _,choice in ipairs(choices)do
@@ -126,6 +134,11 @@ for index=1,6 do
  previousRight=previousRight+tab.width+2
 end
 assert(previousRight<=820-130,'All six tabs fit on one header row with room for Language')
+-- The Language list belongs to the dashboard (it opened behind it as a separate window).
+local languageRow
+for _,frame in ipairs(TestFrames)do if frame.text=='Romana' then languageRow=frame end end
+local inside=false;local up=languageRow and languageRow.parent;while up do if up==ForeverCoachingFrame then inside=true end;up=up.parent end
+assert(inside,'Language menu must be part of the dashboard')
 print('PASS: all six real dashboard sections expose selectors in non-overlapping toolbars, one window size, fitted tabs; talent class icons retain their original colors.')`);
 run(`local browser=ForeverCoaching.GuideBrowser;local planner=ForeverCoaching.BuildPlanner
 browser.activity='raids'
