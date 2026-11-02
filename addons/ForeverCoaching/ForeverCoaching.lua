@@ -24,10 +24,19 @@ print("Forever Coaching: Main UI loaded")
 -- Theme
 local GOLD  = { 1.00, 0.72, 0.20 }
 local TEXT  = { 0.88, 0.92, 1.00 }
-local MUTED = { 0.58, 0.68, 0.80 }
+local MUTED = FC.ClassicTheme and FC.ClassicTheme.MUTED or { 0.85, 0.83, 0.78 }
 local DARK  = { 0.045, 0.035, 0.025, 0.96 }
 local PANEL = { 0.075, 0.060, 0.040, 0.94 }
 local EDGE  = { 0.34, 0.27, 0.17 }
+
+-- Layout: SimGear-style slim header (title row, then a row of tabs sized to their text),
+-- no sidebar, one window size for every tab (UI/ClassicTheme.lua METRICS).
+local M = FC.ClassicTheme and FC.ClassicTheme.METRICS or {
+    width = 940, height = 620, gutter = 8, headerHeight = 62, tabHeight = 22, buttonHeight = 22,
+    pageTop = -10, toolbarTop = -34, documentTop = -66, pagePadding = 14, contentAlpha = .55, readingAlpha = .82,
+}
+local CONTENT_W = M.width - 2 * M.gutter
+local CARD_W = CONTENT_W - 2 * 18 - 26 -- inside a scroll frame: margins and the scroll bar
 
 local function MakeBackdrop(frame, color, edgeColor)
     if not frame.SetBackdrop then
@@ -59,6 +68,18 @@ local function AddText(parent, text, size, color)
     return fs
 end
 
+local function FitButton(button, minimum)
+    if FC.ClassicTheme then return FC.ClassicTheme:FitButton(button, minimum) end
+    return button
+end
+
+local function NewButton(parent, label, minimum)
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetHeight(M.buttonHeight)
+    button:SetText(label)
+    return FitButton(button, minimum)
+end
+
 -- Main window
 local frame = CreateFrame(
     "Frame",
@@ -67,7 +88,7 @@ local frame = CreateFrame(
     "BackdropTemplate"
 )
 
-frame:SetSize(760, 500)
+frame:SetSize(M.width, M.height)
 frame:SetPoint("CENTER")
 frame:SetFrameStrata("DIALOG")
 frame:SetMovable(true)
@@ -88,59 +109,51 @@ end
 MakeBackdrop(frame, DARK, GOLD)
 if FC.ClassicTheme then FC.ClassicTheme:Artwork(frame,.30) end
 
--- Header
+-- Header: row 1 icon, title, character and close; row 2 the tabs and Language.
 local header = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-header:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
-header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
-header:SetHeight(76)
-MakeBackdrop(header, PANEL, GOLD)
+header:SetPoint("TOPLEFT", frame, "TOPLEFT", M.gutter, -M.gutter)
+header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -M.gutter, -M.gutter)
+header:SetHeight(M.headerHeight)
+MakeBackdrop(header, { PANEL[1], PANEL[2], PANEL[3], .80 }, GOLD)
 
 local logo = header:CreateTexture(nil, "ARTWORK")
 logo:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
-logo:SetSize(48, 48)
-logo:SetPoint("LEFT", header, "LEFT", 16, 0)
+logo:SetSize(20, 20)
+logo:SetPoint("TOPLEFT", header, "TOPLEFT", 12, -7)
 
-local title = AddText(header, "FOREVER COACHING", 23, GOLD)
-title:SetPoint("TOPLEFT", logo, "TOPRIGHT", 12, -5)
+local title = AddText(header, "FOREVER COACHING", 15, GOLD)
+title:SetPoint("LEFT", logo, "RIGHT", 8, 0)
 
-local subtitle = AddText(
-    header, "YOUR PERSONAL COMBAT COACH", 10, MUTED
-)
-subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 1, -5)
-
-local characterText = AddText(header, "Loading character...", 12, TEXT)
-local compactHeader=false
-characterText:SetPoint("RIGHT", header, "RIGHT", -45, 0)
+local characterText = AddText(header, "Loading character...", 11, TEXT)
+characterText:SetPoint("LEFT", title, "RIGHT", 20, 0)
+characterText:SetPoint("RIGHT", header, "TOPRIGHT", -34, -17)
 characterText:SetJustifyH("RIGHT")
+characterText:SetWordWrap(false)
 
 local close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
-close:SetPoint("TOPRIGHT", header, "TOPRIGHT", 1, 1)
+close:SetSize(26, 26)
+close:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -2)
 close:SetScript("OnClick", function()
     frame:Hide()
 end)
 
--- Sidebar
-local sidebar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-sidebar:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
-sidebar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 8)
-sidebar:SetWidth(170)
-MakeBackdrop(sidebar, PANEL, EDGE)
+local TAB_TOP = -32
+local languageButton
 if FC.OpenLanguageSettings then
-    local languageButton=CreateFrame('Button',nil,sidebar,'UIPanelButtonTemplate')
-    languageButton:SetSize(146,26);languageButton:SetPoint('BOTTOMLEFT',sidebar,'BOTTOMLEFT',12,14)
-    languageButton:SetText('Language');languageButton:SetScript('OnClick',function()FC:OpenLanguageSettings()end)
+    languageButton = NewButton(header, "Language", 72)
+    languageButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -10, TAB_TOP)
+    languageButton:SetScript("OnClick", function() FC:OpenLanguageSettings() end)
 end
 
--- Content panel: its background stays in place when tabs change.
+-- Content panel: its background stays in place when tabs change. Translucent, so the
+-- background art shows; reading panels and text groups keep darker strips behind text.
 local content = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-content:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 8, 0)
-content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
-MakeBackdrop(content, PANEL, EDGE)
+content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -6)
+content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -M.gutter, M.gutter)
+MakeBackdrop(content, { PANEL[1], PANEL[2], PANEL[3], M.contentAlpha }, EDGE)
 if FC.ClassicTheme then FC.ClassicTheme:Artwork(content,.24) end
-local talentNav=CreateFrame("Frame",nil,content)
-talentNav:SetPoint("TOPLEFT",12,-8);talentNav:SetSize(860,28);talentNav:Hide()
 
--- Character details
+-- Character details, one line in the header.
 local function UpdateCharacterInfo()
     local name = UnitName("player") or "Unknown"
     local level = UnitLevel("player") or "?"
@@ -156,39 +169,33 @@ local function UpdateCharacterInfo()
         end
     end
 
-    local specName = "Specialization unavailable"
+    local specName
     if GetSpecialization and GetSpecializationInfo then
         local specIndex = GetSpecialization()
         if specIndex then
             local _, foundName = GetSpecializationInfo(specIndex)
-            if foundName then
-                specName = foundName
-            end
+            specName = foundName
         end
     end
 
-    if compactHeader then
-        characterText:SetText(tostring(name).." | Level "..tostring(level))
-        return
-    end
     characterText:SetText(
-        tostring(name) .. "\n" ..
-        tostring(className) .. " | Level " .. tostring(level) ..
-        "\n" .. specName
+        tostring(name) .. "  ·  Level " .. tostring(level) .. "  ·  " .. tostring(className) ..
+        (specName and ("  ·  " .. specName) or "")
     )
 end
 
 -- Page helpers
 local currentPage
 
+-- Heading and its description on one line; the description is cut with "..." when long.
 local function AddSection(parent, heading, description)
-    local headingText = AddText(parent, heading, 20, GOLD)
-    headingText:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, -24)
+    local headingText = AddText(parent, heading, 14, GOLD)
+    headingText:SetPoint("TOPLEFT", parent, "TOPLEFT", M.pagePadding, M.pageTop)
 
-    local desc = AddText(parent, description, 12, MUTED)
-    desc:SetPoint("TOPLEFT", headingText, "BOTTOMLEFT", 0, -8)
-    desc:SetPoint("RIGHT", parent, "RIGHT", -24, 0)
-    desc:SetWordWrap(true)
+    local desc = AddText(parent, description, 11, MUTED)
+    desc:SetPoint("LEFT", headingText, "RIGHT", 12, 0)
+    desc:SetPoint("RIGHT", parent, "RIGHT", -M.pagePadding, 0)
+    desc:SetWordWrap(false)
     desc:SetJustifyH("LEFT")
 
     return headingText
@@ -197,7 +204,7 @@ end
 local function AddCard(parent, heading, body, y, height)
     local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     card:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
-    card:SetSize(510, height)
+    card:SetSize(CARD_W, height)
     MakeBackdrop(card, DARK, EDGE)
 
     local cardTitle = AddText(card, heading, 13, GOLD)
@@ -218,22 +225,22 @@ end
 local function AddResourceRow(parent, heading, description, url, y)
     local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
-    row:SetSize(510, 104)
+    row:SetSize(CARD_W, 92)
     MakeBackdrop(row, DARK, EDGE)
 
     local rowTitle = AddText(row, heading, 13, GOLD)
     rowTitle:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -10)
 
-    local rowDescription = AddText(row, description, 10, TEXT)
+    local rowDescription = AddText(row, description, 11, TEXT)
     rowDescription:SetPoint("TOPLEFT", rowTitle, "BOTTOMLEFT", 0, -5)
-    rowDescription:SetWidth(475)
+    rowDescription:SetWidth(CARD_W - 28)
     rowDescription:SetJustifyH("LEFT")
     rowDescription:SetWordWrap(true)
 
     local urlBox = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    urlBox:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 14, 12)
+    urlBox:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 18, 10)
     urlBox:SetPoint("RIGHT", row, "RIGHT", -14, 0)
-    urlBox:SetHeight(24)
+    urlBox:SetHeight(22)
     urlBox:SetAutoFocus(false)
     urlBox:SetText(url)
     urlBox:SetScript("OnEditFocusGained", function(self)
@@ -310,9 +317,9 @@ local function UpdateReviewText()
                 for i,body in ipairs({reviewWidgets.observation,reviewWidgets.takeaway,reviewWidgets.nextStep}) do
                     local card=reviewWidgets.cards[i]
                     card.title:SetText(result.headings and result.headings[i] or ({"WHAT YOU DID WELL","WHAT WENT WRONG","WHAT TO IMPROVE"})[i])
-                    local height=math.max(160,body:GetStringHeight()+70)
+                    local height=math.max(110,body:GetStringHeight()+60)
                     card:ClearAllPoints();card:SetPoint("TOPLEFT",reviewWidgets.content,"TOPLEFT",18,-offset);card:SetHeight(height)
-                    offset=offset+height+12
+                    offset=offset+height+10
                 end
                 reviewWidgets.coverage:SetShown(reviewExpanded)
                 reviewWidgets.attribution:Hide()
@@ -353,29 +360,8 @@ local function ShowTab(tabName)
 
     currentTab = tabName
     reviewWidgets=nil
-    compactHeader=tabName=="Talents"
-    header:SetHeight(compactHeader and 36 or 76)
-    logo:SetSize(compactHeader and 24 or 48,compactHeader and 24 or 48)
-    title:SetFont("Fonts\\FRIZQT__.TTF",compactHeader and 15 or 23,"")
-    title:ClearAllPoints();title:SetPoint("LEFT",logo,"RIGHT",compactHeader and 8 or 12,compactHeader and 0 or 10)
-    subtitle:SetShown(not compactHeader)
-    sidebar:SetShown(not compactHeader);talentNav:SetShown(compactHeader)
-    content:ClearAllPoints()
-    if compactHeader then content:SetPoint("TOPLEFT",header,"BOTTOMLEFT",0,-6)
-    else content:SetPoint("TOPLEFT",sidebar,"TOPRIGHT",8,0) end
-    content:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-8,8)
-    for _,button in pairs(navButtons) do
-        button:ClearAllPoints()
-        button:SetParent(compactHeader and talentNav or sidebar)
-        if compactHeader then
-            button:SetPoint("TOPLEFT",talentNav,"TOPLEFT",(button.navigationIndex-1)*142,0);button:SetSize(136,26)
-        else
-            button:SetPoint("TOPLEFT",sidebar,"TOPLEFT",10,-12-(button.navigationIndex-1)*52);button:SetSize(148,42)
-        end
-    end
-    frame:SetSize(760,560)
-    frame:SetScale(math.min(1,((UIParent:GetWidth() or 800)-40)/760,((UIParent:GetHeight() or 600)-40)/560))
-    talentNav:SetScale(compactHeader and .8 or 1)
+    frame:SetSize(M.width,M.height)
+    frame:SetScale(math.min(1,((UIParent:GetWidth() or 800)-40)/M.width,((UIParent:GetHeight() or 600)-40)/M.height))
 
     if currentPage then
         currentPage:Hide()
@@ -383,27 +369,23 @@ local function ShowTab(tabName)
         currentPage = nil
     end
 
+    -- The open tab is lit, the others plain (SimGear's view tabs).
     for name, button in pairs(navButtons) do
-        if button.SetBackdropColor then
-            if name == tabName then
-                button:SetBackdropColor(0.34, 0.20, 0.08, 1)
-                button:SetBackdropBorderColor(
-                    GOLD[1], GOLD[2], GOLD[3], 1
-                )
-            else
-                button:SetBackdropColor(0.08, 0.055, 0.035, 1)
-                button:SetBackdropBorderColor(
-                    EDGE[1], EDGE[2], EDGE[3], 1
-                )
-            end
+        local label = button:GetFontString()
+        if name == tabName then
+            if button.LockHighlight then button:LockHighlight() end
+            if label then label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end
+        else
+            if button.UnlockHighlight then button:UnlockHighlight() end
+            if label then label:SetTextColor(TEXT[1], TEXT[2], TEXT[3]) end
         end
     end
 
     currentPage = CreateFrame("Frame", nil, content)
-    currentPage:SetScale(compactHeader and .8 or 1)
-    currentPage:SetPoint("TOPLEFT", content, "TOPLEFT", 0,compactHeader and -40 or 0)
+    currentPage:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     currentPage:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 0, 0)
 
+    -- Talent Builds lays out its own title row; the tab names the page.
     if tabName ~= "Talents" then AddSection(currentPage, pageData.heading, pageData.description) end
 
     for _, cardData in ipairs((tabName=="Scenarios" or tabName=="Learn") and {} or pageData.cards) do
@@ -425,52 +407,62 @@ local function ShowTab(tabName)
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
 
     if tabName == "Rotation" then
-        FC:BuildGuideSelectors(currentPage,function()
+        -- Toolbar: class, spec, Use this spec, Show details. Second row: the fight's metrics,
+        -- then reminders and the timeline on the right.
+        local _,toolbar=FC:BuildGuideSelectors(currentPage,function()
             FC.CombatReview:SetSource('local');UpdateReviewText()
         end)
-        local noticeButton = CreateFrame("Button", nil, currentPage, "UIPanelButtonTemplate")
-        noticeButton:SetSize(190, 26)
-        noticeButton:SetPoint("TOPLEFT", currentPage, "TOPLEFT", 18, -134)
-        local function UpdateNoticeButton()
-            local enabled = not FC.CombatReview or FC.CombatReview:GetReadyNoticeEnabled()
-            noticeButton:SetText("Analysis reminders: " .. (enabled and "On" or "Off"))
-        end
-        UpdateNoticeButton()
-        local detailButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate')
-        detailButton:SetSize(150,26);detailButton:SetPoint('TOPLEFT',220,-134)
-        local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details')end
-        detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
-        local specButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate')
-        specButton:SetSize(130,26);specButton:SetPoint('TOPLEFT',380,-134);specButton:SetText('Use this spec')
+        local specButton=NewButton(currentPage,'Use this spec',96)
         specButton:SetScript('OnClick',function()
             local class,build=FC.GuideBrowser:GetContext()
             local ok,message=FC.EncounterCoach:SetCombatSpecFallback(class,build)
             print('Forever Coaching: '..message)
         end)
+        local detailButton=NewButton(currentPage,'Show details',96)
+        local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details');FitButton(detailButton,96);toolbar:Layout()end
+        detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
+        toolbar:Add(specButton,8);toolbar:Add(detailButton,6)
+
+        local rowTop=M.toolbarTop-M.buttonHeight-6
+        local rightEdge=-M.pagePadding
+        if FC.OpenFightTimeline then
+            local timelineButton=NewButton(currentPage,'View fight timeline',120)
+            timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',rightEdge,rowTop)
+            timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)
+            rightEdge=rightEdge-timelineButton:GetWidth()-6
+        end
+        local noticeButton = NewButton(currentPage, "Analysis reminders: On", 140)
+        noticeButton:SetPoint("TOPRIGHT", currentPage, "TOPRIGHT", rightEdge, rowTop)
+        local function UpdateNoticeButton()
+            local enabled = not FC.CombatReview or FC.CombatReview:GetReadyNoticeEnabled()
+            noticeButton:SetText("Analysis reminders: " .. (enabled and "On" or "Off"))
+            FitButton(noticeButton, 140)
+        end
+        UpdateNoticeButton()
         noticeButton:SetScript("OnClick", function()
             if FC.CombatReview then
                 FC.CombatReview:SetReadyNoticeEnabled(not FC.CombatReview:GetReadyNoticeEnabled())
                 UpdateNoticeButton()
             end
         end)
-        if FC.OpenFightTimeline then
-            local timelineButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate');timelineButton:SetSize(160,24);timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',-20,-166);timelineButton:SetText('View fight timeline');timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)
-        end
 
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
-        reviewWidgets.metrics:SetPoint("TOPLEFT",20,-168);reviewWidgets.metrics:SetWidth(310);reviewWidgets.metrics:SetMaxLines(1)
+        reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+2,rowTop-5)
+        reviewWidgets.metrics:SetPoint("RIGHT",noticeButton,"LEFT",-10,0)
+        reviewWidgets.metrics:SetJustifyH("LEFT");reviewWidgets.metrics:SetWordWrap(false)
+        local scrollTop=rowTop-M.buttonHeight-8
         local reviewScroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
-        reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,-198);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,18)
-        local reviewContent=CreateFrame("Frame",nil,reviewScroll);reviewContent:SetSize(536,1040);reviewScroll:SetScrollChild(reviewContent)
+        reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,scrollTop);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,12)
+        local reviewContent=CreateFrame("Frame",nil,reviewScroll);reviewContent:SetSize(CARD_W+36,1040);reviewScroll:SetScrollChild(reviewContent)
         local goodCard,observation=AddCard(reviewContent,"WHAT YOU DID WELL","",0,300)
         local wrongCard,takeaway=AddCard(reviewContent,"WHAT WENT WRONG","",-312,300)
         local improveCard,nextStep=AddCard(reviewContent,"WHAT TO IMPROVE","",-624,300)
         reviewWidgets.cards={goodCard,wrongCard,improveCard};reviewWidgets.content=reviewContent
-        reviewWidgets.coverage=AddText(reviewContent,"",10,MUTED);reviewWidgets.coverage:SetPoint("TOPLEFT",20,-940);reviewWidgets.coverage:SetWidth(490)
+        reviewWidgets.coverage=AddText(reviewContent,"",10,MUTED);reviewWidgets.coverage:SetPoint("TOPLEFT",20,-940);reviewWidgets.coverage:SetWidth(CARD_W-20)
         reviewWidgets.attribution=AddText(reviewContent,"Forever Logs: https://foreverlogs.gg/  |  Imported reports are snapshots, not live fights.",10,MUTED)
-        reviewWidgets.attribution:SetPoint("TOPLEFT",20,-996);reviewWidgets.attribution:SetWidth(490)
+        reviewWidgets.attribution:SetPoint("TOPLEFT",20,-996);reviewWidgets.attribution:SetWidth(CARD_W-20)
         reviewWidgets.observation=observation;reviewWidgets.takeaway=takeaway;reviewWidgets.nextStep=nextStep
         UpdateReviewText()
         if frame:IsShown() and FC.CombatReview then FC.CombatReview:MarkLatestViewed() end
@@ -478,8 +470,8 @@ local function ShowTab(tabName)
 
     if tabName == "Resources" then
         local scroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT",0,-136);scroll:SetPoint("BOTTOMRIGHT",-26,18)
-        local links=CreateFrame("Frame",nil,scroll);links:SetSize(536,600);scroll:SetScrollChild(links)
+        scroll:SetPoint("TOPLEFT",0,M.documentTop);scroll:SetPoint("BOTTOMRIGHT",-26,12)
+        local links=CreateFrame("Frame",nil,scroll);links:SetSize(CARD_W+36,600);scroll:SetScrollChild(links)
         local guideRow=AddResourceRow(links,'Build guide','','',0)
         local function updateGuideSource()
             local class,build=FC.GuideBrowser:GetContext()
@@ -494,14 +486,14 @@ local function ShowTab(tabName)
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},
         }
-        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-index*116) end
+        for index,resource in ipairs(resources) do AddResourceRow(links,resource[1],resource[2],resource[3],-index*102) end
     end
 
     UpdateCharacterInfo()
 
 end
 
--- Navigation
+-- Navigation: one row of tabs under the title, each as wide as its label.
 local tabs = {
     { name = "Rotation", label = "Combat Review" },
     { name = "Talents", label = "Talent Builds" },
@@ -511,21 +503,23 @@ local tabs = {
     { name = "Resources", label = "Resources" },
 }
 
+local function LayoutTabs()
+    local previous
+    for _, tab in ipairs(tabs) do
+        local button = navButtons[tab.name]
+        FitButton(button, 64)
+        button:ClearAllPoints()
+        if previous then button:SetPoint("LEFT", previous, "RIGHT", 4, 0)
+        else button:SetPoint("TOPLEFT", header, "TOPLEFT", 10, TAB_TOP) end
+        previous = button
+    end
+    if languageButton then FitButton(languageButton, 72) end
+end
+
 for i, tab in ipairs(tabs) do
-    local button = CreateFrame(
-        "Button", nil, sidebar, "BackdropTemplate"
-    )
-
-    button:SetPoint(
-        "TOPLEFT", sidebar, "TOPLEFT", 10, -12 - ((i - 1) * 52)
-    )
-    button:SetSize(148, 42)
-    MakeBackdrop(button, DARK, EDGE)
-    if FC.ClassicTheme then FC.ClassicTheme:Button(button) end
-
-    local label = AddText(button, tab.label, 13, TEXT)
-    label:SetPoint("LEFT", button, "LEFT", 12, 0)
-
+    local button = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    button:SetHeight(M.tabHeight)
+    button:SetText(tab.label)
     button:SetScript("OnClick", function()
         ShowTab(tab.name)
     end)
@@ -533,16 +527,14 @@ for i, tab in ipairs(tabs) do
     navButtons[tab.name] = button
     button.navigationIndex=i
 end
+LayoutTabs()
 
-local motto = AddText(
-    sidebar,
-    "Better decisions.\nStronger performance.",
-    11,
-    MUTED
-)
-motto:SetPoint("BOTTOMLEFT", sidebar, "BOTTOMLEFT", 12, 24)
-motto:SetWidth(145)
-motto:SetJustifyH("CENTER")
+-- A language change re-translates labels; re-fit the tabs and rebuild the open page.
+FC.languageListeners = FC.languageListeners or {}
+table.insert(FC.languageListeners, function()
+    LayoutTabs()
+    if frame:IsShown() then ShowTab(currentTab) end
+end)
 
 -- Window controls
 function FC:ToggleWindow()
