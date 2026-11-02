@@ -48,3 +48,18 @@ real combat data. Other feature pages remain explicit placeholders.
 
 In-game anchoring and font rendering are checked by eye in the client; the tests use mocked
 frames and estimate text widths.
+
+## Third pass (2026-11-02)
+- Tab order: Talent Builds, Learn, Combat Review, Scenarios, Gear, Resources. The dashboard opens on Talent
+  Builds; a finished fight still opens Combat Review.
+- Class dropdowns show each class's icon and name in class colours (as SimGear's class menu); the field shows the
+  chosen class's icon. Helper: `Theme:SetClassIcon(texture, token)`.
+- Talent Builds: 34px class icons with a gold ring on the selected one; the 10-60 progression uses 28px squares
+  on three rows; the trees are 392px tall.
+
+## Tank guide
+- `RoleWarnings:ThreatAction(t)` turns a tank threat state into a calm line and the spell to press:
+  slipping → yellow, the best threat spell; lost close → red, the threat spell; lost far → red, the taunt if known.
+- The HUD draws that colour as a border on the matching action button (`FC.CombatHUDTank.update`) and shows the
+  spell beside the threat bar. "Aggro back" appears once after a loss.
+- Nameplate overlay: waiting for in-game `/dump` checks of `C_NamePlate` and threat in combat.
