@@ -1,24 +1,25 @@
+local CreateFrame=ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 function FC:BuildGearGuidePage(parent)
- local scroll=CreateFrame('ScrollFrame',nil,parent,'UIPanelScrollFrameTemplate');scroll:SetPoint('TOPLEFT',18,-96);scroll:SetPoint('BOTTOMRIGHT',-28,18)
- local content=CreateFrame('Frame',nil,scroll);content:SetSize(490,900);scroll:SetScrollChild(content)
- local offset=0
- local function line(text,title)
-  local label=content:CreateFontString(nil,'OVERLAY',title and 'GameFontNormal' or 'GameFontHighlightSmall');label:SetPoint('TOPLEFT',0,-offset);label:SetWidth(480);label:SetJustifyH('LEFT');label:SetText(text);offset=offset+math.max(20,label:GetStringHeight())+12
+ local document=FC.ClassicTheme:Document(parent,-136)
+ local draw
+ local link=CreateFrame('EditBox',nil,document.content,'InputBoxTemplate');link:SetSize(480,30);link:SetAutoFocus(false)
+ link:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);link:SetScript('OnEscapePressed',function(self)self:ClearFocus()end)
+ draw=function()
+  document:Reset()
+  local class,build=FC.GuideBrowser:GetContext()
+  local guide=FC.GearGuide:ForBuild(class,build,UnitLevel and UnitLevel('player'))
+  if not guide.available then document:Line(guide.notice or 'Choose a build.') else
+   document:Line((guide.spec or guide.title or class)..(guide.role and ' / '..guide.role or ''),true)
+   for _,stat in ipairs(guide.stats or {}) do document:Group(stat.name,stat.why) end
+  end
+  document:Group('Compare upgrades with SimGearForever',guide.companion)
+  local steps={};for i,text in ipairs(guide.steps or {}) do steps[#steps+1]=i..'. '..text end
+  if #steps>0 then document:Group('How to use SimGearForever',table.concat(steps,'\n\n')) end
+  link:SetText(guide.url);document:AddWidget(link,32)
+  document:Line('Select the link and press Ctrl+C to copy it.')
+  document:Finish()
  end
- local context=FC.EncounterCoach:GetBuildContext();local selected
- if context.class and context.id then for _,build in ipairs(FC.BuildPlanner:GetBuilds(context.class)) do if build.id==context.id then selected=build;break end end end
- local guide=FC.GearGuide:ForBuild(context.class,selected,UnitLevel and UnitLevel('player'))
- line(guide.title or 'Gear for your selected build',true);line(guide.importance)
- if not guide.available then line(guide.notice) else
-  line(guide.plan)
-  line('Stats to look for',true)
-  for _,stat in ipairs(guide.stats) do line(stat.name,true);line(stat.why) end
-  if #guide.talentNotes>0 then line('Interactions in this allocation',true);for _,talent in ipairs(guide.talentNotes) do line(talent.name..': '..talent.effect) end end
- end
- line('Compare upgrades with SimGearForever',true);line(guide.companion)
- for i,text in ipairs(guide.steps) do line(i..'. '..text) end
- local link=CreateFrame('EditBox',nil,content,'InputBoxTemplate');link:SetPoint('TOPLEFT',0,-offset);link:SetSize(480,30);link:SetAutoFocus(false);link:SetText(guide.url);link:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);link:SetScript('OnEscapePressed',function(self)self:ClearFocus()end);offset=offset+44
- line('Select the link and press Ctrl+C to copy it.');line(guide.limits)
- content:SetHeight(math.max(900,offset+20))
+ self:BuildGuideSelectors(parent,function()draw()end)
+ draw()
 end

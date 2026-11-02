@@ -4,6 +4,8 @@
 ## Author: Forever Coaching
 ## SavedVariables: ForeverCoachingDB
 
+Data\LocaleMessages.lua
+Core\Localization.lua
 Core\Character.lua
 Data\LevelingBuilds.lua
 Data\Level60Builds.lua
@@ -12,12 +14,15 @@ Data\TalentBorderStyles.lua
 Data\ForeverLogsReview.lua
 Data\ForeverLogsStatistics.lua
 Core\BuildPlanner.lua
+Core\CustomBuilds.lua
 Data\AbilityLessons.lua
+Data\ForeverSpellCatalog.lua
 Data\TalentLessonEffects.lua
 Core\TalentLessons.lua
 Data\SpecScenarios.lua
 Data\ScenarioActions.lua
 Data\CombatSituations.lua
+Data\ForeverSpellGuidance.lua
 Data\EncounterWarnings.lua
 Core\SpecScenarios.lua
 Core\GearGuide.lua
@@ -26,9 +31,12 @@ Core\EncounterCoach.lua
 Core\RotationCoach.lua
 Core\LiveRotation.lua
 Core\RoleWarnings.lua
+Core\ScenarioTracker.lua
 Core\CombatReview.lua
 UI\ClassicTheme.lua
 UI\BuildsWindow.lua
+UI\CustomBuilds.lua
+UI\GuideSelectors.lua
 UI\EncounterLearning.lua
 UI\GearGuide.lua
 UI\FightTimeline.lua

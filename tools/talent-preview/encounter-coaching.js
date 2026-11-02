@@ -22,7 +22,6 @@
   const again=()=>api.render(panel,state,page,el);
   if(page==='scenarios'){
    if(!state.specScenarios?.available){panel.append(el('p',state.specScenarios?.notice||'Select a build to preview its specialization-specific scenarios.'));return;}
-   panel.append(el('h3',state.specScenarios.spec),el('p',state.specScenarios.contribution),el('p',state.specScenarios.basis));
   }
   if(page==='learn'){
    const tabs=el('div',undefined,'slide-nav');
@@ -41,27 +40,31 @@
   controls.append(previous,el('span',`${index+1} / ${items.length}`),next,picker);panel.append(controls);
   const item=items[index],card=el('section',undefined,'review-card');card.append(el('h3',item.title||item.name));
   if(mode==='scenarios'){
-   card.append(el('h4','Switch to this when'),el('p',item.trigger),el('h4','Before the situation'),el('p',item.prepare),el('h4','Action order'),el('p','Skip spells that are on cooldown, unaffordable or out of range. Use the first matching action, then check from the top again.'));
+   card.append(el('h4','When'),el('p',item.trigger),el('h4','Before'),el('p',item.prepare));
    for(const [index,step] of (item.steps||[]).entries()){
     const action=el('section',undefined,'scenario-action');action.append(el('h4',`${index+1}. ${step.action}`),el('p','When: '+step.when),el('p','Why: '+step.why));card.append(action);
    }
    if(!item.steps?.length)card.append(el('p',item.react));
-   card.append(el('p','Avoid: '+item.avoid,'scenario-avoid'));
+   card.append(el('h4','Avoid','scenario-avoid'),el('p',item.avoid));
    if(item.unavailable?.length){const omitted=el('details');omitted.append(el('summary','Abilities not included in this checklist'),el('p',item.unavailable.join(', ')));card.append(omitted);}
    const evidence=el('details');evidence.append(el('summary','Talents in this allocation and guidance basis'),el('p',state.specScenarios.confidence));
    if(item.brings)evidence.append(el('p','Group tools: '+item.brings));
    for(const talent of state.specScenarios.talentEffects||[])evidence.append(el('p',`${talent.name} ${talent.rank}: ${talent.effect}`));card.append(evidence);
-  }else if(mode==='abilities')card.append(el('p','When: '+item.when),el('p','How: '+item.how),el('p','Why: '+item.why));
+  }else if(mode==='abilities'){
+   card.append(el('h4','What it does'),el('p',item.description||'Effect unavailable for this ability.'),el('h4','Why it is used'),el('p',item.why),el('h4','When to use it'),el('p',item.when));
+  }
   else {
    const lesson=(state.talentLessons||[]).find(lesson=>lesson.name===item.name);
-   card.append(el('p',`Rank ${item.rank}/${item.maxRank||item.rank}`));
+   card.append(el('p',`Rank ${item.rank}`));
    if(lesson){
-    card.append(el('h4','What it does'),el('p',lesson.effect),el('h4','Why it matters in this build'),el('p',lesson.why),el('h4','How to use it well'),el('p',lesson.optimal));
+    card.append(el('h4','What it does'),el('p',lesson.effect),el('h4','Why it is used'),el('p',lesson.why),el('h4','Good for this build'),el('p',lesson.buildBenefit||lesson.why));
     const evidence=el('details');evidence.append(el('summary','Talent evidence and confidence'),el('p',lesson.provenance),el('p',lesson.guidanceBasis));
     for(const [url,label] of [[lesson.sourceUrl,'Pinned talent effect source'],[lesson.auditUrl,'Source audit corrections'],[lesson.confirmationUrl,'Beta rank confirmation']]){if(url){const a=el('a',label);a.href=url;a.target='_blank';a.rel='noreferrer';evidence.append(a);}}card.append(evidence);
    }else card.append(el('p','Talent effect data is unavailable for this selection. Check the current client tooltip.'));
   }
   panel.append(card);
+  const sourceUrl=mode==='scenarios'?state.specScenarios.sourceUrl:mode==='abilities'?item.sourceUrl:null;
+  if(sourceUrl){const sources=el('details');sources.append(el('summary','Source'));const source=el('a','ForeverChanges');source.href=sourceUrl;source.target='_blank';source.rel='noopener noreferrer';sources.append(source);panel.append(sources);}
   const reference=el('details');reference.append(el('summary','Build reference and preview limits'),el('p','The browser uses the selected plan and class catalog; the game filters lessons against actual learned abilities.'));
   if(build.note)reference.append(el('p',build.note));
   const guideUrl=state.buildEvidenceUrl||(/^https:\/\/(www\.)?mobalytics\.gg\//.test(build.source?.url||'')?build.source.url:'https://mobalytics.gg/wow-forever');

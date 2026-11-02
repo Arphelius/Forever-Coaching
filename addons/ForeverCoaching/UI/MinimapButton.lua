@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 print("Forever Coaching: Minimap file started")
 ForeverCoaching = ForeverCoaching or {}
 

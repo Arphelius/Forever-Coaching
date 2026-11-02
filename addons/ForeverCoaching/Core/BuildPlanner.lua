@@ -10,6 +10,7 @@ function Planner:GetBuildEvidenceUrl(build)
 end
 
 function Planner:GetBuildDisplayName(classToken,build)
+    if build.kind=='custom' then return build.title end
     local name=(build.referenceTitle or build.title or ''):match('^([^:]+)') or ''
     if name:find('/ Finals',1,true) then
         local points={0,0,0};for _,talent in ipairs(build.talents or {})do if points[talent.treeIndex] then points[talent.treeIndex]=points[talent.treeIndex]+(talent.rank or 0) end end
@@ -437,6 +438,11 @@ end
 -- A final allocation does not contain the author's leveling order. Offer a
 -- separately labelled planning order without adding or replacing its points.
 function Planner:GetTalentProgression(classToken, build)
+    if build.kind=='custom' and FC.CustomBuilds then
+        local valid,err=FC.CustomBuilds:Validate(FC.CustomBuilds:Draft(build))
+        if not valid then return nil,err end
+        return valid.order,'custom'
+    end
     if build.levelingOrder then return build.levelingOrder,"published" end
     local layout=build.treeLayout or (FC.TalentTrees or {})[classToken]
     if not layout then return nil,"Talent layout unavailable." end
@@ -481,6 +487,11 @@ function Planner:GetBuilds(classToken)
         if name:upper() == tostring(classToken):upper() then
             local builds=definition.variants or {definition}
             for _,build in ipairs(builds)do build.referenceTitle=build.referenceTitle or build.title;build.title=self:GetBuildDisplayName(name:upper(),build) end
+            if FC.CustomBuilds then
+                local combined={};for _,build in ipairs(builds)do combined[#combined+1]=build end
+                for _,build in ipairs(FC.CustomBuilds:List(name:upper()))do combined[#combined+1]=build end
+                return combined
+            end
             return builds
         end
     end
@@ -523,6 +534,11 @@ function Planner:GetPlan(classToken, level, variantIndex)
     local builds = self:GetBuilds(classToken)
     local build = builds[variantIndex or 1]
     if not build then return nil, "No MythicSim preset is available for this class yet." end
+    if build.kind=='custom' and FC.CustomBuilds then
+        local valid,err=FC.CustomBuilds:Validate(FC.CustomBuilds:Draft(build))
+        if not valid then return nil,err end
+        return {build=build,custom=true,reference=true,level=level,maxLevel=60,rows=build.talents,points=valid.points}
+    end
     if build.kind == "reference" then
         local rows, points, treeTotals = {}, 0, {0,0,0}
         local codes = {}

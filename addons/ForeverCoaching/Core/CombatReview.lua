@@ -144,6 +144,7 @@ function Review:MarkLatestViewed()
     if self:GetSource()=="foreverlogs" then return end
     ensureSavedData()
     ForeverCoachingDB.combatAnalysisReady = false
+    if FC.HideCombatAnalysisNotice then FC:HideCombatAnalysisNotice() end
 end
 
 local function beginCombat()
@@ -170,6 +171,19 @@ local function beginCombat()
         damage = {},
         totalDamage = 0,
     }
+    if UnitClass then
+        local ok,_,class=pcall(UnitClass,'player')
+        if ok and not isSecret(class) then session.class=class end
+    end
+    if FC.EncounterCoach and FC.SpecScenarios then
+        local ok,context=pcall(FC.EncounterCoach.GetCombatContext or FC.EncounterCoach.GetBuildContext,FC.EncounterCoach)
+        if ok and context then
+            session.combatContext=context
+            session.specTree=context.tree;session.specRole=context.role
+            local readable,spec=pcall(FC.SpecScenarios.ForCurrent,FC.SpecScenarios,context,true)
+            if readable and spec and spec.available then session.specTree=spec.treeIndex;session.specRole=spec.role end
+        end
+    end
     -- Keep the opener's explanation when the first cast starts the fight.
     local targetGUID = visibleUnitGUID("target")
     if opener and opener.spellID and targetGUID and opener.targetGUID == targetGUID
@@ -392,10 +406,15 @@ local function buildReport(reviewSession)
     return {
         text = compactReviewText(session),
         encounterCoaching = session.encounterCoaching,
+        scenarioCoaching = session.scenarioCoaching,
         fightTimelineId = session.fightTimelineId,
         failedAttempts = session.failedAttempts,
         timestamp = time and time() or 0,
         character = session.character,
+        class = session.class,
+        specTree = session.specTree,
+        specRole = session.specRole,
+        combatContext = session.combatContext,
         playerLevel = session.playerLevel,
         duration = duration,
         casts = session.casts,
@@ -419,7 +438,26 @@ function Review:GetLatestText()
     return "No combat review for this character yet. Finish a fight with a hostile target to record one."
 end
 
-function Review:GetLatestSummary()
+function Review:MatchesFilter(report,filter)
+    if not filter then return true end
+    local context=report.encounterCoaching and report.encounterCoaching.build or {}
+    local class=report.class or context.class
+    if class~=filter.class then return false end
+    local tree=report.specTree
+    if not tree then
+        local ranks={};for _,talent in pairs(context.activeTalents or report.activeTalents or {}) do if talent.name then ranks[talent.name]=talent.rank or 0 end end
+        local totals={0,0,0}
+        for ti,layout in ipairs(FC.TalentTrees and FC.TalentTrees[class] or {}) do for _,talent in ipairs(layout.nodes or {}) do totals[ti]=totals[ti]+(ranks[talent.name] or 0) end end
+        local highest,tied=0,false
+        for ti,value in ipairs(totals) do if value>highest then highest=value;tree=ti;tied=false elseif value==highest and value>0 then tied=true end end
+        if tied then tree=nil end
+    end
+    if filter.tree and tree~=filter.tree then return false end
+    if filter.role and report.specRole and report.specRole~=filter.role then return false end
+    if class=='DRUID' and tree==2 and filter.role and not report.specRole then return false end
+    return true
+end
+function Review:GetLatestSummary(filter)
     ensureSavedData()
     if self:GetSource()=="foreverlogs" then
         local statistics=FC.ForeverLogsStatistics
@@ -468,12 +506,13 @@ function Review:GetLatestSummary()
     end
     local character=characterKey()
     local latest
-    if character then
+    if character or filter then
         for _,report in ipairs(ForeverCoachingDB.reviews) do
-            if report.character==character then latest=report;break end
+            if (filter or report.character==character) and self:MatchesFilter(report,filter) then latest=report;break end
         end
     end
     if not latest then
+        if filter then return {metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='No matching fight to assess.',improveText='Record a fight on this class and specialization.'} end
         return {metrics="Local observations / No fight recorded yet",goodText="Finish a fight to see what you did well, supported by recorded actions.",wrongText="No mistakes can be assessed before a fight is recorded.",improveText="Select an enemy and finish a fight. You can also import a Forever Logs encounter.",observation="Finish a fight to see a review for this character.",
             takeaway="Recorded decisions will appear here after combat.",nextStep="Select a hostile target so the coach can record its recommendations."}
     end
@@ -482,13 +521,19 @@ function Review:GetLatestSummary()
         local good,investigate,improve=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
         local recorded=timeline and FC.FightRecorder:Analyze(timeline)
+        local scenarios=latest.scenarioCoaching or timeline and timeline.scenarios
+        if scenarios and FC.ScenarioTracker then
+            local identity=latest.combatContext or latest.encounterCoaching.build or {class=latest.class,role=latest.specRole}
+            local sg,sw,sn=FC.ScenarioTracker:Summarize(scenarios,identity)
+            if sg~='' then good=sg..'\n\n'..good;investigate=sw..'\n\n'..investigate;improve=sn..'\n\n'..improve end
+        end
         if recorded then good=recorded.good..(good~='' and '\n\n'..good or '');investigate=recorded.investigate..(investigate~='' and '\n\n'..investigate or '') end
         local build=latest.encounterCoaching.build or {}
         return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
             wrongText=investigate~="" and investigate or "No unconfirmed situational response in the observed windows. This does not establish a flawless fight.",
             improveText=improve~="" and improve or "Practice the next assigned mechanic with this build. Review the exact target and timing of each response.",
-            coverage=recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available."}
+            coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
     end
     local casts=tonumber(latest.casts) or 0
     local observation=casts.." successful casts; "..#failures.." failed or interrupted attempts recorded."
@@ -638,7 +683,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 
         local function saveFinishedReview()
             local timeline=FC.FightRecorder and FC.FightRecorder.last
-            if timeline and math.abs(timeline.started-finishedSession.started)<=1 then finishedSession.fightTimelineId=timeline.id end
+            if timeline and math.abs(timeline.started-finishedSession.started)<=1 then finishedSession.fightTimelineId=timeline.id;finishedSession.scenarioCoaching=timeline.scenarios end
             if FC.EncounterCoach and FC.EncounterCoach.last and FC.EncounterCoach.last.started >= finishedSession.started-1 then
                 finishedSession.encounterCoaching=FC.EncounterCoach.last
             end
@@ -658,7 +703,7 @@ events:SetScript("OnEvent", function(_, event, ...)
                 ForeverCoachingDB.combatAnalysisReady = true
                 if FC.RefreshCombatReview then FC:RefreshCombatReview() end
                 if Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
-                    FC:NotifyCombatAnalysisReady()
+                    FC:NotifyCombatAnalysisReady(report)
                 end
             end
         end

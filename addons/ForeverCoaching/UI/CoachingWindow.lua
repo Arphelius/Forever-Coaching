@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local frame = CreateFrame("Frame", "ForeverCoachingFrame", UIParent, "BasicFrameTemplateWithInset")
 frame:SetSize(460, 230)
 frame:SetPoint("CENTER")

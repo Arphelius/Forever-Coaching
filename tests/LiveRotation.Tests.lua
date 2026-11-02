@@ -31,8 +31,8 @@ state.moving=7;assert(not live:GetRecommendation().spellID,'Do not recommend a h
 state.cooldown=id('Frostbolt');assert(not live:GetRecommendation().spellID,'Cooldown excluded');state.cooldown=nil
 state.hiddenCosts=true;assert(#live:GetRecommendation().queue==1,'Unknown cost cannot produce a fabricated follow-up');state.hiddenCosts=nil
 state.class='WARLOCK';state.tree=3
-rec=live:GetRecommendation();assert(rec.spellName=='Immolate');assert(rec.queue[2].name=='Chaos Bolt');assert(rec.queue[3].name=='Conflagrate','Forecast respects applied setup')
-state.auras={'Immolate'};assert(live:GetRecommendation().spellName=='Chaos Bolt','Current owned DoT is not reapplied')
+rec=live:GetRecommendation();assert(rec.spellName=='Immolate');assert(rec.queue[2].name=='Conflagrate','Forecast respects applied setup')
+state.auras={'Immolate'};assert(live:GetRecommendation().spellName=='Conflagrate','Current owned DoT is not reapplied')
 state.hiddenAuras=true;rec=live:GetRecommendation();for _,a in ipairs(rec.queue)do assert(a.name~='Immolate' and a.name~='Conflagrate','Hidden aura state is not absence')end
 state.hiddenAuras=nil;state.auras={}
 state.class='ROGUE';state.tree=2;state.combo=0

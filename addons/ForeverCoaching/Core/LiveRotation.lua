@@ -25,20 +25,20 @@ function Live:GetItemScope()return itemScope()end
 local function spell(name,options)local r=options or {};r.name=name;return r end
 local function dot(name)return spell(name,{dot=true})end
 local P={
- MAGE={{{spell('Arcane Blast'),spell('Arcane Missiles')},{spell('Arcane Explosion',{area=true,self=true})}},
- {{dot('Living Bomb'),spell('Fireball')},{spell('Flamestrike',{area=true,ground=true}),spell('Arcane Explosion',{area=true,self=true})}},
- {{spell('Frostbolt')},{spell('Blizzard',{area=true,ground=true})}}},
- PRIEST={{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Vampiric Touch'),dot('Shadow Word: Pain'),spell('Mind Blast'),spell('Mind Flay')},{spell('Mind Sear',{area=true})}}},
- WARLOCK={{{dot('Haunt'),dot('Corruption'),dot('Curse of Agony'),spell('Drain Soul',{execute=20}),spell('Shadow Bolt')},{spell('Seed of Corruption',{area=true,dot=true})}},
- {{dot('Corruption'),dot('Immolate'),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
- {{dot('Immolate'),spell('Chaos Bolt'),spell('Conflagrate',{requires='Immolate'}),spell('Incinerate',{requires='Immolate'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}}},
- HUNTER={{{spell('Kill Command'),spell('Arcane Shot'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}},
- {{spell('Chimera Shot',{requires='Serpent Sting'}),dot('Serpent Sting'),spell('Aimed Shot'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}},
- {{spell('Explosive Shot'),dot('Serpent Sting'),spell('Steady Shot')},{spell('Multi-Shot',{area=true})}}},
- ROGUE={{{spell('Envenom',{combo=4,requires='Deadly Poison'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}},
- {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}},
- {{spell('Eviscerate',{combo=4}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{spell('Fan of Knives',{area=true,self=true})}}},
- WARRIOR={{{spell('Execute',{execute=20}),spell('Mortal Strike'),spell('Overpower'),spell('Slam')},{spell('Thunder Clap',{area=true,self=true})}},
+ MAGE={{{spell('Arcane Missiles',{buff='Missile Barrage'}),spell('Arcane Wrath'),spell('Arcane Blast')},{spell('Arcane Explosion',{area=true,self=true})}},
+ {{spell('Pyroblast',{buff='Heating Up'}),spell('Fire Blast',{movingOnly=true}),spell('Fireball')},{spell('Flamestrike',{area=true,ground=true}),spell('Arcane Explosion',{area=true,self=true})}},
+ {{spell('Ice Lance',{buff='Fingers of Frost'}),spell('Frostbolt')},{spell('Blizzard',{area=true,ground=true})}}},
+ PRIEST={{{dot('Holy Fire'),spell('Penance'),spell('Smite')},{}},{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Devouring Plague'),dot('Shadow Word: Pain'),spell('Shadow Word: Death',{execute=20}),spell('Mind Blast'),spell('Mind Flay')},{}}},
+ WARLOCK={{{dot('Corruption'),dot('Bane of Agony'),spell('Wrack',{requires='Corruption'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
+ {{spell('Soul Fire',{buff='Decimation'}),spell('Searing Pain'),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
+ {{dot('Immolate'),spell('Conflagrate',{requires='Immolate',consumes='Immolate'}),spell('Incinerate',{requires='Immolate'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}}},
+ HUNTER={{{spell('Summon Hawk'),spell('Arcane Shot'),spell('Aimed Shot')},{spell('Multi-Shot',{area=true})}},
+ {{spell('Sniper Shot'),dot('Serpent Sting'),spell('Aimed Shot'),spell('Arcane Shot')},{spell('Multi-Shot',{area=true})}},
+ {{spell('Strider Kick'),spell('Mongoose Bite'),spell('Raptor Strike')},{spell('Explosive Trap',{area=true,self=true}),spell('Multi-Shot',{area=true})}}},
+ ROGUE={{{spell('Venom',{combo=4,buffMissing='Venom'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{}},
+ {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{}},
+ {{spell('Rupture',{combo=4,dot=true}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{}}},
+ WARRIOR={{{spell('Execute',{execute=20}),spell('Rend',{dot=true,talent='Bloodthrill'}),spell('Mortal Strike'),spell('Overpower'),spell('Spearing Strike'),spell('Slam')},{spell('Thunder Clap',{area=true,self=true})}},
  {{spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true,self=true}),spell('Slam')},{spell('Whirlwind',{area=true,self=true})}},
  -- Tank profiles (Protection Warrior, Protection Paladin, Bear below) follow MythicSim's Forever tank APLs
  -- (github.com/sage3648/mythicsim-forever-engine-go, MIT), translated to spell names so every rank the
@@ -52,9 +52,9 @@ local P={
    spell('Judgement',{requiresSelf='Seal of Righteousness'}),spell('Seal of Righteousness',{selfBuff=true,refresh=1,self=true}),
    spell('Holy Shield',{selfBuff=true,self=true}),spell('Hammer of Wrath',{execute=20}),spell('Holy Strike')},
   {spell('Hammer of the Righteous',{area=true}),spell('Consecration',{area=true,self=true})}},
- {{spell('Hammer of Wrath',{execute=20}),spell('Crusader Strike'),spell('Divine Storm',{area=true,self=true}),spell('Judgement')},{spell('Divine Storm',{area=true,self=true}),spell('Consecration',{area=true,self=true})}}},
+ {{spell('Hammer of Wrath',{execute=20}),spell('Holy Strike'),spell('Judgement')},{spell('Consecration',{area=true,self=true})}}},
  DRUID={{{dot('Moonfire'),dot('Insect Swarm'),spell('Wrath'),spell('Starfire')},{spell('Hurricane',{area=true,ground=true})}},
- {{spell('Rip',{combo=5,dot=true}),dot('Rake'),spell('Mangle (Cat)',{builder=true}),spell('Claw',{builder=true})},{spell('Swipe (Cat)',{area=true})}},{{dot('Moonfire'),spell('Wrath')},{}}}
+ {{spell('Rip',{combo=5,dot=true}),dot('Rake'),spell('Shred',{builder=true}),spell('Claw',{builder=true})},{}},{{dot('Moonfire'),spell('Wrath')},{}}}
 }
 -- Finishers must never be suggested at zero combo points.
 P.ROGUE[1][1][2].combo=4
@@ -92,8 +92,8 @@ local function findAura(unit,filter,name)
  end
  return nil
 end
-local function aura(name)
- local a=findAura('target','HARMFUL|PLAYER',name)
+local function aura(name,unit,filter)
+ local a=findAura(unit or 'target',filter or 'HARMFUL|PLAYER',name)
  if type(a)~='table' then return a end
  return a.remaining>3
 end
@@ -193,7 +193,7 @@ function Live:ProfileRecommendation()
  local profile=P[spec.class] and P[spec.class][spec.treeIndex]
  if spec.class=='DRUID' and spec.role=='tank' then profile=bear end
  if not profile then return {message='No live priority profile for this specialization'} end
- if spec.role=='healer' then return {message='Follow your healing assignment',reason='Urgent observed healing and utility are shown separately; a fixed four-heal prediction would invent future damage.'} end
+ if spec.role=='healer' then return {message='Follow your healing assignment',reason='',targetHostile=false} end
  if read(UnitExists,'target')~=true or read(UnitIsDeadOrGhost,'target')~=false or read(UnitCanAttack,'player','target')~=true then return {targetHostile=false,message='Select a living enemy'} end
  if read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return {targetHostile=true,message='Finish the current cast',situation='casting'} end
  local moving=read(GetUnitSpeed,'player');moving=type(moving)=='number' and moving>0
@@ -203,14 +203,18 @@ function Live:ProfileRecommendation()
  local health,max=read(UnitHealth,'target'),read(UnitHealthMax,'target')
  local hp=type(health)=='number' and type(max)=='number' and max>0 and health/max*100 or nil
  local combo=read(GetComboPoints,'player','target')
- local resources,used,applied={},{},{};local queue={}
+ local resources,used,applied,consumed={},{},{},{};local queue={}
+ local talents={};for _,t in pairs(context.activeTalents or {})do if t.name and (t.rank or 0)>0 then talents[t.name]=true end end
  for step=1,4 do
   local chosen
   for _,rule in ipairs(rules) do
    local s=resolve(rule.name)
-   local required=not rule.requires or applied[rule.requires] or aura(rule.requires)==true
+   local required=not rule.requires or (not consumed[rule.requires] and (applied[rule.requires] or aura(rule.requires)==true))
    local dotMissing=not rule.dot or (not applied[rule.name] and aura(rule.name)==false)
-   if s and (not rule.area or mode=='aoe') and required and dotMissing and (not rule.execute or hp and hp<=rule.execute)
+   local proc=not rule.buff or aura(rule.buff,'player','HELPFUL')==true
+   local needsBuff=not rule.buffMissing or aura(rule.buffMissing,'player','HELPFUL')==false
+   local verified=not FC.ForeverSpellCatalog or FC.ForeverSpellCatalog.classes[spec.class].spells[rule.name]~=nil
+   if s and verified and proc and needsBuff and (not rule.movingOnly or moving) and (not rule.talent or talents[rule.talent]) and (not rule.area or mode=='aoe') and required and dotMissing and (not rule.execute or hp and hp<=rule.execute)
     and (not rule.combo or type(combo)=='number' and combo>=rule.combo) and not used[s.id]
     and selfRulesPass(rule,s,applied,resources) and ready(s,not (rule.self or rule.ground) and (rule.unit or 'target') or nil,moving) then
     local costs=resourceCosts(s.id);local affordable=true
@@ -221,10 +225,13 @@ function Live:ProfileRecommendation()
     end
     if affordable then
      chosen=s;s.costs=costs;s.reason=ruleReason(rule,spec,mode)
+     local note=FC.ForeverSpellNotes and FC.ForeverSpellNotes[spec.class] and FC.ForeverSpellNotes[spec.class][rule.name]
+     if note then s.reason=s.reason..' '..note end
      if rule.selfBuff or rule.stance then applied['self:'..rule.name]=true end
      for kind,cost in pairs(costs or {}) do resources[kind]=resources[kind]-cost end
      if not repeatable[rule.name] or rule.dot then used[s.id]=true end
      if rule.dot then applied[rule.name]=true end
+     if rule.consumes then consumed[rule.consumes]=true;applied[rule.consumes]=nil end
      if rule.combo then combo=0 end
      -- Do not assume a builder lands, grants a proc or generates combo points.
      break

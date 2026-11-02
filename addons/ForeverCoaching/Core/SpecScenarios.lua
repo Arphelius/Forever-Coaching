@@ -49,7 +49,9 @@ local function make(class,index,role,basis,talents,source)
  end
  if class=='DRUID' and index==2 and role=='tank' then spec='Feral (Bear)' end
  if class=='DRUID' and index==2 and role=='damage' then spec='Feral (Cat)' end
- local out={available=true,spec=spec,class=class,role=role,basis=basis,contribution=profile.identity,sourceUrl=source and source.url,
+ local audit=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+ if audit then basis=basis..' Toolkit reviewed against Forever beta '..FC.ForeverSpellCatalog.build..'.' end
+ local out={available=true,spec=spec,class=class,role=role,basis=basis,contribution=profile.identity,sourceUrl=audit and audit.sourceUrl or (source and source.url),
   confidence='Qualitative toolkit guidance, not a measured performance ranking. Use only abilities you have learned; mechanic assignments override throughput priorities.',scenarios={}}
  local effects={}
  for _,talent in pairs(talents or {}) do
