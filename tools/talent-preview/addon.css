@@ -1,4 +1,6 @@
 body{background:radial-gradient(ellipse at top,#182334,#070c13 70%)}
+.language-control{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:12px;margin-top:8px}.language-control select{max-width:160px;padding:4px 8px}
+.custom-build-actions{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:10px 0}.custom-build-actions button{font-size:12px;padding:6px 10px}.custom-build-actions input{width:250px;max-width:100%}#custom-controls{padding:8px 12px;background:#171810;border:1px solid #695935;margin-bottom:14px}#custom-status{font-size:12px;color:#e6c27f}
 #addon-window.combat-review{max-width:1200px;grid-template-columns:140px minmax(0,1fr);height:78vh;max-height:900px;min-height:600px}
 .combat-review #feature-page{padding:8px 18px 32px}
 .controls[hidden]{display:none}

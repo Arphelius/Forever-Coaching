@@ -34,6 +34,7 @@ function R:Record(kind,fields)
   end
  end
  fight.events[#fight.events+1]=event
+ if FC.ScenarioTracker then FC.ScenarioTracker:Record(kind,event) end
 end
 function R:Begin()
  if self.active then return end
@@ -43,6 +44,7 @@ function R:Begin()
  local before=self.before or {};self.before={}
  for _,event in ipairs(before)do if clock()-event.at<=8 then local fields={};for k,v in pairs(event.fields)do fields[k]=v end;fields.time=event.at-self.active.started;fields.recordedBeforeCombat=true;self:Record(event.kind,fields) end end
  if FC.EncounterCoach then local ok,build=pcall(FC.EncounterCoach.GetBuildContext,FC.EncounterCoach);if ok then self.active.build=build end end
+ if FC.ScenarioTracker then FC.ScenarioTracker:Begin();FC.ScenarioTracker:Sample() end
  self:Record('combat_start',{message='Combat recording started.'});self:Sample()
 end
 function R:Snapshot(unit)
@@ -107,6 +109,7 @@ end
 function R:Finish()
  local fight=self.active;if not fight then return end
  self:Sample();self:Record('combat_end',{message='Combat recording finished.'});fight.ended=clock();fight.duration=math.max(0,fight.ended-fight.started)
+ if FC.ScenarioTracker then fight.scenarios=FC.ScenarioTracker:Finish() end
  self.active=nil;self.last=fight;local history=saved();table.insert(history,1,fight);while #history>self.keep do table.remove(history) end
  return fight
 end

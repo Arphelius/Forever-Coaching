@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 local window,body,heading,coverage,previous,nextButton,counter
 local labels={};local page=1;local follow=true

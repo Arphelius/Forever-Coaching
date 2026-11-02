@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 function FC:OpenRotationSettings()
  if self.rotationSettings then self.rotationSettings:Show();self.rotationSettings.refresh();return end

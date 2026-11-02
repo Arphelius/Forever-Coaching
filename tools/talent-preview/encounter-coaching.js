@@ -51,7 +51,10 @@
    const evidence=el('details');evidence.append(el('summary','Talents in this allocation and guidance basis'),el('p',state.specScenarios.confidence));
    if(item.brings)evidence.append(el('p','Group tools: '+item.brings));
    for(const talent of state.specScenarios.talentEffects||[])evidence.append(el('p',`${talent.name} ${talent.rank}: ${talent.effect}`));card.append(evidence);
-  }else if(mode==='abilities')card.append(el('p','When: '+item.when),el('p','How: '+item.how),el('p','Why: '+item.why));
+  }else if(mode==='abilities'){
+   card.append(el('p','When: '+item.when),el('p','How: '+item.how),el('p','Why: '+item.why));
+   if(item.sourceBuild)card.append(el('p',`Forever ${item.sourceBuild} · Trained from level ${item.trainingLevel||'talent unlock'} · Base cast: ${item.baseCast||'see live tooltip'} · Base cost: ${item.baseCost||'see live tooltip'} · Base cooldown: ${item.baseCooldown||'see live tooltip'}`));
+  }
   else {
    const lesson=(state.talentLessons||[]).find(lesson=>lesson.name===item.name);
    card.append(el('p',`Rank ${item.rank}/${item.maxRank||item.rank}`));
@@ -62,6 +65,8 @@
    }else card.append(el('p','Talent effect data is unavailable for this selection. Check the current client tooltip.'));
   }
   panel.append(card);
+  const sourceUrl=mode==='scenarios'?state.specScenarios.sourceUrl:mode==='abilities'?item.sourceUrl:null;
+  if(sourceUrl){const source=el('a','ForeverChanges: reviewed class spells');source.href=sourceUrl;source.target='_blank';source.rel='noopener noreferrer';panel.append(source);}
   const reference=el('details');reference.append(el('summary','Build reference and preview limits'),el('p','The browser uses the selected plan and class catalog; the game filters lessons against actual learned abilities.'));
   if(build.note)reference.append(el('p',build.note));
   const guideUrl=state.buildEvidenceUrl||(/^https:\/\/(www\.)?mobalytics\.gg\//.test(build.source?.url||'')?build.source.url:'https://mobalytics.gg/wow-forever');

@@ -1,23 +1,16 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 local slideIndex={Learn=1,Scenarios=1,Talents=1}
 function FC:BuildEncounterLearningPage(parent,mode)
  local coach=self.EncounterCoach
  if not coach then return end
- local scroll=CreateFrame("ScrollFrame",nil,parent,"UIPanelScrollFrameTemplate")
- scroll:SetPoint("TOPLEFT",18,-136);scroll:SetPoint("BOTTOMRIGHT",-28,18)
- local content=CreateFrame("Frame",nil,scroll);content:SetSize(490,800);scroll:SetScrollChild(content)
- local offset=0
- local pool,used={},0
+ local document=FC.ClassicTheme:Document(parent,-136)
  local previous,nextButton,counter
  local function line(text,gold)
-  used=used+1
-  local fs=pool[used] or content:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-  pool[used]=fs;fs:Show();fs:SetFontObject(gold and "GameFontNormal" or "GameFontHighlightSmall");fs:ClearAllPoints()
-  fs:SetPoint("TOPLEFT",0,-offset);fs:SetWidth(480);fs:SetJustifyH("LEFT");fs:SetText(text)
-  offset=offset+math.max(20,fs:GetStringHeight())+12
+  document:Line(text,gold)
  end
  local function draw()
- offset=0;used=0
+ document:Reset()
  local build=coach:GetBuildContext()
  local lessons=coach:RefreshLessons()
  local currentScenarios=mode=='Scenarios' and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(build)
@@ -60,7 +53,8 @@ function FC:BuildEncounterLearningPage(parent,mode)
    if index==slideIndex[mode] then
    line(lesson.name.." (#"..lesson.spellID..")",true)
    if lesson.description then line(lesson.description) end
-   line("When: "..lesson.when.."\nHow: "..lesson.how.."\nWhy: "..lesson.why)
+   line("When: "..lesson.when.."\n\nHow: "..lesson.how.."\n\nWhy: "..lesson.why)
+   if lesson.sourceBuild then line('Forever '..lesson.sourceBuild..' spell review: '..lesson.sourceUrl) end
    line("Build use: "..(build.role=="healer" and lesson.kind=="heal" and "A healing tool for your selected healer role. Plan mana and cast windows." or lesson.kind=="interrupt" and "A utility responsibility even in a damage build; coordinate the interrupt assignment." or lesson.kind=="dispel" and "Utility depends on the effect type and mechanic, rather than damage rankings." or "Check the selected build reference for talent-specific interactions."))
    end
   end
@@ -86,9 +80,7 @@ function FC:BuildEncounterLearningPage(parent,mode)
   end
  end
  if previous then previous:SetEnabled(slideIndex[mode]>1) end
- for index=used+1,#pool do pool[index]:Hide() end
- scroll:SetVerticalScroll(0)
- content:SetHeight(math.max(800,offset+30))
+ document:Finish()
  end
  previous=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate");previous:SetSize(100,26);previous:SetPoint("TOPLEFT",18,-96);previous:SetText("Previous")
  nextButton=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate");nextButton:SetSize(100,26);nextButton:SetPoint("TOPLEFT",232,-96);nextButton:SetText("Next")

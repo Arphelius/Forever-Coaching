@@ -42,7 +42,7 @@ function Coach:RefreshLessons()
   for i=#entry.ids,1,-1 do if known(entry.ids[i]) then id=entry.ids[i];break end end
   if id then
    local name,icon=info(id)
-   local lesson={spellID=id,name=name or entry.name,canonicalName=entry.name,icon=icon,kind=entry.kind,types=entry.types,why=entry.why,when=entry.when,how=entry.how,curated=true}
+   local lesson={spellID=id,name=name or entry.name,canonicalName=entry.name,icon=icon,kind=entry.kind,types=entry.types,why=entry.why,when=entry.when,how=entry.how,curated=true,sourceUrl=entry.sourceUrl,sourceBuild=entry.sourceBuild}
    lesson.description=C_Spell and read(C_Spell.GetSpellDescription,id) or nil
    lessons[#lessons+1]=lesson;seen[id]=true
   end

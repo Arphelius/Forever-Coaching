@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 ForeverCoaching = ForeverCoaching or {}
 local FC = ForeverCoaching
 
@@ -304,8 +305,8 @@ controller:SetScript("OnUpdate", function(_, dt)
         return
     end
     if FC.CombatReview then pcall(FC.CombatReview.SetLatestRecommendation, FC.CombatReview, rec) end
-    if rec.blocksRotation then encounterText:Hide()
-    elseif rec.encounterPrompt or not rec.spellID and rec.targetHostile~=false then encounterText:SetText(rec.reason or rec.message or '');encounterText:Show() else encounterText:Hide() end
+    -- Prose stays in learning/review pages; warnings use one fading toast.
+    encounterText:Hide()
     if rec.targetHostile == false and not rec.encounterPrompt then
         pcall(clearDisplay)
         return

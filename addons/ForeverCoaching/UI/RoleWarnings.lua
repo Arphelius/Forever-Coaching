@@ -1,13 +1,47 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 local frame=CreateFrame('Frame','ForeverCoachingRoleWarnings',UIParent)
-frame:SetSize(660,130);frame:SetPoint('CENTER',UIParent,'CENTER',0,155);frame:SetFrameStrata('HIGH');frame:EnableMouse(false)
+frame:SetSize(420,42);frame:SetPoint('CENTER',UIParent,'CENTER',0,95);frame:SetFrameStrata('HIGH');frame:EnableMouse(false)
+local label=frame:CreateFontString(nil,'OVERLAY','GameFontHighlight')
+label:SetPoint('CENTER');label:SetWidth(420);label:SetJustifyH('CENTER');label:SetWordWrap(true)
+if label.SetMaxLines then label:SetMaxLines(2) end
+label:Hide()
 local colors={move={1,.25,.12},stop={1,.2,.15},danger={1,.25,.12},healing={.25,1,.4},health={1,.25,.25},interrupt={1,.75,.15},dispel={.5,.7,1},threat={1,.45,.15},mana={.35,.7,1}}
-local labels={}
-for i=1,3 do local label=frame:CreateFontString(nil,'OVERLAY',i==1 and 'GameFontNormalLarge' or 'GameFontHighlight');label:SetPoint('TOP',0,-(i-1)*43);label:SetWidth(650);label:SetJustifyH('CENTER');label:Hide();labels[i]=label end
-local elapsed=0
+local short={health='Low health — use a defensive or heal.',healing='Ally needs healing.',interrupt='Interrupt the assigned cast.',dispel='Check the removable debuff.',threat='Check your threat.',mana='Low mana — conserve resources.'}
+-- Consume all present conditions together: lower priorities do not queue up
+-- when the selected notification fades. Persistent conditions stay silent.
+local toast={time=0,seen={},lastShown={},sampleElapsed=0,duration=2.8,fade=.8}
+FC.WarningToast=toast
+function toast:Observe(alerts)
+ local chosen
+ for _,alert in ipairs(alerts or {}) do
+  local previous=self.seen[alert.key]
+  local group=alert.kind=='healing' and 'health' or alert.kind
+  local fresh=not previous or self.time-previous>3
+  local allowed=not self.lastShown[group] or self.time-self.lastShown[group]>=12
+  if fresh and allowed and (not chosen or alert.priority<chosen.priority) then chosen=alert end
+  self.seen[alert.key]=self.time
+ end
+ for key,at in pairs(self.seen) do if self.time-at>60 then self.seen[key]=nil end end
+ if chosen and (not self.current or chosen.priority<self.current.priority) then
+  self.current=chosen;self.started=self.time
+  local group=chosen.kind=='healing' and 'health' or chosen.kind
+  self.lastShown[group]=self.time
+  label:SetText(chosen.shortMessage or short[chosen.kind] or chosen.message)
+  local color=colors[chosen.kind] or {1,1,1};label:SetTextColor(color[1],color[2],color[3]);label:SetAlpha(1);label:Show()
+ end
+end
+function toast:Advance(dt)
+ self.time=self.time+dt
+ if not self.current then return end
+ local age=self.time-self.started
+ if age>=self.duration then self.current=nil;label:Hide();return end
+ label:SetAlpha(math.min(1,(self.duration-age)/self.fade))
+end
 frame:SetScript('OnUpdate',function(_,dt)
- elapsed=elapsed+dt;if elapsed<.2 then return end;elapsed=0
+ toast:Advance(dt);toast.sampleElapsed=toast.sampleElapsed+dt
+ if toast.sampleElapsed<.2 then return end;toast.sampleElapsed=0
  local ok,alerts=pcall(FC.RoleWarnings.Sample,FC.RoleWarnings)
  if not ok then FC.roleWarningsLastError=tostring(alerts);alerts={} end
- for i,label in ipairs(labels)do local alert=alerts[i];if alert then local c=colors[alert.kind] or {1,1,1};label:SetText(alert.message);label:SetTextColor(c[1],c[2],c[3]);label:Show()else label:Hide()end end
+ toast:Observe(alerts)
 end)

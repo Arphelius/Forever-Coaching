@@ -144,6 +144,7 @@ function Review:MarkLatestViewed()
     if self:GetSource()=="foreverlogs" then return end
     ensureSavedData()
     ForeverCoachingDB.combatAnalysisReady = false
+    if FC.HideCombatAnalysisNotice then FC:HideCombatAnalysisNotice() end
 end
 
 local function beginCombat()
@@ -392,6 +393,7 @@ local function buildReport(reviewSession)
     return {
         text = compactReviewText(session),
         encounterCoaching = session.encounterCoaching,
+        scenarioCoaching = session.scenarioCoaching,
         fightTimelineId = session.fightTimelineId,
         failedAttempts = session.failedAttempts,
         timestamp = time and time() or 0,
@@ -482,13 +484,18 @@ function Review:GetLatestSummary()
         local good,investigate,improve=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
         local recorded=timeline and FC.FightRecorder:Analyze(timeline)
+        local scenarios=latest.scenarioCoaching or timeline and timeline.scenarios
+        if scenarios and FC.ScenarioTracker then
+            local sg,sw,sn=FC.ScenarioTracker:Summarize(scenarios)
+            if sg~='' then good=sg..'\n\n'..good;investigate=sw..'\n\n'..investigate;improve=sn..'\n\n'..improve end
+        end
         if recorded then good=recorded.good..(good~='' and '\n\n'..good or '');investigate=recorded.investigate..(investigate~='' and '\n\n'..investigate or '') end
         local build=latest.encounterCoaching.build or {}
         return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
             wrongText=investigate~="" and investigate or "No unconfirmed situational response in the observed windows. This does not establish a flawless fight.",
             improveText=improve~="" and improve or "Practice the next assigned mechanic with this build. Review the exact target and timing of each response.",
-            coverage=recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available."}
+            coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
     end
     local casts=tonumber(latest.casts) or 0
     local observation=casts.." successful casts; "..#failures.." failed or interrupted attempts recorded."
@@ -638,7 +645,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 
         local function saveFinishedReview()
             local timeline=FC.FightRecorder and FC.FightRecorder.last
-            if timeline and math.abs(timeline.started-finishedSession.started)<=1 then finishedSession.fightTimelineId=timeline.id end
+            if timeline and math.abs(timeline.started-finishedSession.started)<=1 then finishedSession.fightTimelineId=timeline.id;finishedSession.scenarioCoaching=timeline.scenarios end
             if FC.EncounterCoach and FC.EncounterCoach.last and FC.EncounterCoach.last.started >= finishedSession.started-1 then
                 finishedSession.encounterCoaching=FC.EncounterCoach.last
             end
@@ -658,7 +665,7 @@ events:SetScript("OnEvent", function(_, event, ...)
                 ForeverCoachingDB.combatAnalysisReady = true
                 if FC.RefreshCombatReview then FC:RefreshCombatReview() end
                 if Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
-                    FC:NotifyCombatAnalysisReady()
+                    FC:NotifyCombatAnalysisReady(report)
                 end
             end
         end

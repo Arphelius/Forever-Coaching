@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 -- Small native UI motifs; all geometry and animation belongs to this addon.
 local FC=ForeverCoaching
 function FC:IsTalentVFXEnabled()
@@ -441,6 +442,17 @@ local function matches(button,step)
     if call(button.IsInspecting,button) then return false end
     local spell=call(button.GetSpellID,button)
     if spell==step.spellId then return true end
+    local name=call(button.GetName,button)
+    if type(name)=='string' and (name:match('^PlayerTalentFrameTalent%d+$') or name:match('^TalentFrameTalent%d+$')) and GetTalentInfo then
+        local root=PlayerTalentFrame or TalentFrame
+        local tab=call(PanelTemplates_GetSelectedTab,root) or (root and root.selectedTab)
+        local index=call(button.GetID,button)
+        if tab==step.treeIndex and type(index)=='number' then
+            local ok,_,_,row,col=pcall(GetTalentInfo,tab,index)
+            local _,class=UnitClass('player');local talent=FC.TalentTrees[class][step.treeIndex].nodes[step.talentIndex]
+            if ok and talent and row==talent.row+1 and col==talent.col+1 then return true end
+        end
+    end
     local node=call(button.GetNodeInfo,button)
     local config=call(button.GetConfigID,button)
         or call(C_ClassTalents and C_ClassTalents.GetActiveConfigID)
@@ -452,6 +464,11 @@ local function matches(button,step)
         end
     end
     return false
+end
+function FC:GetSelectedTalentGuidance()
+    local build,class=selectedBuild()
+    if not build then return end
+    return build,nextPoint(build,class),buildTheme(build,class)
 end
 local function findButton(root,step,depth)
     if depth>14 or not root or not root:IsShown() then return end

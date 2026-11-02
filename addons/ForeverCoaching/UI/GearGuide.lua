@@ -1,10 +1,10 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 function FC:BuildGearGuidePage(parent)
- local scroll=CreateFrame('ScrollFrame',nil,parent,'UIPanelScrollFrameTemplate');scroll:SetPoint('TOPLEFT',18,-96);scroll:SetPoint('BOTTOMRIGHT',-28,18)
- local content=CreateFrame('Frame',nil,scroll);content:SetSize(490,900);scroll:SetScrollChild(content)
- local offset=0
+ local document=FC.ClassicTheme:Document(parent,-96)
+ local content=document.content
  local function line(text,title)
-  local label=content:CreateFontString(nil,'OVERLAY',title and 'GameFontNormal' or 'GameFontHighlightSmall');label:SetPoint('TOPLEFT',0,-offset);label:SetWidth(480);label:SetJustifyH('LEFT');label:SetText(text);offset=offset+math.max(20,label:GetStringHeight())+12
+  document:Line(text,title)
  end
  local context=FC.EncounterCoach:GetBuildContext();local selected
  if context.class and context.id then for _,build in ipairs(FC.BuildPlanner:GetBuilds(context.class)) do if build.id==context.id then selected=build;break end end end
@@ -18,7 +18,7 @@ function FC:BuildGearGuidePage(parent)
  end
  line('Compare upgrades with SimGearForever',true);line(guide.companion)
  for i,text in ipairs(guide.steps) do line(i..'. '..text) end
- local link=CreateFrame('EditBox',nil,content,'InputBoxTemplate');link:SetPoint('TOPLEFT',0,-offset);link:SetSize(480,30);link:SetAutoFocus(false);link:SetText(guide.url);link:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);link:SetScript('OnEscapePressed',function(self)self:ClearFocus()end);offset=offset+44
+ local link=CreateFrame('EditBox',nil,content,'InputBoxTemplate');link:SetSize(480,30);link:SetAutoFocus(false);link:SetText(guide.url);link:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);link:SetScript('OnEscapePressed',function(self)self:ClearFocus()end);document:AddWidget(link,32)
  line('Select the link and press Ctrl+C to copy it.');line(guide.limits)
- content:SetHeight(math.max(900,offset+20))
+ document:Finish()
 end

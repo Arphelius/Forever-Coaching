@@ -9,11 +9,22 @@ for(const location of [path.join(__dirname,'preview-runtime/node_modules/fengari
 }
 if(!fengari)throw Error('Lua runtime missing. Run npm install --prefix tools/preview-runtime fengari@0.1.4');
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=fengari;
+function luaValue(value,depth=0){
+ if(depth>12)throw Error('Custom build data is too deeply nested');
+ if(value===null||value===undefined)return 'nil';
+ if(typeof value==='number'){if(!Number.isFinite(value))throw Error('Invalid number');return String(value);}
+ if(typeof value==='boolean')return String(value);
+ if(typeof value==='string')return '"'+value.replace(/[\\"\x00-\x1f\x7f]/g,c=>c==='\\'?'\\\\':c==='"'?'\\"':'\\'+c.charCodeAt(0).toString().padStart(3,'0'))+'"';
+ if(Array.isArray(value))return '{'+value.map(v=>luaValue(v,depth+1)).join(',')+'}';
+ if(typeof value==='object')return '{'+Object.entries(value).map(([k,v])=>'['+luaValue(k)+']='+luaValue(v,depth+1)).join(',')+'}';
+ throw Error('Invalid custom build data');
+}
 function state(params){
   const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
   function run(code){if(lauxlib.luaL_dostring(L,to_luastring(code))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
   try{
-    for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Data/AbilityLessons.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/BuildPlanner.lua'])run(fs.readFileSync(path.join(root,'addons/ForeverCoaching',file),'utf8'));
+    for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/BuildPlanner.lua'])run(fs.readFileSync(path.join(root,'addons/ForeverCoaching',file),'utf8'));
+    run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/Core/CustomBuilds.lua'),'utf8'));
     const effects=fs.readFileSync(path.join(root,'addons/ForeverCoaching/UI/BlizzardTalentGuide.lua'),'utf8');
     // Read the actual effect palettes and spec mapping, without creating WoW frames.
     const themeStart=effects.indexOf('local THEMES={'),themeEnd=effects.indexOf('local theme',themeStart);
@@ -24,6 +35,14 @@ function state(params){
     const integer=(key,fallback,min,max)=>Math.max(min,Math.min(max,Math.floor(Number(params.get(key)||fallback))||fallback));
     const level=integer('level',10,1,60),legacy=integer('legacy',0,0,5),selected=integer('build',0,0,1000);
     const learned=JSON.parse(params.get('learned')||'{}');
+    const customText=params.get('custom');
+    if(customText){
+      if(customText.length>20000)throw Error('Custom build request is too large');
+      const draft=JSON.parse(customText);draft.class=cls;delete draft.id;
+      if(!draft||typeof draft!=='object'||!Array.isArray(draft.order)||draft.order.length>51)throw Error('Invalid custom point order');
+      const change=params.get('customChange')?JSON.parse(params.get('customChange')):null;
+      run('PreviewCustom='+luaValue(draft)+';PreviewCustomChange='+luaValue(change));
+    }
     const entries=Object.entries(learned).filter(([k,v])=>/^[1-3]:\d+$/.test(k)&&Number.isInteger(v)&&v>=0&&v<=5);
     run(`PreviewClass="${cls}";PreviewActivity="${activity}";PreviewLevel=${level};PreviewLegacy=${legacy};PreviewBuild=${selected};PreviewRanks={${entries.map(([k,v])=>`["${k}"]=${v}`).join(',')}}`);
     const reviewCase=['empty','failed','interrupted','clean'].includes(params.get('reviewCase'))?params.get('reviewCase'):'failed';
@@ -56,6 +75,16 @@ for _,c in ipairs(choices) do
  if c.build then list[#list+1]={index=c.index,id=c.build.id,title=c.build.title,spec=c.displayName or c.spec,role=c.build.role,recommended=c.activityRecommended or false,summary=p:GetBuildSummary(c,PreviewActivity,choices),source=c.proofUrl or c.build.source.url} end
 end
 local build=p:GetBuilds(PreviewClass)[PreviewBuild]
+local customResult
+if PreviewCustom then
+ local model=fc.CustomBuilds;local changeOK,changeError
+ if PreviewCustomChange then changeOK,changeError=model:Change(PreviewCustom,PreviewCustomChange.treeIndex,PreviewCustomChange.talentIndex,PreviewCustomChange.delta)end
+ local valid,validationError=model:Validate(PreviewCustom,true)
+ build=nil;local saveError
+ if valid and valid.points>0 then build,saveError=model:Save(PreviewCustom)end
+ PreviewCustom.id=nil
+ customResult={draft=PreviewCustom,points=valid and valid.points or 0,error=changeError or validationError or saveError,valid=build~=nil,roles=model:GetRoles(PreviewClass)}
+end
 local specScenarios=fc.SpecScenarios:ForPreview(PreviewClass,build)
 local talentLessons={}
 if build then for _,talent in ipairs(build.talents or {}) do talentLessons[#talentLessons+1]=fc.TalentLessons:GetLesson(PreviewClass,build,talent) end end
@@ -93,7 +122,7 @@ if build and not nextPoint then
 end
 if build and PreviewClass=='DRUID' and build.role=='tank' then themeName='earth' end
 if build and PreviewClass=='MAGE' and (build.id or ''):find('frostfire',1,true) then themeName='frostfire' end
-local result={gearGuide=fc.GearGuide:ForBuild(PreviewClass,build,PreviewLevel),specScenarios=specScenarios,talentLessons=talentLessons,coachingReplay=fc.PreviewCoachingReplay,abilityLessons=fc.AbilityLessons[PreviewClass],choices=list,layout=layout,build=build,ranks=ranks,spent=spent,budget=budget,available=math.max(0,budget-spent),overBudget=spent>budget,order=order,orderType=kind,nextPoint=nextPoint,designPreviewPoint=designPreviewPoint,locked=locked or false,level=PreviewLevel,legacy=PreviewLegacy,effect=PreviewThemes and PreviewThemes[themeName],review=fc.CombatReview:GetLatestSummary()}
+local result={custom=customResult,gearGuide=fc.GearGuide:ForBuild(PreviewClass,build,PreviewLevel),specScenarios=specScenarios,talentLessons=talentLessons,coachingReplay=fc.PreviewCoachingReplay,abilityLessons=fc.AbilityLessons[PreviewClass],choices=list,layout=layout,build=build,ranks=ranks,spent=spent,budget=budget,available=math.max(0,budget-spent),overBudget=spent>budget,order=order,orderType=kind,nextPoint=nextPoint,designPreviewPoint=designPreviewPoint,locked=locked or false,level=PreviewLevel,legacy=PreviewLegacy,effect=PreviewThemes and PreviewThemes[themeName],review=fc.CombatReview:GetLatestSummary()}
 local function quote(s)
  return '"'..s:gsub('[%z\1-\31\\"]',function(c)
   if c=='"' then return '\\"' elseif c=='\\' then return '\\\\' end
@@ -119,7 +148,7 @@ PreviewJSON=encode(result)
     return to_jsstring(lua.lua_tostring(L,-1));
   }finally{lua.lua_close(L);}
 }
-const assets={'/classic-theme.css':'classic-theme.css','/fight-recording.js':'fight-recording.js','/log-statistics.js':'log-statistics.js','/player-logs.js':'player-logs.js','/':'index.html','/encounter-coaching.js':'encounter-coaching.js','/app.js':'app.js','/combat-review.js':'combat-review.js','/effects.js':'effects.js','/border-styles.js':'border-styles.js','/style.css':'style.css','/addon.css':'addon.css'};
+const assets={'/custom-builds.js':'custom-builds.js','/locale-messages.js':'locale-messages.js','/localization.js':'localization.js','/classic-theme.css':'classic-theme.css','/fight-recording.js':'fight-recording.js','/log-statistics.js':'log-statistics.js','/player-logs.js':'player-logs.js','/':'index.html','/encounter-coaching.js':'encounter-coaching.js','/app.js':'app.js','/combat-review.js':'combat-review.js','/effects.js':'effects.js','/border-styles.js':'border-styles.js','/style.css':'style.css','/addon.css':'addon.css'};
 http.createServer((req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
   try{
@@ -172,4 +201,4 @@ http.createServer((req,res)=>{
     res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');
     res.end(fs.readFileSync(path.join(__dirname,'talent-preview',file)));
   }catch(error){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
-}).listen(4317,'127.0.0.1',()=>process.stdout.write('Talent preview: http://127.0.0.1:4317\n'));
+}).listen(Number(process.env.FC_PREVIEW_PORT||4317),'127.0.0.1',()=>process.stdout.write('Talent preview: http://127.0.0.1:'+Number(process.env.FC_PREVIEW_PORT||4317)+'\n'));

@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 -- Standalone art research preview. Never reads or spends live talent points.
 local FC=ForeverCoaching
 local designs={

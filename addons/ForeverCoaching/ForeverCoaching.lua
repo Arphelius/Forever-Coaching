@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 
 -- ForeverCoaching.lua
 -- Main dashboard UI
@@ -34,7 +35,7 @@ local function MakeBackdrop(frame, color, edgeColor)
     end
 
     frame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
         tile = false,
         edgeSize = 12,
@@ -85,7 +86,7 @@ if not registeredForEscape then
     table.insert(UISpecialFrames, "ForeverCoachingFrame")
 end
 MakeBackdrop(frame, DARK, GOLD)
-if FC.ClassicTheme then FC.ClassicTheme:Artwork(frame,.12) end
+if FC.ClassicTheme then FC.ClassicTheme:Artwork(frame,.30) end
 
 -- Header
 local header = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -124,13 +125,18 @@ sidebar:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
 sidebar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 8)
 sidebar:SetWidth(170)
 MakeBackdrop(sidebar, PANEL, EDGE)
+if FC.OpenLanguageSettings then
+    local languageButton=CreateFrame('Button',nil,sidebar,'UIPanelButtonTemplate')
+    languageButton:SetSize(146,26);languageButton:SetPoint('BOTTOMLEFT',sidebar,'BOTTOMLEFT',12,14)
+    languageButton:SetText('Language');languageButton:SetScript('OnClick',function()FC:OpenLanguageSettings()end)
+end
 
 -- Content panel: its background stays in place when tabs change.
 local content = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 content:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 8, 0)
 content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
 MakeBackdrop(content, PANEL, EDGE)
-if FC.ClassicTheme then FC.ClassicTheme:Artwork(content,.08) end
+if FC.ClassicTheme then FC.ClassicTheme:Artwork(content,.24) end
 local talentNav=CreateFrame("Frame",nil,content)
 talentNav:SetPoint("TOPLEFT",12,-8);talentNav:SetSize(860,28);talentNav:Hide()
 
@@ -181,7 +187,8 @@ local function AddSection(parent, heading, description)
 
     local desc = AddText(parent, description, 12, MUTED)
     desc:SetPoint("TOPLEFT", headingText, "BOTTOMLEFT", 0, -8)
-    desc:SetWidth(510)
+    desc:SetPoint("RIGHT", parent, "RIGHT", -24, 0)
+    desc:SetWordWrap(true)
     desc:SetJustifyH("LEFT")
 
     return headingText
@@ -354,6 +361,9 @@ local function ShowTab(tabName)
     if tabName == "Talents" then
         frame:SetSize(900,650)
         frame:SetScale(math.min(1,((UIParent:GetWidth() or 940)-40)/900,((UIParent:GetHeight() or 690)-40)/650))
+    elseif tabName == 'Learn' or tabName == 'Scenarios' or tabName == 'Gear' then
+        frame:SetSize(960,700)
+        frame:SetScale(math.min(1,((UIParent:GetWidth() or 1000)-40)/960,((UIParent:GetHeight() or 740)-40)/700))
     else
         frame:SetSize(760, 500)
         frame:SetScale(1)
@@ -420,12 +430,6 @@ local function ShowTab(tabName)
                 FC.CombatReview:SetReadyNoticeEnabled(not FC.CombatReview:GetReadyNoticeEnabled())
                 UpdateNoticeButton()
             end
-        end)
-        local sourceButton=CreateFrame("Button",nil,currentPage,"UIPanelButtonTemplate")
-        sourceButton:SetSize(280,26);sourceButton:SetPoint("TOPLEFT",currentPage,"TOPLEFT",220,-94)
-        local function sourceLabel() sourceButton:SetText("Source: "..(FC.CombatReview:GetSource()=="foreverlogs" and "Forever Logs (imported)" or "Local fight")) end
-        sourceLabel();sourceButton:SetScript("OnClick",function()
-            FC.CombatReview:SetSource(FC.CombatReview:GetSource()=="foreverlogs" and "local" or "foreverlogs");sourceLabel();UpdateReviewText()
         end)
         if FC.OpenFightTimeline then
             local timelineButton=CreateFrame('Button',nil,currentPage,'UIPanelButtonTemplate');timelineButton:SetSize(160,24);timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',-20,-126);timelineButton:SetText('View fight timeline');timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)

@@ -1,3 +1,4 @@
+local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 ForeverCoaching = ForeverCoaching or {}
 local FC=ForeverCoaching
 local GOLD={1,.76,.32}
@@ -159,7 +160,7 @@ end
 
 function FC:ReadLiveTalentState(layout) return readTalentState(layout) end
 function FC:ReadUnspentTalentPoints() return readUnspentPoints() end
-function FC:BuildTalentPage(parent)
+function FC:BuildPresetTalentPage(parent)
     local planner=FC.BuildPlanner
     local _,class=UnitClass("player")
     local playerClass=class
@@ -198,7 +199,7 @@ function FC:BuildTalentPage(parent)
         local b=button(parent,"",18+(index-1)*46,-58,38,function() class=classToken;selectedSpec=nil;refresh() end)
         b:SetHeight(32)
         local image=b:CreateTexture(nil,"ARTWORK");image:SetTexture("Interface\\Icons\\"..ICONS[token])
-        image:SetPoint("TOPLEFT",4,-4);image:SetPoint("BOTTOMRIGHT",-4,4);image:SetTexCoord(.08,.92,.08,.92)
+        image:SetPoint("CENTER");image:SetSize(24,24);image:SetTexCoord(.08,.92,.08,.92)
         b:SetScript("OnEnter",function(self) GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(classToken:sub(1,1)..classToken:sub(2):lower());GameTooltip:Show() end)
         b:SetScript("OnLeave",function() GameTooltip:Hide() end)
         classButtons[token]=b
@@ -421,8 +422,8 @@ function FC:BuildTalentPage(parent)
             local card=cards[index]
             if not card then
                 card=button(list,"",0,0,196,function() end);card:SetHeight(80);card.caption:Hide()
-                card.title=text(card,"",11,174);card.title:SetPoint("TOPLEFT",10,-9);card.title:SetMaxLines(2)
-                card.detail=text(card,"",10,174,MUTED);card.detail:SetPoint("BOTTOMLEFT",10,27)
+                card.title=text(card,"",12,174);card.title:SetPoint("TOPLEFT",10,-9);card.title:SetMaxLines(2)
+                card.detail=text(card,"",11,174,MUTED);card.detail:SetPoint("BOTTOMLEFT",10,27)
                 card.badge=text(card,"",10,174,GOLD);card.badge:SetPoint("BOTTOMLEFT",10,9)
                 cards[index]=card
             end
@@ -433,6 +434,9 @@ function FC:BuildTalentPage(parent)
             card.badge:SetText(isRecommended(index,choice) and "Recommended" or "")
             card.badge:SetTextColor(unpack(build and GOLD or MUTED))
             local active=index==selectedSpec
+            local normal=card.GetNormalTexture and card:GetNormalTexture()
+            if normal then normal:SetAlpha(active and .5 or .22) end
+            card.title:SetTextColor(unpack(active and GOLD or {.9,.91,.94}))
             surface(card,active and .11 or .045,active and .105 or .05,active and .085 or .065,active and accent or {.16,.18,.22})
             local buildIndex=index
             card:SetScript("OnClick",function()
@@ -542,4 +546,23 @@ function FC:BuildTalentPage(parent)
     end)
     parent:HookScript("OnShow",function() level=UnitLevel("player") or level;refresh() end)
     refresh()
+end
+function FC:BuildTalentPage(parent)
+    if not FC.BuildCustomTalentPage then return self:BuildPresetTalentPage(parent) end
+    local preset=CreateFrame('Frame',nil,parent);preset:SetPoint('TOPLEFT',0,-38);preset:SetPoint('BOTTOMRIGHT')
+    local custom=CreateFrame('Frame',nil,parent);custom:SetPoint('TOPLEFT',0,-38);custom:SetPoint('BOTTOMRIGHT');custom:Hide()
+    local initialized=false
+    local function tab(title,x,click)
+        local b=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');b:SetSize(180,26);b:SetPoint('TOPLEFT',x,-5);b:SetText(title);b:SetScript('OnClick',click);return b
+    end
+    tab('Published builds',14,function()custom:Hide();preset:Show()end)
+    tab('Custom Builds',206,function()
+        preset:Hide();custom:Show()
+        if not initialized then self:BuildCustomTalentPage(custom);initialized=true end
+    end)
+    self:BuildPresetTalentPage(preset)
+    local active=ForeverCoachingDB and ForeverCoachingDB.activeTalentBuilds and ForeverCoachingDB.activeTalentBuilds[UnitGUID('player')]
+    if type(active)=='string' and active:match('^custom%-') then
+        preset:Hide();custom:Show();self:BuildCustomTalentPage(custom);initialized=true
+    end
 end

@@ -22,9 +22,24 @@ function Lessons:GetLesson(class,build,talent)
   if value==nil then return "[unverified value]" end
   return tostring(value)
  end)
+ local current=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+ if current then
+  local reviewed=current.talents[talent.name]
+  local normalized=effect:lower():gsub('[^a-z0-9]','');local hash=0
+  for index=1,#normalized do hash=(hash*31+normalized:byte(index))%2147483647 end
+  if not reviewed or reviewed.ranks[tostring(rank)]~=hash then
+   local note=FC.ForeverSpellNotes and FC.ForeverSpellNotes[class] and FC.ForeverSpellNotes[class][talent.name]
+   return {name=talent.name,rank=rank,effect=note or 'The bundled effect does not match the reviewed Forever rank. Open the current source or in-game tooltip for this rank.',
+    why=note or 'Use the current Forever effect rather than the older bundled description.',
+    optimal='Check the current rank and its trigger before changing a combat decision.',sourceUrl=current.changesUrl,
+    provenance='Reviewed against Forever beta '..FC.ForeverSpellCatalog.build..'; outdated or unmatched numeric effects withheld.',
+    guidanceBasis='Source review; not an optimal-rotation claim.'}
+  end
+ end
  local conflicting,confirmed=false,false
  for _,r in ipairs(source.conflictingRanks or {}) do if r==rank then conflicting=true end end
  for _,r in ipairs(source.confirmedRanks or {}) do if r==rank then confirmed=true end end
+ if current then conflicting=false;confirmed=false end
  if conflicting then effect=effect:gsub("%d+%.?%d*","[check current client]") end
  local lower=effect:lower();local role=build.role or "unspecified"
  local why,optimal
@@ -64,5 +79,6 @@ function Lessons:GetLesson(class,build,talent)
  if source.qualitative then provenance="Qualitative summary of the linked beta client data or simulator implementation. Exact numeric rank values must be checked in the current client." end
  if confirmed then provenance=provenance.." Numeric sequence matches the pinned beta confirmation record." end
  if conflicting then provenance="The older effect capture's numeric values differ from the pinned beta confirmation record. Conflicting numbers are withheld; check the current client tooltip. "..provenance end
- return {name=talent.name,rank=rank,effect=effect,why="In "..(build.title or "this build")..": "..why,optimal=optimal,sourceUrl=source.sourceUrl,auditUrl=source.auditUrl,confirmationUrl=source.confirmationUrl,provenance=provenance,guidanceBasis="Practical guidance derived from the effect; not a measured claim that this talent is the optimal choice."}
+ if current then provenance='Effect matches the reviewed Forever '..FC.ForeverSpellCatalog.build..' rank.' end
+ return {name=talent.name,rank=rank,effect=effect,why="In "..(build.title or "this build")..": "..why,optimal=optimal,sourceUrl=current and current.changesUrl or source.sourceUrl,auditUrl=source.auditUrl,confirmationUrl=source.confirmationUrl,provenance=provenance,guidanceBasis="Practical guidance derived from the effect; not a measured claim that this talent is the optimal choice."}
 end
