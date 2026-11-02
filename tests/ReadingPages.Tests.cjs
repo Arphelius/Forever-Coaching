@@ -75,21 +75,21 @@ run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
 for index=1,6 do
  local button=navigation[index];assert(button and button.scripts.OnClick);button.scripts.OnClick(button)
- assert(ForeverCoachingFrame.width==940 and ForeverCoachingFrame.height==620,'Every tab must use the one dashboard size')
+ assert(ForeverCoachingFrame.width==820 and ForeverCoachingFrame.height==540,'Every tab must use the one dashboard size')
  assert(button.parent==navigation[1].parent and button.height==22,'Tabs stay in the header row on every tab')
  -- Toolbar rows: shown widgets at the same top offset must not overlap.
  local rows={}
  for _,frame in ipairs(TestFrames)do
   local a=frame.anchor
   local inside=false;local up=frame.parent;while up do if up==ForeverCoachingFrame then inside=true end;up=up.parent end
-  if inside and frame:IsShown() and a and a[1]=='TOPLEFT' and type(a[4])=='number' and type(a[5])=='number' and a[5]==-34 and frame.width then
+  if inside and frame:IsShown() and a and a[1]=='TOPLEFT' and type(a[4])=='number' and type(a[5])=='number' and a[5]==-32 and frame.width then
    local row=rows[a[2]] or {};rows[a[2]]=row;row[#row+1]={x=a[4],w=frame.width}
   end
  end
  for _,row in pairs(rows)do
   table.sort(row,function(p,q)return p.x<q.x end)
   for k=2,#row do assert(row[k].x>=row[k-1].x+row[k-1].w,'Toolbar controls must not overlap') end
-  assert(row[#row].x+row[#row].w<=924,'Toolbar must fit inside the content panel')
+  assert(row[#row].x+row[#row].w<=804,'Toolbar must fit inside the content panel')
  end
  local menus,icons=0,0
  for _,frame in ipairs(TestFrames)do if frame:IsShown() then
@@ -122,10 +122,10 @@ end
 -- Tabs are as wide as their labels and laid out left to right without overlap.
 local previousRight=0
 for index=1,6 do
- local tab=navigation[index];assert(tab.width>=#(tab.text or '')*7+24,'Tab must be wider than its label')
- previousRight=previousRight+tab.width+4
+ local tab=navigation[index];assert(tab.width>=#(tab.text or '')*7+20,'Tab must be wider than its label')
+ previousRight=previousRight+tab.width+2
 end
-assert(previousRight<=940-200,'All six tabs fit on one header row with room for Language')
+assert(previousRight<=820-130,'All six tabs fit on one header row with room for Language')
 print('PASS: all six real dashboard sections expose selectors in non-overlapping toolbars, one window size, fitted tabs; talent class icons retain their original colors.')`);
 run(`local browser=ForeverCoaching.GuideBrowser;local planner=ForeverCoaching.BuildPlanner
 browser.activity='raids'

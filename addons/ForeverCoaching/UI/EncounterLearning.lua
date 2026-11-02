@@ -46,17 +46,24 @@ function FC:BuildEncounterLearningPage(parent,mode)
  local _,toolbar=self:BuildGuideSelectors(parent,function()positions[mode]=1;draw()end)
  -- One toolbar row: class, spec, then Previous / n of m / Next and the direct picker.
  local height=Theme.METRICS.buttonHeight
- previous=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');previous:SetHeight(height);previous:SetText('Previous')
- counter=parent:CreateFontString(nil,'OVERLAY','GameFontNormal');counter:SetSize(48,height);counter:SetJustifyH('CENTER');if counter.SetJustifyV then counter:SetJustifyV('MIDDLE') end
- nextButton=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');nextButton:SetHeight(height);nextButton:SetText('Next')
+ -- Small step buttons around the counter; the tooltip names them for screen readers and translators.
+ local function step(label,tip)
+  local b=Theme:NewButton(parent,label,false);b:SetWidth(24)
+  b:HookScript('OnEnter',function(self)if GameTooltip then GameTooltip:SetOwner(self,'ANCHOR_TOP');GameTooltip:SetText(FC.Text and FC:Text(tip) or tip);GameTooltip:Show()end end)
+  b:HookScript('OnLeave',function()if GameTooltip then GameTooltip:Hide()end end)
+  return b
+ end
+ previous=step('<','Previous')
+ counter=parent:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall');counter:SetSize(44,height);counter:SetJustifyH('CENTER');if counter.SetJustifyV then counter:SetJustifyV('MIDDLE') end
+ nextButton=step('>','Next')
  picker=self:GuidePicker(parent,0,0,220,function(index)positions[mode]=index;draw()end)
- toolbar:Add(previous,16,64);toolbar:Add(counter,4);toolbar:Add(nextButton,4,64);toolbar:Add(picker,8);toolbar:SetFlexible(picker,120)
+ toolbar:Add(previous,12);toolbar:Add(counter,2);toolbar:Add(nextButton,2);toolbar:Add(picker,8);toolbar:SetFlexible(picker,110)
  previous:SetScript('OnClick',function()positions[mode]=math.max(1,positions[mode]-1);draw()end)
  nextButton:SetScript('OnClick',function()positions[mode]=positions[mode]+1;draw()end)
  if mode=='Learn' then
-  local toggle=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');toggle:SetHeight(height);toggle:SetText('Talent lessons')
-  toolbar:Add(toggle,8,96)
-  toggle:SetScript('OnClick',function()mode=mode=='Talents' and 'Learn' or 'Talents';toggle:SetText(mode=='Talents' and 'Ability lessons' or 'Talent lessons');Theme:FitButton(toggle,96);toolbar:Layout();draw()end)
+  local toggle=Theme:NewButton(parent,'Talent lessons',80)
+  toolbar:Add(toggle,8)
+  toggle:SetScript('OnClick',function()mode=mode=='Talents' and 'Learn' or 'Talents';toggle:SetText(mode=='Talents' and 'Ability lessons' or 'Talent lessons');Theme:FitButton(toggle,80,18);toolbar:Layout();draw()end)
  end
  draw()
  local listener=CreateFrame('Frame',nil,parent)
