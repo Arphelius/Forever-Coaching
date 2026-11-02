@@ -3,7 +3,8 @@ local FC=ForeverCoaching
 local positions={Learn=1,Scenarios=1,Talents=1}
 function FC:BuildEncounterLearningPage(parent,mode)
  local coach=self.EncounterCoach;if not coach then return end
- local document=FC.ClassicTheme:Document(parent,-174)
+ local Theme=FC.ClassicTheme
+ local document=Theme:Document(parent,Theme.METRICS.documentTop)
  local previous,nextButton,counter,picker,draw
  local function paragraph(title,body,tone)
   if body and body~='' then document:Line(title,true,tone);document:Line(body) end
@@ -42,16 +43,20 @@ function FC:BuildEncounterLearningPage(parent,mode)
   end
   document:Finish()
  end
- self:BuildGuideSelectors(parent,function()positions[mode]=1;draw()end,mode=='Learn' and 214 or nil)
- previous=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');previous:SetSize(90,26);previous:SetPoint('TOPLEFT',18,-134);previous:SetText('Previous')
- counter=parent:CreateFontString(nil,'OVERLAY','GameFontNormal');counter:SetPoint('TOPLEFT',120,-140)
- nextButton=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');nextButton:SetSize(90,26);nextButton:SetPoint('TOPLEFT',184,-134);nextButton:SetText('Next')
- picker=self:GuidePicker(parent,286,-134,224,function(index)positions[mode]=index;draw()end)
+ local _,toolbar=self:BuildGuideSelectors(parent,function()positions[mode]=1;draw()end)
+ -- One toolbar row: class, spec, then Previous / n of m / Next and the direct picker.
+ local height=Theme.METRICS.buttonHeight
+ previous=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');previous:SetHeight(height);previous:SetText('Previous')
+ counter=parent:CreateFontString(nil,'OVERLAY','GameFontNormal');counter:SetSize(48,height);counter:SetJustifyH('CENTER');if counter.SetJustifyV then counter:SetJustifyV('MIDDLE') end
+ nextButton=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');nextButton:SetHeight(height);nextButton:SetText('Next')
+ picker=self:GuidePicker(parent,0,0,220,function(index)positions[mode]=index;draw()end)
+ toolbar:Add(previous,16,64);toolbar:Add(counter,4);toolbar:Add(nextButton,4,64);toolbar:Add(picker,8);toolbar:SetFlexible(picker,120)
  previous:SetScript('OnClick',function()positions[mode]=math.max(1,positions[mode]-1);draw()end)
  nextButton:SetScript('OnClick',function()positions[mode]=positions[mode]+1;draw()end)
  if mode=='Learn' then
-  local toggle=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');toggle:SetSize(112,26);toggle:SetPoint('TOPLEFT',406,-96);toggle:SetText('Talent lessons')
-  toggle:SetScript('OnClick',function()mode=mode=='Talents' and 'Learn' or 'Talents';toggle:SetText(mode=='Talents' and 'Ability lessons' or 'Talent lessons');draw()end)
+  local toggle=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate');toggle:SetHeight(height);toggle:SetText('Talent lessons')
+  toolbar:Add(toggle,8,96)
+  toggle:SetScript('OnClick',function()mode=mode=='Talents' and 'Learn' or 'Talents';toggle:SetText(mode=='Talents' and 'Ability lessons' or 'Talent lessons');Theme:FitButton(toggle,96);toolbar:Layout();draw()end)
  end
  draw()
  local listener=CreateFrame('Frame',nil,parent)

@@ -69,7 +69,14 @@ function browser:LessonsFor(class,build)
 end
 function FC:GuidePicker(parent,x,y,width,choose)
  local button=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate')
- button:SetSize(width,26);button:SetPoint('TOPLEFT',x,y)
+ local height=FC.ClassicTheme and FC.ClassicTheme.METRICS.buttonHeight or 22
+ button:SetSize(width,height);button:SetPoint('TOPLEFT',x,y)
+ -- Long build names are cut with "..." inside the button instead of running past its edges.
+ local function clip(owner)
+  local label=owner.GetFontString and owner:GetFontString()
+  if label and label.SetWordWrap then label:ClearAllPoints();label:SetPoint('LEFT',owner,'LEFT',8,0);label:SetPoint('RIGHT',owner,'RIGHT',-8,0);label:SetWordWrap(false) end
+ end
+ clip(button)
  local menu=CreateFrame('Frame',nil,button,'BackdropTemplate');menu:SetPoint('TOPLEFT',button,'BOTTOMLEFT',0,-3);menu:SetSize(width,210)
  menu:SetFrameStrata('DIALOG');menu:SetFrameLevel(button:GetFrameLevel()+20)
  menu:EnableMouse(true)
@@ -87,25 +94,31 @@ function FC:GuidePicker(parent,x,y,width,choose)
   if FC.openGuidePicker then FC.openGuidePicker:Hide() end;FC.openGuidePicker=menu
   for i,entry in ipairs(entries) do
    local row=rows[i]
-   if not row then row=CreateFrame('Button',nil,list,'UIPanelButtonTemplate');row:SetSize(math.max(90,width-34),26);row:SetPoint('TOPLEFT',0,-(i-1)*28);rows[i]=row end
+   width=button:GetWidth() or width;menu:SetWidth(width);list:SetWidth(math.max(90,width-34))
+   if not row then row=CreateFrame('Button',nil,list,'UIPanelButtonTemplate');row:SetSize(math.max(90,width-34),22);row:SetWidth(math.max(90,width-34));row:SetPoint('TOPLEFT',0,-(i-1)*24);clip(row);rows[i]=row end
    local value=entry.value;row:SetText(entry.label);row:SetScript('OnClick',function()menu:Hide();choose(value)end);row:Show()
   end
   for i=#entries+1,#rows do rows[i]:Hide() end
-  list:SetHeight(math.max(1,#entries*28));scroll:SetVerticalScroll(0);menu:Show()
+  list:SetHeight(math.max(1,#entries*24));scroll:SetVerticalScroll(0);menu:Show()
  end)
  button:HookScript('OnHide',function()menu:Hide()end)
  button.guideMenu=menu
  return button
 end
-function FC:BuildGuideSelectors(parent,changed,specWidth)
+-- Class and specialization pickers open the page's toolbar row; pages add their own
+-- controls after them. Returns refresh and that toolbar.
+function FC:BuildGuideSelectors(parent,changed,specWidth,toolbar)
+ local Theme=FC.ClassicTheme
+ toolbar=toolbar or Theme:Toolbar(parent,Theme.METRICS.toolbarTop)
  local classPicker,specPicker
  local function refresh()
   local class,build=browser:GetContext()
   classPicker:SetOptions(browser:ClassOptions(),class,'Class')
   specPicker:SetOptions(browser:BuildOptions(class),build and build.id,'Specialization')
  end
- classPicker=self:GuidePicker(parent,18,-96,150,function(class)browser.class=class;browser.buildID=nil;refresh();changed()end)
- specPicker=self:GuidePicker(parent,180,-96,specWidth or 330,function(id)browser.buildID=id;local class=browser:GetContext();browser.class=class;refresh();changed()end)
+ classPicker=self:GuidePicker(parent,0,0,120,function(class)browser.class=class;browser.buildID=nil;refresh();changed()end)
+ specPicker=self:GuidePicker(parent,0,0,specWidth or 230,function(id)browser.buildID=id;local class=browser:GetContext();browser.class=class;refresh();changed()end)
+ toolbar:Add(classPicker);toolbar:Add(specPicker)
  refresh()
- return refresh
+ return refresh,toolbar
 end

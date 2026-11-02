@@ -6,7 +6,7 @@ local root='Interface\\AddOns\\ForeverCoaching\\Media\\ClassicTheme\\'
 -- header (title row, then tabs sized to their text), one toolbar row per page, and
 -- translucent panels so the background shows while text sits on darker strips.
 Theme.METRICS={
- width=920,height=620,gutter=8,headerHeight=62,tabHeight=22,buttonHeight=22,
+ width=940,height=620,gutter=8,headerHeight=62,tabHeight=22,buttonHeight=22,
  pageTop=-10,toolbarTop=-34,documentTop=-66,pagePadding=14,
  contentAlpha=.55,readingAlpha=.82,
 }
@@ -26,22 +26,31 @@ end
 -- A row of widgets placed left to right from their actual widths, so translated
 -- labels never push one control on top of the next.
 function Theme:Toolbar(parent,y,x)
- local row={parent=parent,y=y,x=x or self.METRICS.pagePadding,widgets={}}
+ local row={parent=parent,y=y,x=x or self.METRICS.pagePadding,widgets={},
+  maxRight=self.METRICS.width-2*self.METRICS.gutter-self.METRICS.pagePadding}
  function row:Add(widget,gap,fit)
   if fit then Theme:FitButton(widget,fit) end
   self.widgets[#self.widgets+1]={widget=widget,gap=gap or 6}
   self:Layout()
   return widget
  end
+ -- The flexible widget (a picker that cuts its label with "...") gives up width
+ -- when the row would run past the content panel, e.g. with longer translations.
+ function row:SetFlexible(widget,minimum)self.flex=widget;self.flexWidth=widget:GetWidth();self.flexMinimum=minimum or 120;self:Layout()end
  function row:Layout()
-  local offset=self.x
-  for index,entry in ipairs(self.widgets) do
-   if index>1 then offset=offset+entry.gap end
-   local widget=entry.widget
-   widget:ClearAllPoints();widget:SetPoint('TOPLEFT',self.parent,'TOPLEFT',offset,self.y)
-   offset=offset+(widget:GetWidth() or 0)
+  if self.flex then self.flex:SetWidth(self.flexWidth) end
+  for pass=1,2 do
+   local offset=self.x
+   for index,entry in ipairs(self.widgets) do
+    if index>1 then offset=offset+entry.gap end
+    local widget=entry.widget
+    widget:ClearAllPoints();widget:SetPoint('TOPLEFT',self.parent,'TOPLEFT',offset,self.y)
+    offset=offset+(widget:GetWidth() or 0)
+   end
+   self.right=offset
+   if pass==2 or not self.flex or offset<=self.maxRight then break end
+   self.flex:SetWidth(math.max(self.flexMinimum,self.flexWidth-(offset-self.maxRight)))
   end
-  self.right=offset
  end
  return row
 end
