@@ -249,3 +249,16 @@ function Theme:Talent(panel,class,index)
  panel.classicTalentArt:SetTexture(root..class..'-'..index..'.tga')
  if panel.emblem then panel.emblem:Hide() end
 end
+-- Class icons from the client's character-creation sheet (the same art Talent Builds uses).
+local CLASS_SHEET='Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES'
+local CLASS_COORDS={WARRIOR={0,.25,0,.25},MAGE={.25,.5,0,.25},ROGUE={.5,.75,0,.25},DRUID={.75,1,0,.25},HUNTER={0,.25,.25,.5},SHAMAN={.25,.5,.25,.5},PRIEST={.5,.75,.25,.5},WARLOCK={.75,1,.25,.5},PALADIN={0,.25,.5,.75}}
+Theme.CLASS_SHEET=CLASS_SHEET
+function Theme:ClassCoords(token)
+ return CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token] or CLASS_COORDS[token]
+end
+function Theme:SetClassIcon(texture,token)
+ local coords=self:ClassCoords(token)
+ if not coords then texture:SetTexture('Interface\\Icons\\INV_Misc_QuestionMark');texture:SetTexCoord(0,1,0,1);return false end
+ texture:SetTexture(CLASS_SHEET);texture:SetTexCoord((unpack or table.unpack)(coords));texture:SetVertexColor(1,1,1,1)
+ return true
+end

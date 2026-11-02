@@ -61,7 +61,9 @@ local page=CreateFrame('Frame');page:SetSize(730,580);fc:BuildEncounterLearningP
 local pickers={};for _,frame in ipairs(TestFrames)do if frame.parent==page and frame.guideMenu then pickers[#pickers+1]=frame end end
 assert(#pickers==3,'Class, specialization and scenario menus are required')
 pickers[1].scripts.OnClick(pickers[1]);local selected
-for _,frame in ipairs(TestFrames)do if frame.text=='Mage' and frame.scripts.OnClick and frame:IsShown() then frame.scripts.OnClick(frame);selected=true;break end end
+for _,frame in ipairs(TestFrames)do if frame.text=='Mage' and frame.scripts.OnClick and frame:IsShown() then
+ assert(frame.icon and frame.icon.pickerIcon and frame.icon.texture:find('UI%-CHARACTERCREATE%-CLASSES') and frame.height==24,'Class menu rows show the class icon beside the name')
+ frame.scripts.OnClick(frame);selected=true;break end end
 assert(selected and fc.GuideBrowser.class=='MAGE' and pickers[1].text=='Mage','Class menu must browse the requested class without a v suffix')
 assert(pickers[2].text:find('MAGE specialization') and pickers[3].text:find('First scenario'),'Class changes must refresh spec and scenario selections')
 pickers[3].scripts.OnClick(pickers[3]);selected=false
@@ -94,7 +96,7 @@ for index=1,6 do
  local menus,icons=0,0
  for _,frame in ipairs(TestFrames)do if frame:IsShown() then
   if frame.guideMenu then menus=menus+1 end
-  if type(frame.texture)=='string' and frame.texture:find('UI%-CHARACTERCREATE%-CLASSES') then
+  if type(frame.texture)=='string' and frame.texture:find('UI%-CHARACTERCREATE%-CLASSES') and not frame.pickerIcon then
    icons=icons+1;assert(frame.vertex and frame.vertex[1]==1 and frame.vertex[2]==1 and frame.vertex[3]==1,'Class icons must keep original colors')
   end
  end end
