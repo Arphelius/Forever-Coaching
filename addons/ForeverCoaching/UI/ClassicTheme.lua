@@ -2,6 +2,49 @@ local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or 
 local FC=ForeverCoaching
 local Theme={};FC.ClassicTheme=Theme
 local root='Interface\\AddOns\\ForeverCoaching\\Media\\ClassicTheme\\'
+-- One set of sizes for the dashboard, following SimGear Forever's panel: a slim two-row
+-- header (title row, then tabs sized to their text), one toolbar row per page, and
+-- translucent panels so the background shows while text sits on darker strips.
+Theme.METRICS={
+ width=920,height=620,gutter=8,headerHeight=62,tabHeight=22,buttonHeight=22,
+ pageTop=-10,toolbarTop=-34,documentTop=-66,pagePadding=14,
+ contentAlpha=.55,readingAlpha=.82,
+}
+Theme.MUTED={.85,.83,.78}
+-- Widen a button to its label. GetStringWidth can be 0 before the font is ready
+-- (and is absent in tests), so fall back to an estimate from the text length.
+function Theme:FitButton(button,minimum,padding)
+ local label=button.caption or (button.GetFontString and button:GetFontString())
+ local width=label and label.GetStringWidth and label:GetStringWidth()
+ if type(width)~='number' or width<=0 then
+  local text=(label and label.GetText and label:GetText()) or (button.GetText and button:GetText()) or ''
+  width=#tostring(text)*7
+ end
+ button:SetWidth(math.max(minimum or 64,math.ceil(width)+(padding or 24)))
+ return button
+end
+-- A row of widgets placed left to right from their actual widths, so translated
+-- labels never push one control on top of the next.
+function Theme:Toolbar(parent,y,x)
+ local row={parent=parent,y=y,x=x or self.METRICS.pagePadding,widgets={}}
+ function row:Add(widget,gap,fit)
+  if fit then Theme:FitButton(widget,fit) end
+  self.widgets[#self.widgets+1]={widget=widget,gap=gap or 6}
+  self:Layout()
+  return widget
+ end
+ function row:Layout()
+  local offset=self.x
+  for index,entry in ipairs(self.widgets) do
+   if index>1 then offset=offset+entry.gap end
+   local widget=entry.widget
+   widget:ClearAllPoints();widget:SetPoint('TOPLEFT',self.parent,'TOPLEFT',offset,self.y)
+   offset=offset+(widget:GetWidth() or 0)
+  end
+  self.right=offset
+ end
+ return row
+end
 function Theme:Artwork(frame,alpha)
  if not frame.classicArtwork then
   -- BackdropTemplate paints an opaque background above negative BACKGROUND
@@ -27,7 +70,7 @@ function Theme:Document(parent,top)
  local panel=CreateFrame('Frame',nil,parent,'BackdropTemplate')
  panel:SetPoint('TOPLEFT',14,top);panel:SetPoint('BOTTOMRIGHT',-14,14)
  panel:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=1})
- panel:SetBackdropColor(.035,.028,.02,1);panel:SetBackdropBorderColor(.24,.19,.12,1)
+ panel:SetBackdropColor(.035,.028,.02,self.METRICS.readingAlpha);panel:SetBackdropBorderColor(.24,.19,.12,1)
  local scroll=CreateFrame('ScrollFrame',nil,panel,'UIPanelScrollFrameTemplate')
  scroll:SetPoint('TOPLEFT',16,-16);scroll:SetPoint('BOTTOMRIGHT',-30,16)
  if scroll.SetClipsChildren then scroll:SetClipsChildren(true) end
@@ -83,7 +126,7 @@ function Theme:Document(parent,top)
   local fs=self.pool[self.used] or self.content:CreateFontString(nil,'OVERLAY','GameFontHighlight')
   self.pool[self.used]=fs;fs:Show();fs:SetFontObject(title and 'GameFontNormal' or 'GameFontHighlight')
   if fs.SetSpacing then fs:SetSpacing(2) end
-  if tone=='caution' then fs:SetTextColor(1,.55,.3) elseif tone=='muted' then fs:SetTextColor(.6,.65,.7) elseif title then fs:SetTextColor(1,.76,.32) else fs:SetTextColor(.88,.91,.94) end
+  if tone=='caution' then fs:SetTextColor(1,.55,.3) elseif tone=='muted' then fs:SetTextColor(Theme.MUTED[1],Theme.MUTED[2],Theme.MUTED[3]) elseif title then fs:SetTextColor(1,.76,.32) else fs:SetTextColor(.88,.91,.94) end
   fs:SetWordWrap(true);if fs.SetNonSpaceWrap then fs:SetNonSpaceWrap(true) end
   fs:SetJustifyH('LEFT');fs:SetJustifyV('TOP');fs:SetText(value or '')
   self.rows[#self.rows+1]={widget=fs,title=title}

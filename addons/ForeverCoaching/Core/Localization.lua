@@ -77,6 +77,8 @@ function L:SetLanguage(code)
  ForeverCoachingDB=ForeverCoachingDB or {};ForeverCoachingDB.settings=ForeverCoachingDB.settings or {};ForeverCoachingDB.settings.language=code
  self.protected=nil;self.keys=nil;self.cache=nil
  for widget,record in pairs(self.bindings)do if record.source~=nil then record.set(widget,self:Text(record.source,code))end end
+ -- Re-translated labels change width; let open windows re-fit and re-lay out.
+ for _,listener in ipairs(FC.languageListeners or {})do pcall(listener,code)end
  return true
 end
 function FC:OpenLanguageSettings()
