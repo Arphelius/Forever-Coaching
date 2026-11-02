@@ -98,7 +98,8 @@ for index=1,6 do
    icons=icons+1;assert(frame.vertex and frame.vertex[1]==1 and frame.vertex[2]==1 and frame.vertex[3]==1,'Class icons must keep original colors')
   end
  end end
- if index==2 then
+ if button.text=='Talent Builds' then
+  talentChecked=true
   assert(icons==9,'Talent Builds must retain nine original Blizzard class icons')
   -- Nothing on Talent Builds may start or end past the 804px content panel.
   for _,frame in ipairs(TestFrames)do
@@ -127,6 +128,8 @@ for index=1,6 do
   squares[1].scripts.OnEnter(squares[1]);assert(table.concat(tooltipLines,' '):find('Level 10'),'Hover must show the point level and talent rank')
  else assert(menus>=2,'Every dashboard section needs class/spec selection')end
 end
+assert(talentChecked,'The Talent Builds tab must be found by its label')
+assert(navigation[1].text=='Talent Builds' and navigation[2].text=='Learn' and navigation[3].text=='Combat Review','Tab order: Talent Builds, Learn, Combat Review, Scenarios, Gear, Resources')
 -- Tabs are as wide as their labels and laid out left to right without overlap.
 local previousRight=0
 for index=1,6 do

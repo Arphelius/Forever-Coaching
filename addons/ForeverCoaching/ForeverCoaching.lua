@@ -530,10 +530,10 @@ end
 
 -- Navigation: one row of tabs under the title, each as wide as its label.
 local tabs = {
-    { name = "Rotation", label = "Combat Review" },
     { name = "Talents", label = "Talent Builds" },
-    { name = "Scenarios", label = "Scenarios" },
     { name = "Learn", label = "Learn" },
+    { name = "Rotation", label = "Combat Review" },
+    { name = "Scenarios", label = "Scenarios" },
     { name = "Gear", label = "Gear" },
     { name = "Resources", label = "Resources" },
 }
@@ -599,9 +599,9 @@ frame:SetScript("OnShow", function()
         if FC.HideCombatAnalysisNotice then FC:HideCombatAnalysisNotice() end
     end
 end)
--- Initial setup
+-- Initial setup: the dashboard opens on Talent Builds; a finished fight opens Combat Review.
 UpdateCharacterInfo()
-ShowTab("Rotation")
+ShowTab("Talents")
 frame:Hide()
 
 print("Forever Coaching: Dashboard ready")
