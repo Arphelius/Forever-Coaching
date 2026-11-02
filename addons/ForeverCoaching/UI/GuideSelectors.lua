@@ -67,41 +67,56 @@ function browser:LessonsFor(class,build)
  end
  return lessons
 end
+-- A dropdown: the field shows the choice (cut with "..."), the list opens under it and
+-- above every panel. Up to ten rows show at once; longer lists scroll.
+local ROW_H,VISIBLE=20,10
 function FC:GuidePicker(parent,x,y,width,choose)
- local button=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate')
- local height=FC.ClassicTheme and FC.ClassicTheme.METRICS.buttonHeight or 22
- button:SetSize(width,height);button:SetPoint('TOPLEFT',x,y)
- -- Long build names are cut with "..." inside the button instead of running past its edges.
- local function clip(owner)
-  local label=owner.GetFontString and owner:GetFontString()
-  if label and label.SetWordWrap then label:ClearAllPoints();label:SetPoint('LEFT',owner,'LEFT',8,0);label:SetPoint('RIGHT',owner,'RIGHT',-8,0);label:SetWordWrap(false) end
- end
- clip(button)
- local menu=CreateFrame('Frame',nil,button,'BackdropTemplate');menu:SetPoint('TOPLEFT',button,'BOTTOMLEFT',0,-3);menu:SetSize(width,210)
- menu:SetFrameStrata('DIALOG');menu:SetFrameLevel(button:GetFrameLevel()+20)
- menu:EnableMouse(true)
- menu:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=1});menu:SetBackdropColor(.045,.035,.025,1);menu:SetBackdropBorderColor(.4,.31,.16,1);menu:Hide()
- local scroll=CreateFrame('ScrollFrame',nil,menu,'UIPanelScrollFrameTemplate');scroll:SetPoint('TOPLEFT',6,-6);scroll:SetPoint('BOTTOMRIGHT',-28,6)
- local list=CreateFrame('Frame',nil,scroll);list:SetSize(math.max(90,width-34),1);scroll:SetScrollChild(list)
- local rows={};local entries={}
+ local Theme=FC.ClassicTheme
+ local button=Theme:Dropdown(parent,width);button:SetPoint('TOPLEFT',x,y)
+ local menu=Theme:Menu(button,width)
+ local scroll=CreateFrame('ScrollFrame',nil,menu,'UIPanelScrollFrameTemplate');scroll:SetPoint('TOPLEFT',4,-4);scroll:SetPoint('BOTTOMRIGHT',-4,4)
+ local list=CreateFrame('Frame',nil,scroll);list:SetSize(math.max(90,width-8),1);scroll:SetScrollChild(list)
+ scroll:EnableMouseWheel(true)
+ scroll:SetScript('OnMouseWheel',function(self,delta)
+  local maximum=math.max(0,(list:GetHeight() or 0)-(self:GetHeight() or 0))
+  self:SetVerticalScroll(math.max(0,math.min(maximum,(self:GetVerticalScroll() or 0)-delta*ROW_H*3)))
+ end)
+ local rows={};local entries={};local current
  function button:SetOptions(options,selected,placeholder)
-  entries=options or {};local caption=placeholder or 'Select'
+  entries=options or {};current=selected;local caption=placeholder or 'Select'
   for _,entry in ipairs(entries) do if entry.value==selected then caption=entry.label end end
-  self:SetText(caption);self:SetEnabled(#entries>0);menu:Hide()
+  self:SetText(caption);self:SetEnabled(#entries>0);menu:Hide();Theme:SetOpen(self,false)
  end
  button:SetScript('OnClick',function()
-  if menu:IsShown() then menu:Hide();return end
-  if FC.openGuidePicker then FC.openGuidePicker:Hide() end;FC.openGuidePicker=menu
+  if menu:IsShown() then menu:Hide();Theme:SetOpen(button,false);return end
+  if FC.openGuidePicker and FC.openGuidePicker~=menu then FC.openGuidePicker:Hide() end;FC.openGuidePicker=menu
+  local w=button:GetWidth() or width
+  local scrolls=#entries>VISIBLE
+  local inner=math.max(90,w-8-(scrolls and 20 or 0))
+  menu:SetWidth(math.max(w,120));list:SetWidth(inner)
+  scroll:ClearAllPoints();scroll:SetPoint('TOPLEFT',4,-4);scroll:SetPoint('BOTTOMRIGHT',scrolls and -24 or -4,4)
   for i,entry in ipairs(entries) do
    local row=rows[i]
-   width=button:GetWidth() or width;menu:SetWidth(width);list:SetWidth(math.max(90,width-34))
-   if not row then row=CreateFrame('Button',nil,list,'UIPanelButtonTemplate');row:SetSize(math.max(90,width-34),22);row:SetWidth(math.max(90,width-34));row:SetPoint('TOPLEFT',0,-(i-1)*24);clip(row);rows[i]=row end
-   local value=entry.value;row:SetText(entry.label);row:SetScript('OnClick',function()menu:Hide();choose(value)end);row:Show()
+   if not row then
+    row=CreateFrame('Button',nil,list);row:SetHeight(ROW_H)
+    row:SetNormalFontObject('GameFontHighlightSmall');row:SetHighlightFontObject('GameFontNormalSmall')
+    row:SetText(' ')
+    local label=row:GetFontString()
+    if label and label.ClearAllPoints then label:ClearAllPoints();label:SetPoint('LEFT',6,0);label:SetPoint('RIGHT',-6,0);label:SetJustifyH('LEFT');label:SetWordWrap(false) end
+    local glow=row:CreateTexture(nil,'HIGHLIGHT');glow:SetAllPoints(row);glow:SetTexture('Interface\\Buttons\\WHITE8X8');glow:SetVertexColor(1,.85,.5,.10)
+    rows[i]=row
+   end
+   row:ClearAllPoints();row:SetPoint('TOPLEFT',0,-(i-1)*ROW_H);row:SetWidth(inner)
+   local value=entry.value;row:SetText(entry.label)
+   local label=row:GetFontString();if label and label.SetTextColor then if value==current then label:SetTextColor(1,.76,.32) else label:SetTextColor(.9,.89,.85) end end
+   row:SetScript('OnClick',function()menu:Hide();Theme:SetOpen(button,false);choose(value)end);row:Show()
   end
   for i=#entries+1,#rows do rows[i]:Hide() end
-  list:SetHeight(math.max(1,#entries*24));scroll:SetVerticalScroll(0);menu:Show()
+  list:SetHeight(math.max(1,#entries*ROW_H))
+  menu:SetHeight(math.min(#entries,VISIBLE)*ROW_H+8)
+  scroll:SetVerticalScroll(0);menu:Show();Theme:SetOpen(button,true)
  end)
- button:HookScript('OnHide',function()menu:Hide()end)
+ button:HookScript('OnHide',function()menu:Hide();Theme:SetOpen(button,false)end)
  button.guideMenu=menu
  return button
 end
@@ -117,7 +132,7 @@ function FC:BuildGuideSelectors(parent,changed,specWidth,toolbar)
   specPicker:SetOptions(browser:BuildOptions(class),build and build.id,'Specialization')
  end
  classPicker=self:GuidePicker(parent,0,0,120,function(class)browser.class=class;browser.buildID=nil;refresh();changed()end)
- specPicker=self:GuidePicker(parent,0,0,specWidth or 230,function(id)browser.buildID=id;local class=browser:GetContext();browser.class=class;refresh();changed()end)
+ specPicker=self:GuidePicker(parent,0,0,specWidth or 200,function(id)browser.buildID=id;local class=browser:GetContext();browser.class=class;refresh();changed()end)
  toolbar:Add(classPicker);toolbar:Add(specPicker)
  refresh()
  return refresh,toolbar
