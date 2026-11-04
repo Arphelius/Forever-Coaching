@@ -8,6 +8,7 @@ function Guide:ForBuild(class,build,level)
   limits='This is a build-aware gearing guide, not personal stat weights, a universal hit cap or a guaranteed item ranking. SimGearForever labels healer weights as curated placeholders; check its source labels.'}
  if not build then out.available=false;out.notice='Select a build in Talent Builds to see what stats support that allocation.';return out end
  out.available=true;out.title=build.title;out.role=build.role;out.buildId=build.id;out.source=build.source
+ out.guideReference=FC.GuideSources and FC.GuideSources:ForBuild(class,build)
  local context=FC.SpecScenarios and FC.SpecScenarios:ForPreview(class,build);local tree=context and context.treeIndex
  out.spec=context and context.spec or build.specialization or build.title
  local talents={};for _,talent in ipairs(build.talents or {}) do if (talent.rank or 0)>0 then talents[talent.name]=true end end
@@ -26,6 +27,20 @@ function Guide:ForBuild(class,build,level)
   out.stats={stat('Weapon setup / form-specific damage','Rogues and Warriors must match weapon requirements. Cat/Bear builds need form-specific scoring; ordinary weapon DPS alone is not a reliable comparison.'),stat('Attack power, Strength and Agility','Compare the physical stats that benefit your actual attack plan and talent interactions.'),stat('Hit, while useful','Match the current weapon setup and target. Do not continue valuing hit after the relevant requirement is satisfied.'),stat('Critical strike','Check its value with your selected critical, combo-point or attack-speed interactions.'),stat('Stamina and required resource sustain','Melee uptime ends when you die or cannot afford an assigned utility action.')};out.plan='Match the weapon or form requirements first, then compare full items with your actual talents and hit amount.'
  else
   out.stats={stat('Spell hit, while useful','Make offensive spells reliable against the actual target; do not copy a cap from another level or encounter.'),stat('Spell power','Supports spell output. Mixed-school builds must compare bonuses to both schools rather than treating a school-only bonus as universal.'),stat('Intellect','Supports the Mana pool and the spell interactions defined by the current client.'),stat('Spell critical strike','Compare its benefit with the critical/proc talents in this allocation.'),stat('Mana regeneration and Stamina','Maintain enough resources and Health to keep casting through the encounter.')};out.plan='Compare the spells and schools this allocation actually uses. Recheck weights when target count, fight length or movement changes.'
+ end
+ -- Explain the stat interactions changed by the launch tuning without inventing
+ -- numerical item weights from patch-note damage multipliers.
+ if class=='HUNTER' and tree==3 then
+  out.stats[1]=stat('Melee weapon damage','Survival uses Raptor Strike, Strider Kick and Mongoose Bite. Compare a suitable melee weapon before ranged weapon upgrades.')
+  out.stats[2]=stat('Agility / attack power','Lightning Reflexes now grants up to 15% more Agility. Match melee and ranged attack-power benefits to the attacks you actually use.')
+ elseif class=='SHAMAN' and tree==2 then
+  out.stats[#out.stats]=stat('Intellect and enough Stamina','Mental Dexterity converts up to 150% of Intellect into attack power. Intellect also supports your Mana budget; compare the whole hybrid item.')
+ elseif class=='PALADIN' and tree==3 and talents['Champion of the Light'] then
+  table.insert(out.stats,3,stat('Intellect / spell power','Champion of the Light now converts up to 60% of Intellect into spell damage. Two-Handed Weapon Specialization also improves Holy damage; compare both physical and Holy output.'))
+ elseif class=='DRUID' and build.role=='healer' and talents.Bloom then
+  out.stats[3]=stat('Spirit / MP5','Bloom bases its final Rejuvenation or Regrowth heal on Spirit. Compare this with your regeneration needs; refreshing early loses the expiration heal.')
+ elseif class=='PALADIN' and build.role=='healer' then
+  out.stats[4]=stat('Spell critical strike','Holy Power now improves the critical healing bonus rather than granting spell critical chance. Boundless Light adds Holy Shock critical chance on allies outside Oath of Light.')
  end
  out.talentNotes={}
  for _,talent in ipairs(build.talents or {}) do

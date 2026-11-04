@@ -1,0 +1,25 @@
+name: Check Forever class tuning
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * *'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Download and compare current class data
+        shell: pwsh
+        run: ./tools/Check-ForeverTuning.ps1
+      - name: Keep candidate data and review report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forever-tuning-review
+          path: .tmp/forever-tuning-check/
+          retention-days: 14

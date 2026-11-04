@@ -16,6 +16,7 @@ local function surface(f,r,g,b,edge)
     f:SetBackdropColor(r,g,b,1);f:SetBackdropBorderColor(unpack(edge or {.18,.20,.24}))
 end
 local function icon(id)
+    if not id then return end
     if C_Spell and C_Spell.GetSpellTexture then return C_Spell.GetSpellTexture(id) end
     if GetSpellTexture then return GetSpellTexture(id) end
 end
@@ -43,7 +44,7 @@ end
         for ti,tree in ipairs(layout) do
             for index,node in ipairs(tree.nodes) do
                 local target={key=ti..":"..index,tree=ti,maxRank=node.maxRank}
-                bySpell[node.spellId]=target;byName[node.name]=target
+                if node.spellId then bySpell[node.spellId]=target end;byName[node.name]=target
                 local localized=query(C_Spell and C_Spell.GetSpellName,node.spellId) or query(GetSpellInfo,node.spellId)
                 if type(localized)=="string" then byName[localized]=target end
             end
@@ -400,7 +401,7 @@ function FC:BuildPresetTalentPage(parent)
                 end
                 local perRow=math.max(1,math.floor((DETAIL_W-28+PITCH-SQUARE)/PITCH))
                 row:ClearAllPoints();row:SetPoint('TOPLEFT',(index-1)%perRow*PITCH,-math.floor((index-1)/perRow)*PITCH)
-                row.icon:SetTexture(icon(step.spellId) or 'Interface\\Icons\\INV_Misc_QuestionMark')
+                row.icon:SetTexture(step.icon or icon(step.spellId) or 'Interface\\Icons\\INV_Misc_QuestionMark')
                 row.levelLabel:SetText(tostring(step.level-shift))
                 local nextPoint=activeStep and activeStep.treeIndex==step.treeIndex
                     and activeStep.talentIndex==step.talentIndex and activeStep.rank==step.rank
@@ -409,7 +410,9 @@ function FC:BuildPresetTalentPage(parent)
                 local spell,name,rank,maxRank,pointLevel,why=step.spellId,step.name,step.rank,step.maxRank,step.level-shift,step.why
                 row:SetScript("OnEnter",function(self)
                     GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-                    if GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(spell) else GameTooltip:SetText(name) end
+                    if spell and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(spell) else GameTooltip:SetText(name) end
+                    local reviewed=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class].talents[name]
+                    if reviewed and reviewed.effects[tostring(rank)] then GameTooltip:AddLine(reviewed.effects[tostring(rank)],.85,.88,.92,true) end
                     GameTooltip:AddLine('Level '..pointLevel..' / '..name..' '..rank..'/'..maxRank,1,.76,.32,true)
                     if why then GameTooltip:AddLine(why,.85,.88,.92,true) end
                     GameTooltip:Show()
@@ -424,7 +427,7 @@ function FC:BuildPresetTalentPage(parent)
     local levelButton=button(parent,"",0,0,LEFT_W-20,function() previewIndex=previewIndex % #levels+1;preview=levels[previewIndex];refresh() end)
     levelButton:ClearAllPoints();levelButton:SetPoint("BOTTOMLEFT",PAD,8)
     footer("Talent code",function() local b=current();if b and (b.points or 0)>0 then local original=b.source.calculatorUrl and b.source.calculatorUrl~="";copy(original and "Original calculator / "..b.title or "Talent code / "..b.title,original and b.source.calculatorUrl or b.talentString) end end)
-    footer("Mobalytics",function() local choice=choices[selectedSpec];if choice and choice.build then copy('Mobalytics build guides',FC.BuildPlanner:GetBuildEvidenceUrl(choice.build)) end end)
+    footer("Wowhead",function() local choice=choices[selectedSpec];if choice and choice.build then copy('Wowhead Forever guide',FC.BuildPlanner:GetBuildEvidenceUrl(choice.build,class)) end end)
     refresh=function()
         detailScroll:SetVerticalScroll(0)
         popup.box:ClearFocus();popup:Hide()
@@ -552,7 +555,7 @@ function FC:BuildPresetTalentPage(parent)
                 end
                 local rank=ranks[treeIndex..":"..index] or 0;total=total+rank
                 node:ClearAllPoints();node:SetPoint("TOPLEFT",12+talent.col*NODE_X,-44-talent.row*NODE_Y)
-                node.icon:SetTexture(icon(talent.spellId) or "Interface\\Icons\\INV_Misc_QuestionMark")
+                node.icon:SetTexture(talent.icon or icon(talent.spellId) or "Interface\\Icons\\INV_Misc_QuestionMark")
                 local highlighted=focusPoint and activeStep and activeStep.treeIndex==treeIndex and activeStep.talentIndex==index
                 local dimmed=focusPoint and not highlighted
                 node.icon:SetDesaturated(dimmed or (not highlighted and rank==0))
@@ -564,6 +567,8 @@ function FC:BuildPresetTalentPage(parent)
                 node:SetScript("OnEnter",function(self)
                     GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
                     if GameTooltip.SetSpellByID and icon(talent.spellId) then GameTooltip:SetSpellByID(talent.spellId) else GameTooltip:SetText(talent.name) end
+                    local reviewed=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class].talents[talent.name]
+                    if reviewed and reviewed.effects[tostring(math.max(1,rank))] then GameTooltip:AddLine(reviewed.effects[tostring(math.max(1,rank))],.85,.88,.92,true) end
                     GameTooltip:AddLine("Build allocation: "..rank.."/"..talent.maxRank,1,.76,.32);GameTooltip:Show()
                 end)
                 node:SetScript("OnLeave",function() GameTooltip:Hide() end);node:Show()

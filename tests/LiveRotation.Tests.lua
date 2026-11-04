@@ -9,7 +9,7 @@ UnitAffectingCombat=function()return true end
 UnitHealth=function(unit)return unit=='player' and state.health or 100 end;UnitHealthMax=function()return 100 end
 UnitPower=function()return state.mana end;UnitPowerMax=function()return 100 end
 GetUnitSpeed=function()return state.moving end;GetComboPoints=function()return state.combo end
-IsPlayerSpell=function(value)return not state.unlearned or state.unlearned~=value end
+IsPlayerSpell=function(value)return (names[value]~='Ice Barrier' or state.barrierKnown) and (not state.unlearned or state.unlearned~=value) end
 IsSpellKnown=IsPlayerSpell
 C_Spell={GetSpellInfo=function(value)
  local name=type(value)=='string' and value or names[value]
@@ -20,7 +20,7 @@ IsSpellInRange=function()return state.range end,
 GetSpellPowerCost=function()if state.hiddenCosts then return nil end;return {{type=0,cost=30}}end}
 C_UnitAuras={GetAuraDataByIndex=function(_,index)
  if state.hiddenAuras then error('restricted') end
- local name=state.auras[index];if name then return {name=name,expirationTime=100} end
+ local name=state.auras[index];if name then return {name=name,expirationTime=100,applications=state.auraStacks or 1} end
 end}
 local live=FC.LiveRotation
 local rec=live:GetRecommendation()
@@ -30,6 +30,9 @@ state.range=false;assert(not live:GetRecommendation().spellID,'Out of range excl
 state.moving=7;assert(not live:GetRecommendation().spellID,'Do not recommend a hard cast while moving');state.moving=0
 state.cooldown=id('Frostbolt');assert(not live:GetRecommendation().spellID,'Cooldown excluded');state.cooldown=nil
 state.hiddenCosts=true;assert(#live:GetRecommendation().queue==1,'Unknown cost cannot produce a fabricated follow-up');state.hiddenCosts=nil
+state.barrierKnown=true;rec=live:GetRecommendation();assert(rec.spellName=='Ice Barrier','Frost uses its new damage and absorption buff when learned and absent');state.barrierKnown=false
+state.tree=1;state.auras={'Missile Barrage'};rec=live:GetRecommendation();local missiles=0;for _,s in ipairs(rec.queue)do if s.name=='Arcane Missiles' then missiles=missiles+1 end end;assert(missiles==1,'Missile Barrage is consumed at the beginning of the channel');state.tree=3;state.auras={}
+state.tree=2;state.auras={'Heating Up'};state.auraStacks=2;assert(live:GetRecommendation().spellName~='Pyroblast','One or two Heating Up stacks must not satisfy the three-stack priority');state.auraStacks=3;assert(live:GetRecommendation().spellName=='Pyroblast');state.auraStacks=nil;state.auras={};state.tree=3
 state.class='WARLOCK';state.tree=3
 rec=live:GetRecommendation();assert(rec.spellName=='Immolate');assert(rec.queue[2].name=='Conflagrate','Forecast respects applied setup')
 state.auras={'Immolate'};assert(live:GetRecommendation().spellName=='Conflagrate','Current owned DoT is not reapplied')
@@ -37,7 +40,10 @@ state.hiddenAuras=true;rec=live:GetRecommendation();for _,a in ipairs(rec.queue)
 state.hiddenAuras=nil;state.auras={}
 state.class='ROGUE';state.tree=2;state.combo=0
 rec=live:GetRecommendation();for _,a in ipairs(rec.queue)do assert(a.name~='Eviscerate','Do not assume builders generate combo points')end
-state.combo=5;rec=live:GetRecommendation();assert(rec.spellName=='Eviscerate');for i=2,#rec.queue do assert(rec.queue[i].name~='Eviscerate','Projected finisher spends combo points')end
+state.combo=5;rec=live:GetRecommendation();assert(rec.spellName=='Slice and Dice','Maintain the attack-speed buff before damage finishers')
+state.auras={'Slice and Dice'};rec=live:GetRecommendation();assert(rec.spellName=='Eviscerate');for i=2,#rec.queue do assert(rec.queue[i].name~='Eviscerate','Projected finisher spends combo points')end;state.auras={}
+state.tree=1;state.mana=50;rec=live:GetRecommendation();assert(rec.spellName=='Shank','Shank restores Energy; passive Venom is never cast');for _,s in ipairs(rec.queue)do assert(s.name~='Venom')end
+state.mana=100;state.tree=3;state.combo=5;assert(live:GetRecommendation().spellName=='Death Mark','Subtlety uses the current finisher');state.tree=2
 state.class='MAGE';state.tree=3;state.combo=0
 state.urgent={spellID=999,spellName='Kick',encounterPrompt=true};assert(live:GetRecommendation().spellID==999,'Interrupt overrides damage');state.urgent=nil
 state.noSpec=true;assert(not live:GetRecommendation().spellID,'A browsed build never substitutes for unreadable spec');state.noSpec=nil

@@ -9,9 +9,12 @@ async function main(){
   for(const cls of ['WARRIOR','HUNTER','MAGE','ROGUE','PRIEST','WARLOCK','PALADIN','DRUID','SHAMAN']){
    const read=async build=>{const r=await fetch(base+'/state?class='+cls+'&level=60&build='+build);const data=await r.json();assert(r.ok,data.error);return data;};
    const initial=await read(0);assert(initial.abilityLessons.length>=40,cls+' complete lessons');
-   assert(initial.abilityLessons.every(l=>l.sourceBuild==='1.60.1.70707'&&l.sourceUrl.includes('foreverchanges.pro')));
+   assert(initial.professionGuides.leveling.pair&&initial.professionGuides.pvp.use,cls+' profession guides');
+   assert(initial.abilityLessons.every(l=>l.sourceBuild==='1.60.1.70753'&&l.sourceUrl.includes('foreverchanges.pro')));
    const selected=await read(initial.choices[0].index);assert(selected.specScenarios.available,cls+' scenarios');
-   assert(selected.specScenarios.basis.includes('1.60.1.70707'));
+   assert(selected.buildEvidenceUrl.startsWith('https://www.wowhead.com/forever/guide/classes/'+cls.toLowerCase()+'/'));
+   assert(selected.gearGuide.guideReference.url===selected.buildEvidenceUrl);
+   assert(selected.specScenarios.basis.includes('1.60.1.70753'));
    assert(selected.specScenarios.scenarios.length===11);
    if(cls==='HUNTER')assert(initial.abilityLessons.some(l=>l.name==='Summon Hawk')&&!initial.abilityLessons.some(l=>l.name==='Kill Command'));
    const first=initial.layout[0].nodes.findIndex(n=>n.row===0)+1;
@@ -19,6 +22,9 @@ async function main(){
    const change={treeIndex:1,talentIndex:first,delta:1};
    const response=await fetch(base+'/state?class='+cls+'&level=60&custom='+encodeURIComponent(JSON.stringify(custom))+'&customChange='+encodeURIComponent(JSON.stringify(change)));
    const result=await response.json();assert(response.ok,result.error);assert.equal(result.custom.points,1);assert(result.custom.valid);assert.equal(result.build.kind,'custom');assert.equal(result.build.title,custom.name);assert.equal(result.orderType,'custom');assert.equal(result.nextPoint.talentIndex,first);assert(result.effect?.kind);
+   assert(result.custom.wowheadUrl?.startsWith('https://www.wowhead.com/forever/talent-calc/'),cls+' Wowhead export');
+   const importedResponse=await fetch(base+'/state?class='+cls+'&level=60&custom='+encodeURIComponent(JSON.stringify(custom))+'&customImport='+encodeURIComponent(result.custom.wowheadUrl));
+   const imported=await importedResponse.json();assert(importedResponse.ok,imported.error);assert.equal(imported.custom.points,1);assert(!imported.custom.error,imported.custom.error);assert.equal(imported.custom.draft.importSource.orderSuggested,false);
   }
   console.log('PASS: real HTTP preview state for all nine classes, complete sourced lessons and scenario integration.');
  }finally{child.kill();}

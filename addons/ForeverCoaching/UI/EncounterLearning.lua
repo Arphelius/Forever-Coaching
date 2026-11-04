@@ -5,12 +5,15 @@ function FC:BuildEncounterLearningPage(parent,mode)
  local coach=self.EncounterCoach;if not coach then return end
  local Theme=FC.ClassicTheme
  local document=Theme:Document(parent,Theme.METRICS.documentTop)
+ local guideLink=CreateFrame('EditBox',nil,document.content,'InputBoxTemplate');guideLink:SetSize(680,24);guideLink:SetAutoFocus(false)
+ guideLink:SetScript('OnEditFocusGained',function(self)self:HighlightText()end);guideLink:SetScript('OnEscapePressed',function(self)self:ClearFocus()end)
  local previous,nextButton,counter,picker,draw
  local function paragraph(title,body,tone)
   if body and body~='' then document:Line(title,true,tone);document:Line(body) end
  end
  draw=function()
   document:Reset()
+  guideLink:Hide()
   local class,build,live=FC.GuideBrowser:GetContext()
   local scenarios
   if mode=='Scenarios' and FC.SpecScenarios then
@@ -41,6 +44,8 @@ function FC:BuildEncounterLearningPage(parent,mode)
   else
    document:Group(item.name,'|cffffcc66What it does:|r '..(item.description or 'Effect unavailable for this ability.')..'\n\n|cffffcc66Why it is used:|r '..item.why..'\n\n|cffffcc66When to use it:|r '..item.when)
   end
+  local reference=FC.GuideSources and FC.GuideSources:ForBuild(class,build)
+  if reference then document:Line('Wowhead Forever guide',true);guideLink:SetText(reference.url);guideLink:Show();document:AddWidget(guideLink,32)end
   document:Finish()
  end
  local _,toolbar=self:BuildGuideSelectors(parent,function()positions[mode]=1;draw()end)

@@ -1,0 +1,21 @@
+{
+  "build": "1.60.1.70753",
+  "reviewed": "2026-11-03",
+  "notesUrl": "https://us.forums.blizzard.com/en/wow/t/2360696/9",
+  "policy": "Preserve published allocation intent where legal. Adapted allocations are planning starting points, never new simulations or published leveling orders. All prior performance rankings expire for this tuning.",
+  "aliases": {
+    "ROGUE": {"Improved Sinister Strike":"Efficient Strikes","Improved Eviscerate":"Coup de Grace"},
+    "MAGE": {"Improved Fireball":"Accelerant","Elemental Precision":"Precision","Arcane Focus":"Precision"},
+    "SHAMAN": {"Lava Burst":"Call of Thunder","Elemental Mastery":"Lightning Mastery"}
+  },
+  "priorities": {
+    "WARRIOR": [["Mortal Strike","Sweeping Strikes","Bloodthrill","Improved Slam","Impale","Deep Wounds","Weaponmaster"],["Bloodthirst","Death Wish","Flurry","Improved Whirlwind","Furious Precision","Cruelty","Enrage"],["Shield Slam","Concussion Blow","Defiance","Last Stand","Shield Specialization","Anticipation","Bastion"]],
+    "ROGUE": [["Mutilate","Venom","Blood Splatter","Seal Fate","Vile Poisons","Improved Poisons","Relentless Strikes","Malice","Lethality"],["Adrenaline Rush","Flash of Steel","Blade Flurry","Dual Wield Specialization","Precision","Efficient Strikes","Aggression","Flawless Execution"],["Death Mark","Boot Knife","Hemorrhage","Ghostly Strike","Serrated Blades","Opportunity","Premeditation","Preparation"]],
+    "MAGE": [["Arcane Power","Presence of Mind","Arcane Wrath","Arcane Blast","Missile Barrage","Arcane Concentration","Arcane Mind"],["Combustion","Critical Mass","Heating Up","Pyroblast","Fire Power","Accelerant","Ignite","Incineration"],["Ice Barrier","Cold Snap","Fingers of Frost","Ice Lance","Winter's Chill","Improved Frostbolt","Precision","Ice Shards","Shatter"]],
+    "PALADIN": [["Light's Vigil","Holy Shock","Oath of Light","Boundless Light","Illumination","Reverence","Healing Light","Holy Power"],["Shieldsworn","Holy Shield","Iron Creed","Improved Righteous Fury","Templar's Bulwark","Swift Judgement","Shield Specialization","Redoubt","Divine Intellect"],["Unsealed Wrath","Repentance","Vengeance","Seal of Command","Two-Handed Weapon Specialization","Champion of the Light","Conviction","Sanctified Judgement"]],
+    "DRUID": [["Moonkin Form","Eclipse","Moonfury","Nature's Grace","Improved Starfire","Genesis"],["Shifting Power","Predatory Discipline","Leader of the Pack","Rend and Tear","Predatory Strikes","Shredding Attacks","Ferocity","Furor"],["Wild Growth","Living Spirit","Swiftmend","Bloom","Naturalist","Gift of Nature","Improved Rejuvenation"]],
+    "SHAMAN": [["Lightning Mastery","Call of Thunder","Elemental Fury","Lightning Overload","Elemental Alacrity","Concussion","Elemental Focus"],["Rage of the Farseer","Mental Quickness","Maelstrom Weapon","Stormstrike","Improved Stormstrike","Flurry","Mental Dexterity","Thundering Strikes"],["Riptide","Healing Way","Purification","Nature's Swiftness","Water Shield","Tidal Mastery"]]
+  },
+  "bearPriorities": ["Primal Bite","Lacerate","Leader of the Pack","Savage Fury","Natural Reaction","Thick Hide","Natural Instinct","Ferocity","Furor"],
+  "excludedFillers": ["Reckless Swings"]
+}

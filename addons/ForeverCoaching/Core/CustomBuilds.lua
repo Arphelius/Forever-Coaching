@@ -16,8 +16,20 @@ end
 function C:Find(class,id)for _,build in ipairs(self:List(class))do if build.id==id then return build end end end
 function C:Draft(build)
  local draft=self:New(build.class);draft.id=build.id;draft.name=build.title;draft.role=build.role
- for _,talent in ipairs(build.talents or {})do draft.ranks[key(talent.treeIndex,talent.talentIndex)]=talent.rank end
- for _,step in ipairs(build.levelingOrder or {})do draft.order[#draft.order+1]={treeIndex=step.treeIndex,talentIndex=step.talentIndex}end
+ draft.importSource=copy(build.importSource)
+ -- Saved indices belong to the old layout. Resolve names first so a moved
+ -- talent can never turn into an unrelated purchase after a class rework.
+ local lookup={};for ti,tree in ipairs(FC.TalentTrees[build.class] or {})do for ni,node in ipairs(tree.nodes)do lookup[node.name]={ti=ti,ni=ni,node=node}end end
+ for _,talent in ipairs(build.talents or {})do
+  local current=lookup[talent.name]
+  if not current or talent.rank>current.node.maxRank then draft.layoutIssue='This saved build contains changed talents. Reset the calculator and save an updated allocation.'
+  else draft.ranks[key(current.ti,current.ni)]=talent.rank end
+ end
+ for _,step in ipairs(build.levelingOrder or {})do
+  local current=lookup[step.name]
+  if current then draft.order[#draft.order+1]={treeIndex=current.ti,talentIndex=current.ni}
+  else draft.layoutIssue='This saved build contains changed talents. Reset the calculator and save an updated allocation.' end
+ end
  return draft
 end
 local function prerequisite(class,node)
@@ -25,6 +37,7 @@ local function prerequisite(class,node)
  return node.requires or (current and current.talents[node.name] and current.talents[node.name].requires)
 end
 function C:Validate(draft,allowEmpty)
+ if draft and draft.layoutIssue then return nil,draft.layoutIssue end
  if type(draft)~='table' or not FC.TalentTrees[draft.class] then return nil,'Choose a valid class.'end
  if type(draft.ranks)~='table' or type(draft.order)~='table' then return nil,'Invalid custom build data.'end
  local layout=FC.TalentTrees[draft.class];local lookup={};local totals={0,0,0};local expected=0
@@ -54,7 +67,7 @@ function C:Validate(draft,allowEmpty)
    if not target or (ranks[key(target.treeIndex,target.talentIndex)] or 0)<amount then return nil,'Required talent: '..tostring(name)end
   end
   ranks[address]=rank;totals[ti]=totals[ti]+1
-  order[#order+1]={level=point+9,name=node.name,rank=rank,maxRank=node.maxRank,spellId=node.spellId,treeIndex=ti,talentIndex=ni,row=node.row,col=node.col,why='Your saved custom point order.'}
+  order[#order+1]={level=point+9,name=node.name,rank=rank,maxRank=node.maxRank,spellId=node.spellId,icon=node.icon,treeIndex=ti,talentIndex=ni,row=node.row,col=node.col,why=draft.importSource and (draft.importSource.orderSuggested and 'Suggested order for your imported allocation.' or 'Your imported Wowhead point order.') or 'Your saved custom point order.'}
  end
  return {points=expected,totals=totals,order=order,ranks=ranks}
 end
@@ -99,7 +112,7 @@ function C:Save(draft)
  end
  local build={kind='custom',class=draft.class,id=draft.id,title=name,specialization=name,role=draft.role,evidence='custom',maxLevel=60,points=valid.points,
   talents=talents,talentString=table.concat(codes,'-'),distribution=table.concat(valid.totals,' / '),levelingOrder=valid.order,
-  source={name='Custom build',url=''},note='Player-created experiment; not a published or ranked recommendation.'}
+  importSource=copy(draft.importSource),source={name=draft.importSource and 'Wowhead custom build' or 'Custom build',url=draft.importSource and draft.importSource.url or '',talentSnapshot=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.build},note='Player-created experiment; not a published or ranked recommendation.'}
  list[position or #list+1]=build;database()[draft.class]=list
  if FC.Localization then FC.Localization.protected=nil;FC.Localization.keys=nil;FC.Localization.cache=nil end
  return build

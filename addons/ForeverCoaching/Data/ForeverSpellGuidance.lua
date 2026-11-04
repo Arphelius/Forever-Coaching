@@ -1,4 +1,4 @@
--- Toolkit audit against ForeverChanges beta 1.60.1.70707 (2026-11-01).
+-- Toolkit review: November 3 launch tuning, client build 1.60.1.70753.
 local FC=ForeverCoaching
 local catalog=FC.ForeverSpellCatalog
 if not catalog then return end
@@ -21,7 +21,7 @@ local notes={
   ['Sniper Shot']='Sniper Shot extends the range of your next three Shots.',
   ['Strider Kick']='A melee weapon attack that briefly improves movement speed.',
   ['Mongoose Bite']='Expose Prey can enable Mongoose Bite against a marked enemy; use the observed trigger.',
-  ['Explosive Trap']='Trap placement and the shared control plan matter; do not break assigned crowd control.',
+  ['Explosive Trap']='All fire and frost traps share a 30-second cooldown. Reserve it for required control; do not break crowd control with damage.',
  },
  MAGE={
   ['Arcane Blast']='Stacks raise spell damage from Intellect and increase Arcane Blast cost. Budget the stack window.',
@@ -32,11 +32,12 @@ local notes={
   ['Frostfire Bolt']='A trained Frostfire spell with a slow and periodic damage.',
  },
  ROGUE={
-  ['Venom']='A combo-point finisher that buffs poison damage and application; it is not Envenom.',
+  ['Shank']='An off-hand strike that restores Energy. Venom is now a passive triggered by Shank, not a finisher.',
+  ['Death Mark']='Stores damage for six seconds; Garrote and Rupture contribute at twice the rate. Spend combo points when the target will live through the mark.',
   ['Mutilate']='Attacks with both weapons and rewards attacking a poisoned target.',
-  ['Hemorrhage']='Improves your Rupture damage on the target.',
-  ['Rupture']='With Thousand Cuts, periodic ticks discount your next Hemorrhage or Backstab.',
-  ['Ambush']='Cutthroat can permit Ambush without Stealth; check the actual proc and weapon requirements.',
+  ['Hemorrhage']='Improves your Garrote and Rupture damage on the target by 15%.',
+  ['Rupture']='Blood Splatter extends Rupture by six seconds; avoid clipping useful bleed ticks.',
+  ['Ambush']='Ghostly Strike allows your next Ambush or Garrote within seven seconds without Stealth; weapon and positioning requirements still apply.',
  },
  PRIEST={
   ['Penance']='Penance can damage an enemy or heal an ally; select the intended recipient.',
@@ -58,23 +59,25 @@ local notes={
   ['Consecration']='Consecration is trained. Place its area where permitted enemies will remain.',
   ['Hammer of the Righteous']='A trained shield-tank attack; check its live equipment and target requirements.',
   ['Holy Shock']='A talent ability usable for damage or healing; choose the correct target.',
-  ["Light's Vigil"]='A Holy talent ability; use its current client targeting and duration requirements.',
+  ["Light's Vigil"]='A healing ability for friendly targets only; it no longer has an offensive use.',
+  ['Oath of Light']='Choose one ally for stronger Holy Light, Flash of Light and Holy Shock healing. Boundless Light instead benefits Holy Shock on other allies.',
+  ["Templar's Bulwark"]='Its shield is a Magic effect and can be dispelled by enemies.',
  },
  DRUID={
   ['Wrath']='Eclipse lets Wrath shorten subsequent Starfire casts; it is not the alternating retail Eclipse cycle.',
   ['Primal Bite']='Bear threat attack; use the correct form and Rage budget.',
   ['Lacerate']='Stacks up to five times and contributes Bear threat and bleeding.',
   ['Shifting Power']='Trades Mana for Energy without requiring a Cat Form powershift.',
-  ['Wild Growth']='Heals the target and their party over time; group placement matters.',
+  ['Wild Growth']='A three-second base cast followed by group healing over time. Naturalist can shorten the cast; plan ahead of sustained damage.',
   ['Rejuvenation']='Bloom rewards natural expiration; refreshing early can lose that final heal.',
   ['Barkskin']='Usable in animal forms and Moonkin Form; a defensive does not require leaving those forms.',
  },
  SHAMAN={
   ['Lightning Bolt']='Maelstrom Weapon reduces Lightning Bolt cast time and cost; do not extend the talent to Chain Lightning.',
-  ['Lava Burst']='Flame Shock increases Lava Burst damage; it does not guarantee a critical strike.',
   ['Fire Nova']='Erupts from your active fire totem, not a separately summoned Fire Nova Totem.',
-  ['Elemental Mastery']='Shortens Lightning Bolt and Lava Burst casts and removes Chain Lightning cooldown during its window.',
-  ['Riptide']='Chain Heal cast directly on the Riptide target benefits from the healing interaction.',
+  ['Lightning Mastery']='Shortens Lightning Bolt casts and removes Chain Lightning cooldown during its 15-second window.',
+  ['Totemic Call']='Moves your active totems to your own location, with a 30-second cooldown.',
+  ['Riptide']='Healing over time only, with a 12-second cooldown. Chain Heal cast directly on this target benefits; use another heal for immediate recovery.',
  },
 }
 FC.ForeverSpellNotes=notes
@@ -88,6 +91,7 @@ for class,data in pairs(catalog.classes) do
   local spell=data.spells[name];local old=existing[name]
   if not old then for _,id in ipairs(spell.ids)do if byID[id] then old=byID[id];break end end end
   local entry={ids=spell.ids,name=name,description=spell.description,kind=old and old.kind or 'spellbook',types=old and old.types,
+   periodicOnly=class=='SHAMAN' and name=='Riptide',
    why=(notes[class] or {})[name] or (old and old.why) or 'Part of the current Forever toolkit. Read the current client effect before choosing a target.',
    when=old and old.when or 'The spell is learned, ready, affordable and appropriate for your assignment.',
    how=old and old.how or 'Check the live tooltip, target requirements and the encounter before using it.',
@@ -106,7 +110,7 @@ local conditions={
  ['Hammer of Wrath']='The enemy meets the live low-health requirement and the cast can complete safely.',
  ['Conflagrate']='Your Immolate is on this target and consuming it fits your next actions.',
  ['Soul Fire']='A qualifying Decimation proc is observed or a normal Soul Fire cast and shard cost are safe.',
- ['Ambush']='Stealth or an observed Cutthroat proc permits Ambush and its weapon and positioning requirements are met.',
+ ['Ambush']='Stealth or the observed Ghostly Strike allowance permits Ambush, and its weapon and positioning requirements are met.',
  ['Premeditation']='Stealth and target requirements are met and the extra combo points will not be wasted.',
  ['Cold Snap']='A relevant Frost cooldown is unavailable and resetting it serves the planned encounter window.',
  ['Rupture']='You have combo points and enough target lifetime for the bleed; avoid overwriting useful ticks.',
@@ -150,7 +154,10 @@ prepend('MAGE',1,'single',action('MAGE','Arcane Wrath','Missile Barrage is absen
 A.profiles.MAGE[2].prepare='Watch Heating Up stacks and the actual Pyroblast cast time; reserve Counterspell.'
 A.profiles.MAGE[2].single.steps[1]=action('MAGE','Pyroblast','Heating Up has reduced its cast time enough for the safe cast window.','Heating Up')
 for _,s in ipairs(A.profiles.MAGE[2].burst.steps)do if s.spell=='Fireball' then s.when='Combustion is active and a Fireball cast fits before the next required action.' end end
-prepend('ROGUE',1,'single',action('ROGUE','Venom','You have combo points, poisons are applied, and the buff needs refreshing.','Venom'))
+prepend('ROGUE',1,'single',action('ROGUE','Shank','You have an off-hand weapon, Shank is ready, and its Energy restoration will not overflow.'))
+prepend('ROGUE',2,'single',action('ROGUE','Shank','Shank is ready and its Energy restoration will not overflow. Flash of Steel improves the return.'))
+prepend('ROGUE',3,'single',action('ROGUE','Shank','Shank is ready, Energy will not overflow, and Boot Knife combo points will not be wasted.'))
+prepend('ROGUE',3,'single',action('ROGUE','Death Mark','You have enough combo points and the target will survive six seconds; keep your bleeds contributing.','Death Mark'))
 prepend('PRIEST',1,'single',action('PRIEST','Penance','The assigned ally needs direct recovery and you can safely channel.','Penance'))
 prepend('WARRIOR',1,'single',action('WARRIOR','Rend','Bloodthrill is learned, the enemy can bleed, and Rend needs applying.','Bloodthrill'))
 prepend('WARRIOR',1,'single',action('WARRIOR','Spearing Strike','The attack is learned and a mounted, Giant or Dragonkin target is in range.','Spearing Strike'))

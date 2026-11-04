@@ -3,10 +3,12 @@ local FC = ForeverCoaching
 local Planner = {}
 FC.BuildPlanner = Planner
 
-function Planner:GetBuildEvidenceUrl(build)
-    local url=build and build.source and build.source.url or ''
-    if url:match('^https://mobalytics%.gg/') or url:match('^https://www%.mobalytics%.gg/') then return url end
-    return 'https://mobalytics.gg/wow-forever'
+function Planner:GetBuildEvidenceUrl(build,class)
+    -- Compatibility name: this opens a practical guide. The allocation's
+    -- original publication/simulation evidence remains in build.source.
+    local reference=FC.GuideSources and FC.GuideSources:ForBuild(class,build)
+    if reference then return reference.url end
+    return 'https://www.wowhead.com/forever/guides'
 end
 
 function Planner:GetBuildDisplayName(classToken,build)
@@ -99,7 +101,7 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                         bestScore=score
                         choice.index=index;choice.build=build
                         choice.provisional=dungeonSuggestion or healingSuggestion
-                        choice.badge=benchmark and "SIM REFERENCE" or (duel and "DUEL EXAMPLE" or (build.evidence=="guide" and "RECOMMENDED" or "EXPERIMENTAL"))
+                        choice.badge=build.evidence=='adapted' and 'UPDATED PLAN' or (benchmark and "SIM REFERENCE" or (duel and "DUEL EXAMPLE" or (build.evidence=="guide" and "RECOMMENDED" or "EXPERIMENTAL")))
                         choice.reason=benchmark and (build.role=="tank" and "Raid threat reference; survival is not ranked." or "Published single-target raid reference; fixed gear and buffs.") or (build.note~="" and build.note or "Published plan for this activity; combat comparison pending.")
                         if build.evidence=="experimental" then
                             local highlights={}
@@ -167,7 +169,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
                 or activity=="dungeons" and (b.role=="healer" and "dungeon_healing" or (b.role=="tank" and "dungeon_tanking" or "dungeon_damage"))
             local matchingGuide=roleScenario and (b.evidence=="guide" or b.evidence=="theorycraft")
                 and self:MatchesPlaystyle(b,roleScenario)
-            if b.evidence=="simulation" or matchingGuide then
+            if b.evidence=="simulation" or (b.evidence=='adapted' and b.previousEvidence=='simulation') or matchingGuide then
                 append(self:SelectSpecBuild(group,builds,index,activity))
             end
         end
@@ -311,6 +313,7 @@ function Planner:SelectSpecBuild(choice, builds, index, activity)
     alternative.reason="You can play this spec in "..activity..". This allocation is a level "..build.maxLevel.." reference; its performance here is unverified."
     if build.evidence=="tournament" then alternative.reason="Level 30 duel allocation with 5 extra talent points; not validated for "..activity.."." end
     if build.evidence=="guide_conflict" then alternative.badge="SOURCE CONFLICT";alternative.reason=build.note end
+    if build.evidence=='adapted' then alternative.badge='UPDATED PLAN';alternative.reason=build.note end
     alternative.proof=(build.source.name or "Source").." / "..(build.source.guideUpdated or "snapshot unknown")
     alternative.proofUrl=build.source.url
     return alternative
@@ -443,6 +446,7 @@ function Planner:GetTalentProgression(classToken, build)
         if not valid then return nil,err end
         return valid.order,'custom'
     end
+    if build.planningOrder then return build.planningOrder,"suggested" end
     if build.levelingOrder then return build.levelingOrder,"published" end
     local layout=build.treeLayout or (FC.TalentTrees or {})[classToken]
     if not layout then return nil,"Talent layout unavailable." end
@@ -537,7 +541,12 @@ function Planner:GetPlan(classToken, level, variantIndex)
     if build.kind=='custom' and FC.CustomBuilds then
         local valid,err=FC.CustomBuilds:Validate(FC.CustomBuilds:Draft(build))
         if not valid then return nil,err end
-        return {build=build,custom=true,reference=true,level=level,maxLevel=60,rows=build.talents,points=valid.points}
+        local rows={}
+        for ti,tree in ipairs(FC.TalentTrees[classToken])do for ni,node in ipairs(tree.nodes)do
+            local rank=valid.ranks[ti..':'..ni] or 0
+            if rank>0 then rows[#rows+1]={name=node.name,tree=tree.name,treeIndex=ti,talentIndex=ni,rank=rank,maxRank=node.maxRank,tier=node.row+1} end
+        end end
+        return {build=build,custom=true,reference=true,level=level,maxLevel=60,rows=rows,points=valid.points}
     end
     if build.kind == "reference" then
         local rows, points, treeTotals = {}, 0, {0,0,0}

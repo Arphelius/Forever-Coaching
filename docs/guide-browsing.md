@@ -1,5 +1,11 @@
 # Guide browsing
 
+Wowhead Forever is the primary practical guide reference. Talent Builds and
+Resources open the selected class/spec's Wowhead overview; Learn, Scenarios and
+Gear include the same copyable reference. Spell-effect snapshots and original
+build publications retain their own provenance. Reviewed changes and guide
+conflicts are tracked in [the source review](research/wowhead-guides.md).
+
 Every dashboard section offers class/spec selection. Scenarios and Learn have menus above Previous/Next, with another menu for jumping directly to a scenario, ability or talent. Gear, Combat Review and Resources use the same selection. Talent Builds retains its class icons and spec buttons and shares the browsing selection with the other pages. Browsing guides does not change real talents or live combat advice; choosing a build in Talent Builds retains its existing activation behavior.
 
 Combat Review filters stored fights by recorded class, specialization and role, including matching fights from other characters. Unknown or mismatched specializations are not guessed. New reviews and exported timelines save the observed class/spec metadata; older reviews can be matched when their actual talent snapshot is sufficient. Opening a post-fight review notification returns to the current character's review. Resources shows the selected build's guide link. The browser also filters imported recordings against the selected class/spec.

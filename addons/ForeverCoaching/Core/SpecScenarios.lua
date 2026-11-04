@@ -31,9 +31,6 @@ local function make(class,index,role,basis,talents,source)
   profile.movement='an eligible Maelstrom-shortened spell only if the current stacks actually make it instant, otherwise a learned instant shock while moving safely'
   profile.resource=profile.resource..'; account for the observed Maelstrom cost reduction without assuming full stacks'
  end
- if class=='SHAMAN' and index==1 and learnedTalents['Lava Burst'] then
-  profile.single='useful Flame Shock uptime for a benefiting Lava Burst, with Lightning Bolt or another eligible learned cast between the required windows'
- end
  if class=='DRUID' and index==2 and role=='tank' then
   profile.identity='Bear-form threat and survival require deliberate enemy positioning and defensive resource planning.'
   profile.single='learned Bear threat tools on the assigned enemy while maintaining defensive readiness'
@@ -53,9 +50,10 @@ local function make(class,index,role,basis,talents,source)
  if audit then basis=basis..' Toolkit reviewed against Forever beta '..FC.ForeverSpellCatalog.build..'.' end
  local out={available=true,spec=spec,class=class,role=role,basis=basis,contribution=profile.identity,sourceUrl=audit and audit.sourceUrl or (source and source.url),
   confidence='Qualitative toolkit guidance, not a measured performance ranking. Use only abilities you have learned; mechanic assignments override throughput priorities.',scenarios={}}
+ out.guideReference=FC.GuideSources and FC.GuideSources:ForSpec(class,index,role)
  local effects={}
  for _,talent in pairs(talents or {}) do
-  if (talent.rank or 0)>0 and FC.TalentLessons and FC.TalentLessonEffects and FC.TalentLessonEffects[class] and FC.TalentLessonEffects[class][talent.name] then
+  if (talent.rank or 0)>0 and FC.TalentLessons then
    local lesson=FC.TalentLessons:GetLesson(class,{title=spec,role=role},talent)
    effects[#effects+1]={name=talent.name,rank=talent.rank,effect=lesson.effect,sourceUrl=lesson.sourceUrl,provenance=lesson.provenance}
   end

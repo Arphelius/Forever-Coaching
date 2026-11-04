@@ -1,6 +1,10 @@
 # Rebuild the pinned factual talent allocations. The preset strings and scenario
 # were checked against MythicSim's public race-board baseline requests.
+param([switch]$AllowHistoricalLayout)
 $ErrorActionPreference = 'Stop'
+if((Test-Path (Join-Path $PSScriptRoot '../docs/research/forever-tuning-baseline.json')) -and -not $AllowHistoricalLayout){
+ throw 'This importer uses the historical 70425 layout. Use the current tuning workflow in docs/forever-spell-audit.md; -AllowHistoricalLayout is only for explicitly rebuilding historical research.'
+}
 $commit = 'a667dce8492bd9fb94269a9f864289cb74006775'
 $presets = Get-Content (Join-Path $PSScriptRoot '../docs/research/mythicsim-catalog.json') -Raw | ConvertFrom-Json
 $healers = Get-Content (Join-Path $PSScriptRoot '../docs/research/healer-catalog.json') -Raw | ConvertFrom-Json

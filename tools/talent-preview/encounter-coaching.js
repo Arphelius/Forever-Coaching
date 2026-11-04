@@ -67,8 +67,8 @@
   if(sourceUrl){const sources=el('details');sources.append(el('summary','Source'));const source=el('a','ForeverChanges');source.href=sourceUrl;source.target='_blank';source.rel='noopener noreferrer';sources.append(source);panel.append(sources);}
   const reference=el('details');reference.append(el('summary','Build reference and preview limits'),el('p','The browser uses the selected plan and class catalog; the game filters lessons against actual learned abilities.'));
   if(build.note)reference.append(el('p',build.note));
-  const guideUrl=state.buildEvidenceUrl||(/^https:\/\/(www\.)?mobalytics\.gg\//.test(build.source?.url||'')?build.source.url:'https://mobalytics.gg/wow-forever');
-  const guide=el('a','Mobalytics');guide.href=guideUrl;guide.target='_blank';guide.rel='noreferrer';reference.append(guide);panel.append(reference);
+  const guideUrl=state.buildEvidenceUrl||'https://www.wowhead.com/forever/guides';
+  const guide=el('a','Wowhead Forever guide');guide.href=guideUrl;guide.target='_blank';guide.rel='noreferrer';reference.append(guide);panel.append(reference);
  }};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  else root.EncounterCoaching=api;

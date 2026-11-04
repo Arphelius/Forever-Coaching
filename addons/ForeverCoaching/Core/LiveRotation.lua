@@ -26,8 +26,8 @@ local function spell(name,options)local r=options or {};r.name=name;return r end
 local function dot(name)return spell(name,{dot=true})end
 local P={
  MAGE={{{spell('Arcane Missiles',{buff='Missile Barrage'}),spell('Arcane Wrath'),spell('Arcane Blast')},{spell('Arcane Explosion',{area=true,self=true})}},
- {{spell('Pyroblast',{buff='Heating Up'}),spell('Fire Blast',{movingOnly=true}),spell('Fireball')},{spell('Flamestrike',{area=true,ground=true}),spell('Arcane Explosion',{area=true,self=true})}},
- {{spell('Ice Lance',{buff='Fingers of Frost'}),spell('Frostbolt')},{spell('Blizzard',{area=true,ground=true})}}},
+ {{spell('Pyroblast',{buff='Heating Up',buffStacks=3}),spell('Fire Blast'),spell('Fireball')},{spell('Flamestrike',{area=true,ground=true}),spell('Arcane Explosion',{area=true,self=true})}},
+ {{spell('Ice Barrier',{selfBuff=true,self=true}),spell('Ice Lance',{buff='Fingers of Frost'}),spell('Frostbolt')},{spell('Blizzard',{area=true,ground=true})}}},
  PRIEST={{{dot('Holy Fire'),spell('Penance'),spell('Smite')},{}},{{dot('Holy Fire'),spell('Smite')},{}},{{dot('Devouring Plague'),dot('Shadow Word: Pain'),spell('Shadow Word: Death',{execute=20}),spell('Mind Blast'),spell('Mind Flay')},{}}},
  WARLOCK={{{dot('Corruption'),dot('Bane of Agony'),spell('Wrack',{requires='Corruption'}),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
  {{spell('Soul Fire',{buff='Decimation'}),spell('Searing Pain'),spell('Shadow Bolt')},{spell('Rain of Fire',{area=true,ground=true})}},
@@ -35,11 +35,11 @@ local P={
  HUNTER={{{spell('Summon Hawk'),spell('Arcane Shot'),spell('Aimed Shot')},{spell('Multi-Shot',{area=true})}},
  {{spell('Sniper Shot'),dot('Serpent Sting'),spell('Aimed Shot'),spell('Arcane Shot')},{spell('Multi-Shot',{area=true})}},
  {{spell('Strider Kick'),spell('Mongoose Bite'),spell('Raptor Strike')},{spell('Explosive Trap',{area=true,self=true}),spell('Multi-Shot',{area=true})}}},
- ROGUE={{{spell('Venom',{combo=4,buffMissing='Venom'}),dot('Rupture'),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{}},
- {{spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{}},
- {{spell('Rupture',{combo=4,dot=true}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{}}},
+ ROGUE={{{spell('Shank',{energyDeficit=40}),spell('Rupture',{combo=4,dot=true}),spell('Eviscerate',{combo=4}),spell('Mutilate',{builder=true}),spell('Sinister Strike',{builder=true})},{}},
+ {{spell('Slice and Dice',{combo=1,selfBuff=true,self=true}),spell('Shank',{energyDeficit=40}),spell('Eviscerate',{combo=4}),spell('Sinister Strike',{builder=true})},{}},
+ {{spell('Death Mark',{combo=5,dot=true}),spell('Shank',{energyDeficit=25,comboAtMost=3}),spell('Rupture',{combo=4,dot=true}),spell('Hemorrhage',{builder=true}),spell('Backstab',{builder=true})},{}}},
  WARRIOR={{{spell('Execute',{execute=20}),spell('Rend',{dot=true,talent='Bloodthrill'}),spell('Mortal Strike'),spell('Overpower'),spell('Spearing Strike'),spell('Slam')},{spell('Thunder Clap',{area=true,self=true})}},
- {{spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true,self=true}),spell('Slam')},{spell('Whirlwind',{area=true,self=true})}},
+ {{spell('Battle Shout',{selfBuff=true,self=true}),spell('Execute',{execute=20}),spell('Bloodthirst'),spell('Whirlwind',{area=true,self=true}),spell('Heroic Strike',{rage=65}),spell('Slam')},{spell('Whirlwind',{area=true,self=true})}},
  -- Tank profiles (Protection Warrior, Protection Paladin, Bear below) follow MythicSim's Forever tank APLs
  -- (github.com/sage3648/mythicsim-forever-engine-go, MIT), translated to spell names so every rank the
  -- player knows resolves. The sim also casts Thunder Clap and Consecration on one target; here they stay
@@ -56,8 +56,6 @@ local P={
  DRUID={{{dot('Moonfire'),dot('Insect Swarm'),spell('Wrath'),spell('Starfire')},{spell('Hurricane',{area=true,ground=true})}},
  {{spell('Rip',{combo=5,dot=true}),dot('Rake'),spell('Shred',{builder=true}),spell('Claw',{builder=true})},{}},{{dot('Moonfire'),spell('Wrath')},{}}}
 }
--- Finishers must never be suggested at zero combo points.
-P.ROGUE[1][1][2].combo=4
 -- Forever's Bear: Primal Bite replaces Mangle and the bear swipe is named Swipe.
 local bear={{dot('Faerie Fire (Feral)'),spell('Demoralizing Roar',{dot=true,self=true}),spell('Primal Bite'),
   spell('Lacerate',{stacksBelow=5,refresh=4.5}),spell('Maul',{rage=25}),spell('Lacerate')},{spell('Swipe',{area=true})}}
@@ -137,6 +135,10 @@ local function selfRulesPass(rule,s,applied,resources)
   if resources[1]==nil then resources[1]=read(UnitPower,'player',1) end
   if type(resources[1])~='number' or resources[1]<rule.rage then return false end
  end
+ if rule.energyDeficit then
+  local energy,maximum=read(UnitPower,'player',3),read(UnitPowerMax,'player',3)
+  if type(energy)~='number' or type(maximum)~='number' or maximum-energy<rule.energyDeficit then return false end
+ end
  return true
 end
 local function ruleReason(rule,spec,mode)
@@ -185,6 +187,7 @@ function Live:ProfileRecommendation()
  local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
  if not spec or not spec.available then return {message='Current specialization unavailable',reason='Readable active talents are needed for a build-specific live rotation.'} end
+ if spec.role=='healer' then return {message='Follow your healing assignment',reason='',targetHostile=false} end
  if spec.class=='SHAMAN' then
   FC.RotationCoach.burstAllowed=settings().burst==true
   FC.RotationCoach.allowArea=settings().mode=='aoe'
@@ -203,19 +206,22 @@ function Live:ProfileRecommendation()
  local health,max=read(UnitHealth,'target'),read(UnitHealthMax,'target')
  local hp=type(health)=='number' and type(max)=='number' and max>0 and health/max*100 or nil
  local combo=read(GetComboPoints,'player','target')
- local resources,used,applied,consumed={},{},{},{};local queue={}
+ local resources,used,applied,consumed,usedBuff={},{},{},{},{};local queue={}
  local talents={};for _,t in pairs(context.activeTalents or {})do if t.name and (t.rank or 0)>0 then talents[t.name]=true end end
  for step=1,4 do
   local chosen
   for _,rule in ipairs(rules) do
    local s=resolve(rule.name)
+   if s and (rule.name=='Heroic Strike' or rule.name=='Cleave') and read(IsCurrentSpell,s.id)==true then s=nil end
    local required=not rule.requires or (not consumed[rule.requires] and (applied[rule.requires] or aura(rule.requires)==true))
    local dotMissing=not rule.dot or (not applied[rule.name] and aura(rule.name)==false)
-   local proc=not rule.buff or aura(rule.buff,'player','HELPFUL')==true
+   local proc=not rule.buff or (not usedBuff[rule.buff] and aura(rule.buff,'player','HELPFUL')==true)
+   if proc and rule.buffStacks then local observed=findAura('player','HELPFUL',rule.buff);proc=type(observed)=='table' and observed.stacks>=rule.buffStacks end
    local needsBuff=not rule.buffMissing or aura(rule.buffMissing,'player','HELPFUL')==false
    local verified=not FC.ForeverSpellCatalog or FC.ForeverSpellCatalog.classes[spec.class].spells[rule.name]~=nil
    if s and verified and proc and needsBuff and (not rule.movingOnly or moving) and (not rule.talent or talents[rule.talent]) and (not rule.area or mode=='aoe') and required and dotMissing and (not rule.execute or hp and hp<=rule.execute)
     and (not rule.combo or type(combo)=='number' and combo>=rule.combo) and not used[s.id]
+    and (not rule.comboAtMost or type(combo)=='number' and combo<=rule.comboAtMost)
     and selfRulesPass(rule,s,applied,resources) and ready(s,not (rule.self or rule.ground) and (rule.unit or 'target') or nil,moving) then
     local costs=resourceCosts(s.id);local affordable=true
     if step>1 and not costs then affordable=false end
@@ -232,6 +238,7 @@ function Live:ProfileRecommendation()
      if not repeatable[rule.name] or rule.dot then used[s.id]=true end
      if rule.dot then applied[rule.name]=true end
      if rule.consumes then consumed[rule.consumes]=true;applied[rule.consumes]=nil end
+     if rule.buff then usedBuff[rule.buff]=true end
      if rule.combo then combo=0 end
      -- Do not assume a builder lands, grants a proc or generates combo points.
      break
@@ -249,11 +256,13 @@ function Live:ProfileRecommendation()
 end
 function Live:ItemRecommendation()
  if read(UnitAffectingCombat,'player')~=true then return end
- local s=settings();local scope=itemScope();if not scope then return end
- local ids={};for id in pairs(s.items)do if s.itemScopes[id]==scope then ids[#ids+1]=id end end
- local priorities={health=1,mana=2,burst=3}
+ local s=settings();local scope=itemScope()
+ local automatic=FC.CraftedItems and FC.CraftedItems:GetRecommendation()
+ local ids={};for id in pairs(s.items)do if scope and s.itemScopes[id]==scope then ids[#ids+1]=id end end
+ local priorities={health=1,mana=2,burst=5}
  table.sort(ids,function(a,b)local pa,pb=priorities[s.items[a]] or 9,priorities[s.items[b]] or 9;if pa==pb then return a<b end;return pa<pb end)
  for _,id in ipairs(ids) do
+  if automatic and automatic.itemPriority<(priorities[s.items[id]] or 9)then return automatic end
   local trigger=s.items[id];local qualifies=trigger=='burst' and s.burst==true
   if trigger=='health' or trigger=='mana' then
    local current,max
@@ -273,6 +282,7 @@ function Live:ItemRecommendation()
    return {itemID=id,spellID=spellID,spellName=name,icon=icon,message=name,reason='Use your configured '..trigger..' item; its inventory and cooldown checks passed.',situation='item '..trigger,queue={{id=spellID,itemID=id,name=name,icon=icon}},targetHostile=true}
   end
  end
+ return automatic
 end
 -- The ready tank spell with the most threat per cast at the player's level, from SimGear's sims
 -- (Data/TankThreat.lua). Only spells in the tank's own priority are considered, area ones only in area
@@ -280,6 +290,8 @@ end
 local TANK_PROFILE={PALADIN=function()return P.PALADIN[2] end,WARRIOR=function()return P.WARRIOR[3] end,DRUID=function()return bear end}
 function Live:BestThreatSpell()
  local data=FC.TankThreat
+ -- Pre-tuning threat simulations cannot rank the new coefficients and talents.
+ if FC.ForeverSpellCatalog and (not data or data.tuningRevision~=FC.ForeverSpellCatalog.revision) then return nil end
  local _,class=read(UnitClass,'player')
  local spells=data and class and data[class];local profile=TANK_PROFILE[class] and TANK_PROFILE[class]()
  local level=read(UnitLevel,'player')
@@ -332,11 +344,14 @@ SlashCmdList.FOREVERCOACHINGROTATION=function(text)
  local s=settings();local command,a,b=text:match('^(%S+)%s*(%S*)%s*(%S*)')
  if command=='single' or command=='aoe' then s.mode=command
  elseif command=='burst' and (a=='on' or a=='off') then s.burst=a=='on'
+ elseif command=='crafted' and (a=='on' or a=='off') then if FC.CraftedItems then FC.CraftedItems:SetEnabled(a=='on')else s.craftedItems=a=='on'end
  elseif command=='item' and tonumber(a) and tonumber(a)>0 and tonumber(a)==math.floor(tonumber(a)) and (b=='health' or b=='mana' or b=='burst' or b=='off') then
   local scope=itemScope();if b~='off' and not scope then print('Forever Coaching: establish your current specialization before assigning an item.');return end
   s.items[tonumber(a)]=b~='off' and b or nil;s.itemScopes[tonumber(a)]=b~='off' and scope or nil
+  s.excludedCraftedItems=s.excludedCraftedItems or {};s.excludedCraftedItems[tonumber(a)]=b=='off' or nil
  else print('Forever Coaching: /fcrotation single | aoe (only when all nearby enemies may be hit); burst on | off; item ID health | mana | burst | off. Assign only items with the matching effect. Burst resets after combat.');return end
  print('Forever Coaching: rotation setting updated.')
+ if FC.CraftedItems then FC.CraftedItems:Invalidate()end
 end
 local events=CreateFrame('Frame');events:RegisterEvent('PLAYER_REGEN_ENABLED');events:RegisterEvent('PLAYER_ENTERING_WORLD')
 events:SetScript('OnEvent',function()settings().burst=false end)

@@ -25,6 +25,9 @@ function state(params){
   try{
     for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/BuildPlanner.lua'])run(fs.readFileSync(path.join(root,'addons/ForeverCoaching',file),'utf8'));
     run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/Core/CustomBuilds.lua'),'utf8'));
+    run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/Core/GuideSources.lua'),'utf8'));
+    run(fs.readFileSync(path.join(root,'addons/ForeverCoaching/Data/WowheadGuideNotes.lua'),'utf8'));
+    for(const file of ['Data/WowheadTalentLayouts.lua','Core/WowheadBuilds.lua','Core/ProfessionGuide.lua'])run(fs.readFileSync(path.join(root,'addons/ForeverCoaching',file),'utf8'));
     const effects=fs.readFileSync(path.join(root,'addons/ForeverCoaching/UI/BlizzardTalentGuide.lua'),'utf8');
     // Read the actual effect palettes and spec mapping, without creating WoW frames.
     const themeStart=effects.indexOf('local THEMES={'),themeEnd=effects.indexOf('local theme',themeStart);
@@ -42,6 +45,8 @@ function state(params){
       if(!draft||typeof draft!=='object'||!Array.isArray(draft.order)||draft.order.length>51)throw Error('Invalid custom point order');
       const change=params.get('customChange')?JSON.parse(params.get('customChange')):null;
       run('PreviewCustom='+luaValue(draft)+';PreviewCustomChange='+luaValue(change));
+      const imported=params.get('customImport');if(imported&&imported.length>2048)throw Error('Wowhead link is too long');
+      if(imported)run('PreviewWowheadImport='+luaValue(imported));
     }
     const entries=Object.entries(learned).filter(([k,v])=>/^[1-3]:\d+$/.test(k)&&Number.isInteger(v)&&v>=0&&v<=5);
     run(`PreviewClass="${cls}";PreviewActivity="${activity}";PreviewLevel=${level};PreviewLegacy=${legacy};PreviewBuild=${selected};PreviewRanks={${entries.map(([k,v])=>`["${k}"]=${v}`).join(',')}}`);
@@ -73,18 +78,22 @@ local fc=ForeverCoaching;local p=fc.BuildPlanner
 local choices=p:GetVisibleSpecBuilds(PreviewClass,PreviewActivity,PreviewLevel)
 local list={}
 for _,c in ipairs(choices) do
- if c.build then list[#list+1]={index=c.index,id=c.build.id,title=c.build.title,spec=c.displayName or c.spec,role=c.build.role,recommended=c.activityRecommended or false,summary=p:GetBuildSummary(c,PreviewActivity,choices),source=c.proofUrl or c.build.source.url} end
+ if c.build then list[#list+1]={index=c.index,id=c.build.id,title=c.build.title,spec=c.displayName or c.spec,role=c.build.role,recommended=c.activityRecommended or false,summary=p:GetBuildSummary(c,PreviewActivity,choices),source=p:GetBuildEvidenceUrl(c.build,PreviewClass),allocationSource=c.proofUrl or c.build.source.url} end
 end
 local build=p:GetBuilds(PreviewClass)[PreviewBuild]
 local customResult
 if PreviewCustom then
  local model=fc.CustomBuilds;local changeOK,changeError
+ if PreviewWowheadImport then
+  local imported,err=fc.WowheadBuilds:Import(PreviewWowheadImport)
+  if imported and imported.class==PreviewClass then PreviewCustom=imported else changeError=err or 'Choose the same class as the imported Wowhead link.'end
+ end
  if PreviewCustomChange then changeOK,changeError=model:Change(PreviewCustom,PreviewCustomChange.treeIndex,PreviewCustomChange.talentIndex,PreviewCustomChange.delta)end
  local valid,validationError=model:Validate(PreviewCustom,true)
  build=nil;local saveError
  if valid and valid.points>0 then build,saveError=model:Save(PreviewCustom)end
  PreviewCustom.id=nil
- customResult={draft=PreviewCustom,points=valid and valid.points or 0,error=changeError or validationError or saveError,valid=build~=nil,roles=model:GetRoles(PreviewClass)}
+ customResult={draft=PreviewCustom,points=valid and valid.points or 0,error=changeError or validationError or saveError,valid=build~=nil,roles=model:GetRoles(PreviewClass),wowheadUrl=fc.WowheadBuilds:Export(PreviewCustom)}
 end
 local specScenarios=fc.SpecScenarios:ForPreview(PreviewClass,build)
 local talentLessons={}
@@ -124,6 +133,9 @@ end
 if build and PreviewClass=='DRUID' and build.role=='tank' then themeName='earth' end
 if build and PreviewClass=='MAGE' and (build.id or ''):find('frostfire',1,true) then themeName='frostfire' end
 local result={custom=customResult,gearGuide=fc.GearGuide:ForBuild(PreviewClass,build,PreviewLevel),specScenarios=specScenarios,talentLessons=talentLessons,coachingReplay=fc.PreviewCoachingReplay,abilityLessons=build and fc.GuideBrowser:LessonsFor(PreviewClass,build) or fc.AbilityLessons[PreviewClass],choices=list,layout=layout,build=build,ranks=ranks,spent=spent,budget=budget,available=math.max(0,budget-spent),overBudget=spent>budget,order=order,orderType=kind,nextPoint=nextPoint,designPreviewPoint=designPreviewPoint,locked=locked or false,level=PreviewLevel,legacy=PreviewLegacy,effect=PreviewThemes and PreviewThemes[themeName],review=fc.CombatReview:GetLatestSummary()}
+result.professionGuides={}
+result.buildEvidenceUrl=p:GetBuildEvidenceUrl(build,PreviewClass)
+for _,goal in ipairs(fc.ProfessionGuide.goals)do result.professionGuides[goal.value]=fc.ProfessionGuide:ForBuild(PreviewClass,build,goal.value)end
 local function quote(s)
  return '"'..s:gsub('[%z\1-\31\\"]',function(c)
   if c=='"' then return '\\"' elseif c=='\\' then return '\\\\' end

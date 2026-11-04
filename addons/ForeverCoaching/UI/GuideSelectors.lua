@@ -45,6 +45,7 @@ function browser:GetReviewFilter()
  return {class=class,tree=not tied and tree or nil,role=build and build.role}
 end
 function browser:LessonsFor(class,build)
+ local reference=FC.GuideSources and FC.GuideSources:ForBuild(class,build)
  local guide=FC.SpecScenarios and FC.SpecScenarios.ForPreview and FC.SpecScenarios:ForPreview(class,build)
  local catalog={};for _,lesson in ipairs(FC.AbilityLessons and FC.AbilityLessons[class] or {}) do catalog[lesson.name]=lesson end
  local lessons,seen={},{}
@@ -57,11 +58,10 @@ function browser:LessonsFor(class,build)
     local effect=spell and spell.description
     local level=UnitLevel and UnitLevel('player') or 60
     local selectedLevel=-1
-    for _,id in ipairs(source.ids) do
-     local rank=spell and spell.effects and spell.effects[tostring(id)]
+    for _,rank in ipairs(spell and spell.rankEffects or {}) do
      if rank and type(rank.text)=='string' and rank.text~='' and rank.level<=level and rank.level>=selectedLevel then effect=rank.text;selectedLevel=rank.level end
     end
-    lessons[#lessons+1]={name=step.spell,spellID=source.ids[#source.ids],description=effect or 'Effect unavailable in the reviewed spellbook.',when=step.when,how=step.action,why=step.why,sourceUrl=source.sourceUrl,sourceBuild=source.sourceBuild}
+    lessons[#lessons+1]={name=step.spell,spellID=source.ids[#source.ids],description=effect or 'Effect unavailable in the reviewed spellbook.',when=step.when,how=step.action,why=step.why,sourceUrl=source.sourceUrl,sourceBuild=source.sourceBuild,guideUrl=step.guideUrl or (reference and reference.url),effectReferenceUrl=FC.GuideSources and FC.GuideSources:SpellUrl(source.ids[#source.ids])}
    end
   end
  end

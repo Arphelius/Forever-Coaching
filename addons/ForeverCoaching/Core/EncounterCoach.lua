@@ -40,9 +40,15 @@ function Coach:RefreshLessons()
  for _,entry in ipairs(FC.AbilityLessons and FC.AbilityLessons[class] or {}) do
   local id
   for i=#entry.ids,1,-1 do if known(entry.ids[i]) then id=entry.ids[i];break end end
+  if not id and #entry.ids==0 then
+   local data=C_Spell and read(C_Spell.GetSpellInfo,entry.name)
+   local resolved=data and read(function()return data.spellID end)
+   if not resolved then local _,_,_,_,_,_,legacy=read(GetSpellInfo,entry.name);resolved=legacy end
+   if type(resolved)=='number' and known(resolved) then id=resolved end
+  end
   if id then
    local name,icon=info(id)
-   local lesson={spellID=id,name=name or entry.name,canonicalName=entry.name,icon=icon,kind=entry.kind,types=entry.types,why=entry.why,when=entry.when,how=entry.how,curated=true,sourceUrl=entry.sourceUrl,sourceBuild=entry.sourceBuild}
+   local lesson={spellID=id,name=name or entry.name,canonicalName=entry.name,icon=icon,kind=entry.kind,types=entry.types,periodicOnly=entry.periodicOnly,why=entry.why,when=entry.when,how=entry.how,curated=true,sourceUrl=entry.sourceUrl,sourceBuild=entry.sourceBuild}
    lesson.description=C_Spell and read(C_Spell.GetSpellDescription,id) or nil
    lessons[#lessons+1]=lesson;seen[id]=true
   end
@@ -182,7 +188,7 @@ function Coach:Sample()
    seen[guid]=true
    local health,maxHealth=read(UnitHealth,unit),read(UnitHealthMax,unit)
    if type(health)=="number" and type(maxHealth)=="number" and maxHealth>0 and health/maxHealth<.35 and (unit=='player' or self.build.role=='healer') then
-    for _,lesson in ipairs(self.lessons) do if lesson.kind=="heal" and ready(lesson.spellID,unit) then
+    for _,lesson in ipairs(self.lessons) do if lesson.kind=="heal" and not lesson.periodicOnly and ready(lesson.spellID,unit) then
      offer("heal:"..guid,"healing",unit,lesson,(read(UnitName,unit) or unit).." is below 35% health. Consider a safe heal if this is your responsibility.",nil,{health=health,maxHealth=maxHealth});break
     end end
    end

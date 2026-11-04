@@ -5,6 +5,7 @@ for(const cls of classes){const option=new Option(cls[0]+cls.slice(1).toLowerCas
 const initialPage=new URLSearchParams(location.search).get('page');
 let selected=0,learned={},state,request=0,page=['review','scenarios','learn','gear','resources'].includes(initialPage)?initialPage:'talents',reviewCase='failed',coachingCase='responded';
 let vfxEnabled=true;
+let professionsOpen=false,professionGoal='leveling';
 let reviewSource=new URLSearchParams(location.search).get('source')==='logs'?'logs':'replay',reviewSlide='timeline';
 try{vfxEnabled=localStorage.getItem('fc-talent-vfx')!=='off';}catch{}
 function syncVFXButton(){const b=$('toggle-vfx');b.textContent=vfxEnabled?'VFX: On':'VFX: Off';b.setAttribute('aria-pressed',String(vfxEnabled));}
@@ -14,6 +15,7 @@ async function refresh(){
  const ticket=++request;
  const params=new URLSearchParams({class:$('class').value,activity:$('activity').value,level:$('level').value,legacy:$('legacy').value,build:selected,learned:JSON.stringify(learned),reviewCase,coachingCase});
  const custom=window.CustomTalentBuilds?.request();if(custom){params.set('custom',JSON.stringify(custom.draft));if(custom.change)params.set('customChange',JSON.stringify(custom.change));}
+ if(custom?.importLink)params.set('customImport',custom.importLink);
  try{const response=await fetch('/state?'+params);const result=await response.json();if(ticket!==request)return;if(!response.ok)throw Error(result.error);state=result;render();$('error').textContent='';}
  catch(error){if(ticket===request)$('error').textContent=error.message;}
 }
@@ -106,11 +108,20 @@ function renderFeature(){
   ]){const card=element('section',undefined,'review-card');const link=element('a','Visit '+title);link.href=url;link.target='_blank';link.rel='noopener noreferrer';card.append(element('h3',title),element('p',description),link);panel.append(card);}return;
  }
  if(page==='gear'){
+  const modes=element('div',undefined,'slide-nav');
+  const toggle=element('button',professionsOpen?'Gear stats':'Professions');toggle.onclick=()=>{professionsOpen=!professionsOpen;renderFeature();};modes.append(toggle);panel.append(modes);
+  if(professionsOpen){
+   const goals=element('select');for(const [id,label]of [['leveling','Leveling'],['dungeons','Dungeons'],['raids','Raids'],['pvp','PvP'],['gold','Gold']])goals.add(new Option(label,id));goals.value=professionGoal;goals.onchange=()=>{professionGoal=goals.value;renderFeature();};modes.append(goals);
+   const g=state.professionGuides?.[professionGoal];if(!g)return;
+   panel.append(element('h2',`${g.spec} / ${g.role}`));
+   for(const [title,body]of [[g.pair,g.why],['How to use it for this build',g.use],['Secondary professions',g.secondary],['Crafted items in your rotation',g.items],['Before combat',g.preparation]]){const card=element('section',undefined,'review-card');card.append(element('h3',title),element('p',body));panel.append(card);}
+   panel.append(element('p',g.approach));for(const url of g.sources||[]){const a=element('a','Wowhead profession source');a.href=url;a.target='_blank';a.rel='noopener noreferrer';panel.append(a,element('br'));}return;
+  }
   const guide=state.gearGuide;
   panel.append(element('h2',guide?.title||'Choose a build'));
   if(guide?.available){for(const stat of guide.stats){const card=element('section',undefined,'review-card');card.append(element('h3',stat.name),element('p',stat.why));panel.append(card);}}
   else if(guide)panel.append(element('p',guide.notice));
-  if(guide){const companion=element('section',undefined,'review-card');companion.append(element('h3','Compare upgrades with SimGearForever'),element('p',guide.companion));for(const [i,step] of (guide.steps||[]).entries())companion.append(element('p',`${i+1}. ${step}`));const link=element('a','Get SimGearForever on CurseForge');link.href=guide.url;link.target='_blank';link.rel='noopener noreferrer';companion.append(link);panel.append(companion);}return;
+  if(guide){const companion=element('section',undefined,'review-card');companion.append(element('h3','Compare upgrades with SimGearForever'),element('p',guide.companion));for(const [i,step] of (guide.steps||[]).entries())companion.append(element('p',`${i+1}. ${step}`));const link=element('a','Get SimGearForever on CurseForge');link.href=guide.url;link.target='_blank';link.rel='noopener noreferrer';companion.append(link);panel.append(companion);if(guide.guideReference){const reference=element('a','Wowhead Forever guide');reference.href=guide.guideReference.url;reference.target='_blank';reference.rel='noopener noreferrer';panel.append(reference);}}return;
  }
  const sources=element('div',undefined,'slide-nav');
  for(const [value,label] of [['replay','Recorded fight'],['logs','Forever Logs']]){const b=element('button',label);b.setAttribute('aria-pressed',String(reviewSource===value));b.onclick=()=>{reviewSource=value;renderFeature();};sources.append(b);}panel.append(sources);

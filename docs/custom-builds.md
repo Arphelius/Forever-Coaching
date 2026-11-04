@@ -6,6 +6,32 @@ The calculator enforces rank limits, five points per earlier tier, recorded
 prerequisites and the 51-point level-60 budget. Removing a point is rejected if
 it would invalidate a later choice. Partial builds are supported.
 
+**Wowhead link** opens a small exchange window. **Import link** accepts current Wowhead Forever `v2` calculator links. Import
+creates an editable draft; review its role, allocation and order, then save it.
+**Wowhead link** copies a link for the current draft, including its point order.
+In game, copy the URL to open it in a browser; the addon does not embed a website.
+The local preview provides the same import and a link to open the calculator.
+
+Wowhead's public Forever talent ordering was reviewed on **2026-11-04**. Talents
+are mapped by name/tree/rank cap, so different column ordering cannot swap your
+points. An encoded leveling order is preserved, including full-rank compression.
+If the link has no order, a legal suggested order is generated and labeled as
+such. Race, level and Talented options are preserved as link metadata; they do
+not change the character's race, level or Legacy talents. Actual in-game point
+availability still governs the existing highlight.
+
+Classic/retail links, unsupported versions, incompatible ranks, invalid prerequisites
+and inconsistent orders are rejected. Wowhead's current Warrior snapshot omits
+Raging Blows; an allocation containing that talent cannot be exported until the
+source discrepancy is resolved. No different talent is substituted. Older links
+using a reused version stamp should be visually checked against their intended
+allocation after tree changes.
+
+`tools/Import-WowheadTalentLayouts.cjs` reads a saved response from
+`https://nether.wowhead.com/forever/data/talents-classic`. It imports factual names,
+ordering and rank caps without executing downloaded JavaScript or copying the
+calculator's implementation. Review a changed link version before accepting it.
+
 Your click order is the saved leveling order. **Save custom build** preserves
 the experiment; **Use this build** explicitly selects it for the current
 character's in-game guidance. Editing and saving an already active build updates

@@ -1,5 +1,17 @@
 # Forever-Coaching
 
+Class-guide references use **Wowhead Forever**, matched to the selected class,
+specialization and role. Practical summaries are checked against current tuning;
+see [the guide source review](docs/research/wowhead-guides.md).
+
+**Gear → Professions** explains profession choices by class/spec and goal. Verified
+crafted consumables in your bags can appear in live advice when usable and ready;
+use **Crafted items: On/Off** to control this. See [profession guidance](docs/professions.md).
+**Talent Builds → Custom Builds** also supports importing and sharing current
+Wowhead Forever talent links.
+
+Class data is reviewed against the November 3 launch tuning. Run **Check-ForeverTuning.cmd** to check for newer spells, talents or official notes. A daily GitHub Actions check is included; current build adaptations are planning starting points, with old simulation rankings withheld. See [tuning maintenance](docs/forever-spell-audit.md).
+
 Scenarios, Learn and Gear include class/spec menus for browsing guides. Scenarios and Learn also offer a direct scenario/lesson picker. Browsing does not activate a talent build. Combat Review defaults to a short summary; **Show details** reveals the complete findings. See [guide browsing](docs/guide-browsing.md).
 
 Choose **Language** at the right of the dashboard's tab row for English (default), Romana (shown without diacritics, which the game font lacks), Español, Français, Deutsch or Português. `/fclanguage` opens the selector. Class, spell and talent names stay unchanged. The browser preview has a separate saved language selector.

@@ -8,7 +8,7 @@ for class,data in pairs(fc.ForeverSpellCatalog.classes)do
  for name,spell in pairs(data.spells)do if spell.description then assert(type(spell.description)=='string' and #spell.description>0,class..': invalid actual effect '..name);effects=effects+1 end end
  for name,talent in pairs(data.talents)do for rank,effect in pairs(talent.effects or {})do assert(type(effect)=='string' and not effect:match('^%$'),class..': unresolved rank effect '..name)end end
  for name,t in pairs(data.talents)do for rank in pairs(t.ranks)do assert(tonumber(rank) and tonumber(rank)>=1 and tonumber(rank)<=t.maxRank,class..': invalid rank fingerprint '..name)end end
- for _,l in ipairs(fc.AbilityLessons[class])do assert(data.spells[l.name],class..': unsupported lesson '..l.name);assert(#l.ids>0);count=count+1 end
+ for _,l in ipairs(fc.AbilityLessons[class])do assert(data.spells[l.name],class..': unsupported lesson '..l.name);assert(#l.ids>0 or data.spells[l.name].description,'New official spells may await a published ID');count=count+1 end
  for _,b in ipairs(fc.BuildPlanner:GetBuilds(class))do
   local result=fc.SpecScenarios:ForPreview(class,b)
    if result.available then for _,scenario in ipairs(result.scenarios)do for _,s in ipairs(scenario.steps)do if s.spell then assert(data.spells[s.spell],class..': unsupported scenario '..s.spell)end end end end
@@ -20,7 +20,7 @@ for _,l in ipairs(fc.AbilityLessons.PRIEST)do if l.name=='Abolish Disease' or l.
 for _,l in ipairs(fc.AbilityLessons.DRUID)do if l.name=='Abolish Poison' or l.name=='Cure Poison' then assert(l.kind=='dispel' and l.types.Poison,'Preserve poison alerts after splitting combined lessons')end end
 assert(fc.ForeverSpellCatalog.classes.HUNTER.spells['Summon Hawk'])
 assert(not fc.ForeverSpellCatalog.classes.HUNTER.spells['Chimera Shot'])
-assert(fc.ScenarioActions.profiles.MAGE[2].single.steps[1].when:find('Heating Up',1,true))
+local pyro=false;for _,step in ipairs(fc.ScenarioActions.profiles.MAGE[2].single.steps)do if step.spell=='Pyroblast' and step.when:find('Heating Up',1,true)then pyro=true end end;assert(pyro)
 for _,s in ipairs(fc.ScenarioActions.profiles.SHAMAN[2].group.steps)do if s.spell=='Chain Lightning' then assert(not s.talent and not s.when:find('instant',1,true))end end
 local lesson=fc.TalentLessons:GetLesson('WARRIOR',{title='test'},{name='Bloodthirst',rank=1})
 assert(lesson.sourceUrl:find('foreverchanges.pro',1,true) or lesson.provenance:find('reviewed Forever',1,true))
@@ -33,7 +33,7 @@ local examples={}
 for _,choice in ipairs(fc.BuildPlanner:GetVisibleSpecBuilds('MAGE','raids',60))do
  if choice.build then examples[fc.BuildPlanner:GetBuildDisplayName('MAGE',choice.build)]=choice.build end
 end
-for _,entry in ipairs({{'Fire','Improved Fireball','Fireball'},{'Frost','Improved Frostbolt','Frostbolt'}})do
+for _,entry in ipairs({{'Fire','Accelerant','Fireball'},{'Frost','Improved Frostbolt','Frostbolt'}})do
  local build=assert(examples[entry[1]]);local chosen
  for _,talent in ipairs(build.talents)do if talent.name==entry[2] then chosen=talent end end
  assert(chosen,'Missing test talent '..entry[2])

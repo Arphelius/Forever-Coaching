@@ -1,4 +1,6 @@
 ## Interface: 16001
+## Version: 0.1.0-beta.1
+## X-Website: https://github.com/Arphelius/Forever-Coaching
 ## Title: Forever Coaching
 ## Notes: Your personal WoW: Forever coaching addon
 ## Author: Forever Coaching
@@ -14,7 +16,10 @@ Data\TalentBorderStyles.lua
 Data\ForeverLogsReview.lua
 Data\ForeverLogsStatistics.lua
 Core\BuildPlanner.lua
+Core\GuideSources.lua
 Core\CustomBuilds.lua
+Data\WowheadTalentLayouts.lua
+Core\WowheadBuilds.lua
 Data\AbilityLessons.lua
 Data\ForeverSpellCatalog.lua
 Data\TalentLessonEffects.lua
@@ -23,9 +28,13 @@ Data\SpecScenarios.lua
 Data\ScenarioActions.lua
 Data\CombatSituations.lua
 Data\ForeverSpellGuidance.lua
+Data\WowheadGuideNotes.lua
 Data\EncounterWarnings.lua
 Core\SpecScenarios.lua
 Core\GearGuide.lua
+Core\ProfessionGuide.lua
+Data\ProfessionItems.lua
+Core\ProfessionItems.lua
 Core\FightRecorder.lua
 Core\EncounterCoach.lua
 Core\RotationCoach.lua

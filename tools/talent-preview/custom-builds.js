@@ -1,6 +1,6 @@
 window.CustomTalentBuilds=(()=>{
  let active=false,hooks,latest,busy=false,deleteArmed=false;
- const drafts={},ids={};let pending;
+ const drafts={},ids={};let pending,importLink;
  const key='fc-custom-builds-v1';let saved=[];
  try{const value=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(value))saved=value;}catch{}
  const cls=()=>hooks.$('class').value;
@@ -13,7 +13,7 @@ window.CustomTalentBuilds=(()=>{
  async function update(){busy=true;try{await hooks.refresh();}finally{busy=false;if(active&&hooks.getState())render(hooks.getState());}}
  function render(state){
   if(!active||state.custom?.draft.class!==cls())return;
-  const custom=state.custom;if(custom){latest=custom;drafts[cls()]={...custom.draft,order:Array.isArray(custom.draft.order)?custom.draft.order:[],ranks:custom.draft.ranks||{}};pending=null;}
+  const custom=state.custom;if(custom){latest=custom;drafts[cls()]={...custom.draft,order:Array.isArray(custom.draft.order)?custom.draft.order:[],ranks:custom.draft.ranks||{}};pending=null;importLink=null;}
   const host=hooks.$('custom-controls');host.hidden=false;host.replaceChildren();
   host.append(el('p','Left-click to add a point; right-click to remove it. Your click order becomes the leveling order.'));
   const form=el('div');form.className='custom-build-actions';
@@ -33,6 +33,9 @@ window.CustomTalentBuilds=(()=>{
    const previous=saved;saved=saved.filter(b=>b.id!==ids[cls()]);if(!store()){saved=previous;return;}
    delete ids[cls()];drafts[cls()]=fresh(cls());deleteArmed=false;return update();
   });remove.disabled=!ids[cls()]||busy;form.append(remove);host.append(form);
+  const exchange=el('div');exchange.className='custom-build-actions';const link=el('input');link.type='url';link.maxLength=2048;link.placeholder='Wowhead Forever talent link';exchange.append(link);
+  exchange.append(button('Import link',()=>{const text=link.value.trim();const match=text.match(/^https:\/\/(?:www\.)?wowhead\.com\/forever\/(?:[a-z]{2}\/)?talent-calc\/([a-z]+)/i);if(match&&Array.from(hooks.$('class').options).some(o=>o.value===match[1].toUpperCase()))hooks.$('class').value=match[1].toUpperCase();importLink=text;delete ids[cls()];return update();}));
+  if(custom?.wowheadUrl){const external=el('a','Wowhead link');external.href=custom.wowheadUrl;external.target='_blank';external.rel='noopener noreferrer';exchange.append(external);}host.append(exchange);
   const message=el('p',custom?.error||'Saved in this browser. In-game custom builds are saved separately by the addon.');message.id='custom-status';host.append(message);
   hooks.$('stats').textContent=`${custom?.points||0} / 51 points`;
   hooks.$('summary').textContent='Choose talents for an experiment, save the build, and reopen it from Custom Builds.';
@@ -49,7 +52,7 @@ window.CustomTalentBuilds=(()=>{
    const host=el('div');host.id='custom-controls';host.hidden=true;const article=document.querySelector('main>article');article.prepend(tabs,host);
   },
   isActive:()=>active,
-  request(){return active?{draft:draft(),change:pending?.class===cls()?pending:null}:null;},
+  request(){return active?{draft:draft(),change:pending?.class===cls()?pending:null,importLink}:null;},
   render,
   async change(treeIndex,talentIndex,delta){if(busy)return;pending={class:cls(),treeIndex,talentIndex,delta};deleteArmed=false;await update();},
  };

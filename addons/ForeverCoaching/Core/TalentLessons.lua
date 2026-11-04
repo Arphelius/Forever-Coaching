@@ -42,10 +42,10 @@ local specific={
  ["Maelstrom Weapon"]={why="Connects melee attacks to spell casts in this hybrid build.",optimal="Watch actual stacks and the resulting cast time/cost. Use a supported spell when the proc fits the mechanic; do not stand in danger to spend it."},
  ["Stormstrike"]={why="Provides the melee setup for your next empowered lightning or Earth Shock hit.",optimal="Use during safe melee uptime, then plan the empowered follow-up. Preserve Earth Shock when an assigned interrupt is imminent."},
  ["Elemental Devastation"]={why="Lets offensive spell critical strikes improve your following melee window.",optimal="Combine safe spell and melee uptime; a proc does not justify entering unsafe melee range."},
- ["Elemental Mastery"]={why="Provides a planned spell burst window instead of only passive throughput.",optimal="Align the activation and its benefiting casts with useful target uptime. Check current client behavior before assuming how many charges or casts benefit."},
+ ["Lightning Mastery"]={why="Provides a planned Lightning spell burst window.",optimal="Align the activation with safe Lightning Bolt or Chain Lightning casts; Lava Burst is no longer part of the toolkit."},
  ["Nature's Swiftness"]={why="Converts an eligible cast into an immediate response.",optimal="Reserve for an assigned urgent heal or a useful instant spell during movement. Check the spell's eligibility before spending the cooldown."},
  ["Flurry"]={why="Turns critical strikes into a temporary melee attack-speed benefit.",optimal="Maintain safe melee uptime while the effect is useful; do not chase the buff through required mechanics."},
- ["Riptide"]={why="Adds immediate and periodic healing plus the Chain Heal interaction described in the effect.",optimal="Use on an ally who needs useful healing. Plan any benefiting Chain Heal around nearby injured allies rather than casting it only to consume a bonus."},
+ ["Riptide"]={why="Adds periodic healing and supports the Chain Heal interaction described in the effect; it has no initial heal.",optimal="Apply ahead of sustained damage. Use a direct heal for immediate recovery; the base cooldown is now 12 seconds."},
  ["Water Shield"]={why="Supports mana sustain, especially when its listed trigger conditions occur.",optimal="Keep the intended elemental shield active and check charges. Refresh when its benefit justifies the action; only one elemental shield can be active."},
 }
 function Lessons:GetLesson(class,build,talent)

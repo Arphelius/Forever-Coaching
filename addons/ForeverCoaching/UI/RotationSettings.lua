@@ -26,12 +26,15 @@ function FC:OpenRotationSettings()
   b:SetScript('OnClick',function()local id=tonumber(input:GetText());if id and id>0 and id==math.floor(id) then SlashCmdList.FOREVERCOACHINGROTATION('item '..id..' '..trigger);input:ClearFocus();frame.refresh()end end)
  end
  local items=label('',-365)
+ local crafted=button('Crafted items: On',20,-424,180,'crafted off')
+ crafted:SetScript('OnClick',function()if FC.CraftedItems then FC.CraftedItems:SetEnabled(not FC.CraftedItems:IsEnabled())end;frame.refresh()end)
  frame.refresh=function()
   local s=ForeverCoachingDB and ForeverCoachingDB.liveRotation or {}
   status:SetText('Area damage: '..(s.mode=='aoe' and 'allowed' or 'off')..' | Burst: '..(s.burst and 'use now' or 'hold'))
   local scope=FC.LiveRotation:GetItemScope()
   local list={};for id,trigger in pairs(s.items or {})do list[#list+1]=id..' ('..trigger..(s.itemScopes and s.itemScopes[id]~=scope and ', other allocation' or '')..')' end;table.sort(list)
   items:SetText('Configured items: '..(#list>0 and table.concat(list,', ') or 'none'))
+  crafted:SetText(FC.CraftedItems and FC.CraftedItems:IsEnabled() and 'Crafted items: On' or 'Crafted items: Off')
  end
  frame:SetScript('OnShow',frame.refresh);frame.refresh()
 end

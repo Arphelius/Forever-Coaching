@@ -67,6 +67,30 @@ function FC:BuildCustomTalentPage(parent)
   if not deleteArmed then deleteArmed=true;status:SetText('Press Delete build again to confirm.');return end
   model:Delete(class,draft.id);draft=model:New(class);drafts[class]=draft;deleteArmed=false;refresh();status:SetText('Custom build deleted.')
  end);delete:SetPoint('BOTTOMLEFT',PAD,8)
+ if FC.WowheadBuilds then
+  local dialog=CreateFrame('Frame',nil,parent,'BackdropTemplate');dialog:SetSize(530,152);dialog:SetPoint('CENTER');dialog:SetFrameStrata('FULLSCREEN_DIALOG');surface(dialog);dialog:Hide()
+  local title=text(dialog,'',490,12);title:SetPoint('TOPLEFT',16,-14)
+  local field=CreateFrame('EditBox',nil,dialog,'InputBoxTemplate');field:SetSize(490,24);field:SetPoint('TOPLEFT',20,-44);field:SetAutoFocus(false);field:SetMaxLetters(2048)
+  local message=text(dialog,'',490,10);message:SetPoint('TOPLEFT',16,-78);message:SetHeight(28)
+  local confirm
+  local close=button(dialog,'Close',70,function()dialog:Hide()end);close:SetPoint('BOTTOMRIGHT',-14,10)
+  field:SetScript('OnEscapePressed',function()dialog:Hide()end)
+  confirm=button(dialog,'Import link',90,function()
+   local imported,err=FC.WowheadBuilds:Import(field:GetText());if not imported then message:SetText(err);return end
+   drafts[class]=draft;class=imported.class;draft=imported;drafts[class]=draft;selectedTalent=nil;deleteArmed=false
+   if FC.GuideBrowser then FC.GuideBrowser.class=class;FC.GuideBrowser.buildID=nil end
+   dialog:Hide();refresh();status:SetText(imported.importSource.orderSuggested and 'Imported allocation. Review the suggested point order, then save.' or 'Imported point order. Review the build, then save.')
+  end);confirm:SetPoint('BOTTOMRIGHT',close,'BOTTOMLEFT',-8,0)
+  local function currentLink()
+   local url,err=FC.WowheadBuilds:Export(draft);if not url then status:SetText(err);message:SetText(err);return end
+   field:SetText(url);field:SetFocus();field:HighlightText();return true
+  end
+  local current=button(dialog,'Wowhead link',110,function()if currentLink()then message:SetText('Press Ctrl+C to copy, then open it in your browser.')end end);current:SetPoint('BOTTOMLEFT',14,10)
+  local exchange=button(parent,'Wowhead link',96,function()
+   title:SetText('Wowhead Forever calculator');message:SetText('Paste the calculator link. Import creates an editable draft.');confirm:Show();dialog:Show()
+   if not currentLink()then field:SetText('');field:SetFocus()end
+  end);exchange:SetPoint('LEFT',delete,'RIGHT',8,0)
+ end
  local use=button(parent,'Use this build',90,function()
   if not draft.id then status:SetText('Save this build before selecting it.');return end
   local saved=model:Find(class,draft.id)
@@ -82,7 +106,7 @@ function FC:BuildCustomTalentPage(parent)
   draft.name=input:GetText();local build,err=model:Save(draft)
   if build then refresh();status:SetText('Custom build saved. Select it to enable in-game guidance.')else status:SetText(err)end
  end);save:SetPoint('BOTTOMRIGHT',use,'BOTTOMLEFT',-6,0)
- local reset=button(parent,'Reset points',80,function()draft.ranks={};draft.order={};selectedTalent=nil;deleteArmed=false;refresh()end);reset:SetPoint('BOTTOMRIGHT',save,'BOTTOMLEFT',-6,0)
+ local reset=button(parent,'Reset points',80,function()draft.ranks={};draft.order={};draft.layoutIssue=nil;selectedTalent=nil;deleteArmed=false;refresh()end);reset:SetPoint('BOTTOMRIGHT',save,'BOTTOMLEFT',-6,0)
  local new=button(parent,'New build',70,function()draft=model:New(class);drafts[class]=draft;selectedTalent=nil;deleteArmed=false;refresh()end);new:SetPoint('BOTTOMRIGHT',reset,'BOTTOMLEFT',-6,0)
  refresh=function()
   for _,b in ipairs(savedButtons)do b:Hide()end
@@ -113,14 +137,17 @@ function FC:BuildCustomTalentPage(parent)
     end
     local treeIndex,talentIndex,talent=ti,ni,node;local rank=draft.ranks[ti..':'..ni] or 0
     b:SetParent(panel);b:ClearAllPoints();b:SetPoint('TOPLEFT',12+node.col*NODE_X,-40-node.row*NODE_Y);surface(b,rank>0)
-    local texture=C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(node.spellId) or (GetSpellTexture and GetSpellTexture(node.spellId))
+    local texture=node.icon or (node.spellId and ((C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(node.spellId)) or (GetSpellTexture and GetSpellTexture(node.spellId))))
     b.icon:SetTexture(texture or 'Interface\\Icons\\INV_Misc_QuestionMark');b.icon:SetDesaturated(rank==0);b.rank:SetText(rank..'/'..node.maxRank)
     b:SetScript('OnClick',function(_,mouse)
      local result,error=model:Change(draft,treeIndex,talentIndex,mouse=='RightButton' and -1 or 1)
      if result then selectedTalent={treeIndex=treeIndex,talentIndex=talentIndex};deleteArmed=false;refresh()else status:SetText(error)end
     end)
     b:SetScript('OnEnter',function(self)
-     GameTooltip:SetOwner(self,'ANCHOR_RIGHT');if GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(talent.spellId)else GameTooltip:SetText(talent.name)end
+     GameTooltip:SetOwner(self,'ANCHOR_RIGHT');if talent.spellId and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(talent.spellId)else GameTooltip:SetText(talent.name)end
+     local reviewed=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class].talents[talent.name]
+     local rank=math.max(1,draft.ranks[treeIndex..':'..talentIndex] or 0)
+     if reviewed and reviewed.effects[tostring(rank)] then GameTooltip:AddLine(reviewed.effects[tostring(rank)],.85,.88,.92,true) end
      GameTooltip:AddLine((FC.Text and FC:Text('Build allocation:') or 'Build allocation:')..' '..(draft.ranks[treeIndex..':'..talentIndex] or 0)..'/'..talent.maxRank,1,.76,.32)
      GameTooltip:AddLine(FC.Text and FC:Text('Left-click: add. Right-click: remove.') or 'Left-click: add. Right-click: remove.',.8,.8,.8);GameTooltip:Show()
     end);b:SetScript('OnLeave',function()GameTooltip:Hide()end);b:Show()

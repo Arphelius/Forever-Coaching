@@ -161,6 +161,7 @@ local function beginCombat()
         started = GetTime and GetTime() or 0,
         character = characterKey(),
         playerLevel = playerLevel,
+        tuningRevision = FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.revision,
         casts = 0,
         matched = 0,
         compared = 0,
@@ -411,6 +412,7 @@ local function buildReport(reviewSession)
         failedAttempts = session.failedAttempts,
         timestamp = time and time() or 0,
         character = session.character,
+        tuningRevision = session.tuningRevision,
         class = session.class,
         specTree = session.specTree,
         specRole = session.specRole,
@@ -615,7 +617,8 @@ function Review:GetObservedDamage(spellID, activeTalents, currentLevel)
 
     for index = 1, math.min(#ForeverCoachingDB.reviews, 5) do
         local review = ForeverCoachingDB.reviews[index]
-        if review.character == currentCharacter and review.damageSource == "BlizzardDamageMeter" then
+        if review.character == currentCharacter and review.damageSource == "BlizzardDamageMeter"
+            and (not FC.ForeverSpellCatalog or review.tuningRevision==FC.ForeverSpellCatalog.revision) then
             include(review.damageByAbility, review.activeTalents, review.playerLevel)
         end
     end

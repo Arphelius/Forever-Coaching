@@ -511,8 +511,8 @@ local function ShowTab(tabName)
         local function updateGuideSource()
             local class,build=FC.GuideBrowser:GetContext()
             guideRow.title:SetText(build and build.title or class)
-            guideRow.description:SetText('Build guide / '..class)
-            guideRow.urlBox:SetText(FC.BuildPlanner:GetBuildEvidenceUrl(build))
+            guideRow.description:SetText('Wowhead Forever guide / '..class)
+            guideRow.urlBox:SetText(FC.BuildPlanner:GetBuildEvidenceUrl(build,class))
         end
         FC:BuildGuideSelectors(currentPage,updateGuideSource);updateGuideSource()
         local resources={

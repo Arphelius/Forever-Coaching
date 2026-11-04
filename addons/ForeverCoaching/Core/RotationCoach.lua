@@ -56,12 +56,16 @@ local SPELLS = {
     flameShock = { 8050, 8052, 8053, 10447, 10448, 29228 },
     frostShock = { 8056, 8058, 10472, 10473 },
     chainLightning = { 421, 930, 2860, 10605 },
-    lavaBurst = { 408490, 1238299, 1238300, 1326047 },
     fireNova = { 408341, 408342, 408343, 408344, 408345 },
     stormstrike = { 17364 },
     rageOfTheFarseer = { 425336 },
-    elementalMastery = { 16166 },
+    lightningMastery = { 16166 },
 }
+local spellNames={lightningBolt='Lightning Bolt',earthShock='Earth Shock',flameShock='Flame Shock',frostShock='Frost Shock',chainLightning='Chain Lightning',fireNova='Fire Nova',stormstrike='Stormstrike',rageOfTheFarseer='Rage of the Farseer',lightningMastery='Lightning Mastery'}
+local currentCatalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes.SHAMAN
+if currentCatalog then
+ for key,name in pairs(spellNames)do local source=currentCatalog.spells[name];SPELLS[key]=source and source.ids or {} end
+end
 
 local function spellInfo(id)
     if C_Spell and C_Spell.GetSpellInfo then
@@ -472,7 +476,7 @@ local function estimatedSpellDamage(spell)
         if (spell.key == "lightningBolt" or spell.key == "earthShock" or spell.key == "chainLightning")
             and talents[16035] then
             total = total * (1 + talents[16035].rank / 100)
-        elseif (spell.key == "flameShock" or spell.key == "fireNova" or spell.key == "lavaBurst")
+        elseif (spell.key == "flameShock" or spell.key == "fireNova")
             and talents[16038] then
             total = total * (1 + talents[16038].rank * 0.05)
         end
@@ -514,6 +518,11 @@ local function getActionBarShamanSpells()
         seen[spellID] = true
         local name, icon = spellInfo(spellID)
         if not name then return end
+        if currentCatalog then
+            local verified=false
+            for _,entry in pairs(currentCatalog.spells)do for _,id in ipairs(entry.ids)do if id==spellID then verified=true;break end end;if verified then break end end
+            if not verified then return end
+        end
         local key, ranks
         for candidateKey, candidateRanks in pairs(SPELLS) do
             for _, candidateID in ipairs(candidateRanks) do
@@ -537,8 +546,8 @@ local function getActionBarShamanSpells()
         }
         local recognizedDamage = key == "lightningBolt" or key == "earthShock"
             or key == "frostShock" or key == "chainLightning"
-            or key == "lavaBurst" or key == "stormstrike" or key == "flameShock"
-            or key == "rageOfTheFarseer" or key == "elementalMastery"
+            or key == "stormstrike" or key == "flameShock"
+            or key == "rageOfTheFarseer" or key == "lightningMastery"
         if recognizedDamage then
             -- These recognized Shaman spells remain usable even on client builds
             -- that don't expose spell descriptions for numeric damage ranking.
@@ -599,7 +608,7 @@ local function getActionBarShamanSpells()
     return actionBarDamageSpellCache
 end
 
-local function spellCastSeconds(spell, talents, maelstromReduction, elementalMasteryActive)
+local function spellCastSeconds(spell, talents, maelstromReduction, lightningMasteryActive)
     if not spell then return 1.5 end
     local seconds = 1.5
     if C_Spell and C_Spell.GetSpellInfo then
@@ -610,7 +619,7 @@ local function spellCastSeconds(spell, talents, maelstromReduction, elementalMas
         end
     end
     if talents and talents[16578]
-        and (spell.key == "lightningBolt" or spell.key == "chainLightning" or spell.key == "lavaBurst") then
+        and (spell.key == "lightningBolt" or spell.key == "chainLightning") then
         local rank = talents[16578].rank
         local reduction = rank == 1 and 0.17 or (rank == 2 and 0.33 or (rank >= 3 and 0.50 or 0))
         seconds = seconds - reduction
@@ -618,15 +627,15 @@ local function spellCastSeconds(spell, talents, maelstromReduction, elementalMas
     if spell.key == "lightningBolt" and maelstromReduction and maelstromReduction > 0 then
         seconds = seconds * math.max(0, 1 - math.min(100, maelstromReduction) / 100)
     end
-    if elementalMasteryActive
-        and (spell.key == "lightningBolt" or spell.key == "lavaBurst") then
+    if lightningMasteryActive
+        and (spell.key == "lightningBolt") then
         seconds = seconds - 0.5
     end
     return math.max(0, seconds)
 end
 
-local function castTimeSeconds(spell, talents, maelstromReduction, elementalMasteryActive)
-    return math.max(1.5, spellCastSeconds(spell, talents, maelstromReduction, elementalMasteryActive))
+local function castTimeSeconds(spell, talents, maelstromReduction, lightningMasteryActive)
+    return math.max(1.5, spellCastSeconds(spell, talents, maelstromReduction, lightningMasteryActive))
 end
 
 local function playerIsMoving()
@@ -646,7 +655,7 @@ local function currentTargetHealth()
     return health
 end
 
-local function bestDamageCandidate(candidates, currentMana, maxMana, manaPercent, reservePercent, freeCast, targetCount, activeTalents, allowObserved, playerLevel, elementalMasteryActive)
+local function bestDamageCandidate(candidates, currentMana, maxMana, manaPercent, reservePercent, freeCast, targetCount, activeTalents, allowObserved, playerLevel, lightningMasteryActive)
     local eligible = {}
     local targetHealth = currentTargetHealth()
     local moving = playerIsMoving()
@@ -656,7 +665,7 @@ local function bestDamageCandidate(candidates, currentMana, maxMana, manaPercent
         local reduction = spell and spell.key == "lightningBolt" and (candidate.maelstromReduction or 0) or 0
         local spellReady, rangeResult
         if spell then spellReady, rangeResult = ready(spell, nil, candidate.checkRange, candidate.ignoreCooldown) end
-        local blockedMoving = spell and moving and spellCastSeconds(spell, activeTalents, reduction, elementalMasteryActive) > 0
+        local blockedMoving = spell and moving and spellCastSeconds(spell, activeTalents, reduction, lightningMasteryActive) > 0
         if blockedMoving then
             if spellReady then movementBlockedSpell = movementBlockedSpell or spell end
             spellReady = false
@@ -758,7 +767,7 @@ local function bestDamageCandidate(candidates, currentMana, maxMana, manaPercent
                 scoreDamage = totalDamage
             end
             local reduction = spell.key == "lightningBolt" and (item.candidate.maelstromReduction or 0) or 0
-            local castSeconds = castTimeSeconds(spell, activeTalents, reduction, elementalMasteryActive)
+            local castSeconds = castTimeSeconds(spell, activeTalents, reduction, lightningMasteryActive)
             local cost = freeCast and 0 or effectiveManaCost(spell, maxMana, reduction)
             local score = scoreDamage / castSeconds
             -- Preserve throughput at high mana; increase mana efficiency
@@ -959,11 +968,11 @@ local function result(message, reason, spell, situation, targetGUID)
         if (spell.key == "lightningBolt" or spell.key == "earthShock" or spell.key == "chainLightning")
             and talents[16035] then
             talentNote = string.format("Concussion adds %d%% damage.", talents[16035].rank)
-        elseif (spell.key == "flameShock" or spell.key == "fireNova" or spell.key == "lavaBurst")
+        elseif (spell.key == "flameShock" or spell.key == "fireNova")
             and talents[16038] then
             talentNote = string.format("Call of Flame adds %d%% fire damage.", talents[16038].rank * 5)
         end
-        if (spell.key == "lightningBolt" or spell.key == "chainLightning" or spell.key == "lavaBurst")
+        if (spell.key == "lightningBolt" or spell.key == "chainLightning")
             and talents[16578] then
             local castReduction = talents[16578].rank == 1 and 0.17 or (talents[16578].rank == 2 and 0.33 or 0.50)
             local castNote = string.format("Elemental Alacrity cuts cast time by %.2fs.", castReduction)
@@ -1090,10 +1099,9 @@ function Coach:GetRecommendation()
         flameShock = resolve("flameShock"),
         chainLightning = resolve("chainLightning"),
         fireNova = resolve("fireNova"),
-        lavaBurst = resolve("lavaBurst"),
         stormstrike = resolve("stormstrike"),
         rageOfTheFarseer = resolve("rageOfTheFarseer"),
-        elementalMastery = resolve("elementalMastery"),
+        lightningMastery = resolve("lightningMastery"),
     }
     local actionBarShamanSpells = getActionBarShamanSpells()
     local actionBarSpellFields = {
@@ -1102,10 +1110,9 @@ function Coach:GetRecommendation()
         frostShock = "frostShock",
         flameShock = "flameShock",
         chainLightning = "chainLightning",
-        lavaBurst = "lavaBurst",
         stormstrike = "stormstrike",
         rageOfTheFarseer = "rageOfTheFarseer",
-        elementalMastery = "elementalMastery",
+        lightningMastery = "lightningMastery",
     }
     for _, actionBarSpell in ipairs(actionBarShamanSpells) do
         local field = actionBarSpellFields[actionBarSpell.key]
@@ -1122,7 +1129,7 @@ function Coach:GetRecommendation()
             rotationSpells[#rotationSpells + 1] = spell
         end
     end
-    for _, field in ipairs({ "bolt", "earthShock", "flameShock", "frostShock", "stormstrike", "lavaBurst", "chainLightning", "elementalMastery", "rageOfTheFarseer" }) do
+    for _, field in ipairs({ "bolt", "earthShock", "flameShock", "frostShock", "stormstrike", "chainLightning", "lightningMastery", "rageOfTheFarseer" }) do
         addRotationSpell(spells[field])
     end
     for _, spell in ipairs(actionBarShamanSpells) do addRotationSpell(spell) end
@@ -1165,8 +1172,8 @@ function Coach:GetRecommendation()
         or known(416081) or known(415096)
     local clearcastingStacks = playerAuraStacks(16246)
     local clearcasting = clearcastingStacks ~= nil and clearcastingStacks > 0
-    local elementalMasteryStacks = playerAuraStacks(SPELLS.elementalMastery[1])
-    local elementalMasteryActive = elementalMasteryStacks ~= nil and elementalMasteryStacks > 0
+    local lightningMasteryStacks = playerAuraStacks(SPELLS.lightningMastery[1])
+    local lightningMasteryActive = lightningMasteryStacks ~= nil and lightningMasteryStacks > 0
 
     -- This WoW Forever Enhancement talent is a zero-cost, self-applied attack
     -- speed cooldown. Offer it only after combat starts and while its buff is
@@ -1187,21 +1194,18 @@ function Coach:GetRecommendation()
         return result(stormstrikeSpell.name, "Stormstrike is ready in melee range and increases the damage of your next Lightning Bolt, Chain Lightning, or Earth Shock by 20% for 12 seconds.", stormstrikeSpell, "melee attack", targetGUID)
     end
 
-    if self.burstAllowed~=false and spells.elementalMastery and elementalMasteryStacks == 0 and playerInCombat()
-        and ready(spells.elementalMastery, nil, false) then
+    if self.burstAllowed~=false and spells.lightningMastery and lightningMasteryStacks == 0 and playerInCombat()
+        and ready(spells.lightningMastery, nil, false) then
         local empoweredSpellReady = (spells.bolt
             and ready(spells.bolt)
             and canSpend(spells.bolt, currentMana, maxMana, 10, clearcasting, maelstromReduction))
-            or (spells.lavaBurst
-                and ready(spells.lavaBurst)
-                and canSpend(spells.lavaBurst, currentMana, maxMana, 10, clearcasting))
             or (spells.chainLightning
                 and ready(spells.chainLightning, nil, nil, true)
                 and canSpend(spells.chainLightning, currentMana, maxMana, 10, clearcasting))
         if empoweredSpellReady then
-            return result(spells.elementalMastery.name,
-                "Elemental Mastery is ready and an empowered lightning or fire spell is available. It shortens Lightning Bolt and Lava Burst casts by 0.5 seconds and removes Chain Lightning's cooldown for 15 seconds.",
-                spells.elementalMastery, "elemental cooldown", targetGUID)
+            return result(spells.lightningMastery.name,
+                "Lightning Mastery is ready. It shortens Lightning Bolt casts by 0.5 seconds and removes Chain Lightning's cooldown for 15 seconds.",
+                spells.lightningMastery, "elemental cooldown", targetGUID)
         end
     end
 
@@ -1217,7 +1221,7 @@ function Coach:GetRecommendation()
             end
         end
     end
-    local nearbyCount = chainLightning and ready(chainLightning, nil, nil, elementalMasteryActive)
+    local nearbyCount = chainLightning and ready(chainLightning, nil, nil, lightningMasteryActive)
         and nearbyHostileCount(chainLightning) or 1
     if self.allowArea==false then nearbyCount=1 end
     local fireTotemActive = spells.fireNova and hasActiveFireTotem() == true
@@ -1231,13 +1235,6 @@ function Coach:GetRecommendation()
         { spell = spells.earthShock, damageMultiplier = stormstrikeMultiplier },
         { spell = spells.frostShock },
     }
-    if spells.lavaBurst then
-        candidates[#candidates + 1] = {
-            spell = spells.lavaBurst,
-            damageMultiplier = flameShockActive == true and 1.2 or 1,
-            useObserved = flameShockActive ~= true,
-        }
-    end
     if spells.flameShock and (flameShockActive == false
         or (flameShockActive == true and flameShockRemaining and flameShockRemaining <= 3)) then
         -- The tooltip combines periodic and direct damage without knowing how
@@ -1253,7 +1250,7 @@ function Coach:GetRecommendation()
             targetCap = coherenceActive and 4 or 3,
             damageReductionPerJump = coherenceActive and 0.20 or 0.30,
             primaryTargetDamageMultiplier = stormstrikeMultiplier,
-            ignoreCooldown = elementalMasteryActive,
+            ignoreCooldown = lightningMasteryActive,
         }
     end
     local alreadyCandidate = {}
@@ -1265,7 +1262,7 @@ function Coach:GetRecommendation()
             alreadyCandidate[spell.id] = true
             if spell.key == "stormstrike" then
                 -- Stormstrike is handled above as a setup attack for its buff.
-            elseif spell.key == "rageOfTheFarseer" or spell.key == "elementalMastery"
+            elseif spell.key == "rageOfTheFarseer" or spell.key == "lightningMastery"
                 or spell.key == "fireNova" then
                 -- These are handled by their situation-specific profile rules.
             elseif spell.key == "chainLightning" then
@@ -1277,15 +1274,9 @@ function Coach:GetRecommendation()
                         targetCap = coherenceActive and 4 or 3,
                         damageReductionPerJump = coherenceActive and 0.20 or 0.30,
                         primaryTargetDamageMultiplier = stormstrikeMultiplier,
-                        ignoreCooldown = elementalMasteryActive,
+                        ignoreCooldown = lightningMasteryActive,
                     }
                 end
-            elseif spell.key == "lavaBurst" then
-                candidates[#candidates + 1] = {
-                    spell = spell,
-                    damageMultiplier = flameShockActive == true and 1.2 or 1,
-                    useObserved = flameShockActive ~= true,
-                }
             elseif spell.key == "lightningBolt" then
                 candidates[#candidates + 1] = {
                     spell = spell,
@@ -1320,11 +1311,11 @@ function Coach:GetRecommendation()
     if issecretvalue and issecretvalue(playerLevel) then playerLevel = nil end
     local bestSpell, bestScore, bestDamage, damageSource, damageSamples, comparison, healthCapped, calibrationRatio, fallbackSpell, outOfRangeSpell, manaCostKnown, unknownManaCostOmitted, unknownRangeSpell, ranked = bestDamageCandidate(
         candidates, currentMana, maxMana, mana, 10, clearcasting, nearbyCount,
-        activeTalents, stormstrikeBonus ~= true, playerLevel, elementalMasteryActive
+        activeTalents, stormstrikeBonus ~= true, playerLevel, lightningMasteryActive
     )
     if bestSpell then
         local currentMaelstromReduction = bestSpell.key == "lightningBolt" and maelstromReduction or 0
-        local castSeconds = castTimeSeconds(bestSpell, activeTalents, currentMaelstromReduction, elementalMasteryActive)
+        local castSeconds = castTimeSeconds(bestSpell, activeTalents, currentMaelstromReduction, lightningMasteryActive)
         local cost = clearcasting and 0 or effectiveManaCost(bestSpell, maxMana, currentMaelstromReduction)
         -- Preview one action ahead, rather than calling the second-highest
         -- current score the next action. Spend this cast's mana, consume its
@@ -1336,7 +1327,7 @@ function Coach:GetRecommendation()
         local afterHealth = health and math.max(0, health - primaryDamage) or nil
         local shock = { earthShock = true, frostShock = true, flameShock = true }
         local projectedUsed={}
-        if bestSpell.key~='lightningBolt' and not (bestSpell.key=='chainLightning' and elementalMasteryActive) then projectedUsed[bestSpell.id]=true end
+        if bestSpell.key~='lightningBolt' and not (bestSpell.key=='chainLightning' and lightningMasteryActive) then projectedUsed[bestSpell.id]=true end
         local shockSpent=shock[bestSpell.key]
         for forecastStep=1,3 do
           local nextScore,chosen
@@ -1345,7 +1336,7 @@ function Coach:GetRecommendation()
                 local nextSpell = item.spell
                 local sameSpell = nextSpell.id == bestSpell.id
                 local repeatable = nextSpell.key == "lightningBolt"
-                    or (nextSpell.key == "chainLightning" and elementalMasteryActive)
+                    or (nextSpell.key == "chainLightning" and lightningMasteryActive)
                 local sharedCooldown = shockSpent and shock[nextSpell.key]
                 -- Current effective costs cannot price the next cast after a
                 -- consumable discount ends. Omit that preview rather than
@@ -1356,14 +1347,14 @@ function Coach:GetRecommendation()
                     -- do not carry a consumed bonus into future comparisons.
                     and stormstrikeBonus~=true
                 local canCastWhileMoving = not playerIsMoving()
-                    or spellCastSeconds(nextSpell, activeTalents, 0, elementalMasteryActive) == 0
+                    or spellCastSeconds(nextSpell, activeTalents, 0, lightningMasteryActive) == 0
                 if (not sameSpell or repeatable) and not sharedCooldown and not projectedUsed[nextSpell.id]
                     and futureCostKnown
                     and canCastWhileMoving
                     and canSpend(nextSpell, afterMana, maxMana, 10) then
                     local damage = item.damage
                     if afterHealth and not item.aoe then damage = math.min(damage, afterHealth) end
-                    local score = damage / castTimeSeconds(nextSpell, activeTalents, 0, elementalMasteryActive)
+                    local score = damage / castTimeSeconds(nextSpell, activeTalents, 0, lightningMasteryActive)
                     local nextCost = effectiveManaCost(nextSpell, maxMana, 0)
                     if afterMana and maxMana and maxMana > 0 and nextCost then
                         score = score / (1 + nextCost / maxMana * 4 * math.max(0, 1 - afterMana / maxMana))
@@ -1380,7 +1371,7 @@ function Coach:GetRecommendation()
           local projectedCost=effectiveManaCost(chosen,maxMana,0)
           if afterMana and projectedCost then afterMana=math.max(0,afterMana-projectedCost) else break end
           for _,item in ipairs(ranked or {}) do if item.spell.id==chosen.id and afterHealth then afterHealth=math.max(0,afterHealth-(item.primaryDamage or item.damage)) end end
-          if chosen.key~='lightningBolt' and not (chosen.key=='chainLightning' and elementalMasteryActive) then projectedUsed[chosen.id]=true end
+          if chosen.key~='lightningBolt' and not (chosen.key=='chainLightning' and lightningMasteryActive) then projectedUsed[chosen.id]=true end
           if shock[chosen.key] then shockSpent=true end
         end
         local scoreText
@@ -1424,17 +1415,15 @@ function Coach:GetRecommendation()
             local chainTargets = math.min(nearbyCount, coherenceActive and 4 or 3)
             local jumpLoss = coherenceActive and 20 or 30
             reason = string.format("%s Across up to %d visible enemies, damage is reduced by %d%% on each jump. Chain Lightning may hit fewer if the enemies are too far apart.", reason, chainTargets, jumpLoss)
-        elseif bestSpell.key == "lavaBurst" and flameShockActive == true then
-            reason = reason .. " Flame Shock is active for Lava Burst's 20% damage bonus."
         end
         if fireNovaTargetsUnknown then
             reason = reason .. " Fire Nova was not compared because the client exposes no safe combat query for which enemies are within 10 yards of its active totem."
         end
         if clearcasting then reason = reason .. " Clearcasting removes its mana cost." end
-        if elementalMasteryActive and bestSpell.key == "chainLightning" then
-            reason = reason .. " Elemental Mastery is active and removes Chain Lightning's cooldown."
-        elseif elementalMasteryActive and (bestSpell.key == "lightningBolt" or bestSpell.key == "lavaBurst") then
-            reason = reason .. " Elemental Mastery is active and shortens this cast by 0.5 seconds."
+        if lightningMasteryActive and bestSpell.key == "chainLightning" then
+            reason = reason .. " Lightning Mastery is active and removes Chain Lightning's cooldown."
+        elseif lightningMasteryActive and (bestSpell.key == "lightningBolt") then
+            reason = reason .. " Lightning Mastery is active and shortens this cast by 0.5 seconds."
         end
         if stormstrikeSpell and stormstrikeBonus == nil then
             reason = reason .. " Stormstrike's target-buff status was unavailable, so no 20% damage bonus was assumed."

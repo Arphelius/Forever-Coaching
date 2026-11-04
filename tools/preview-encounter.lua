@@ -22,7 +22,7 @@ issecretvalue=function() return false end
 local knownSpells,spellNames={},{}
 local dispelType
 for _,lesson in ipairs(FC.AbilityLessons[PreviewClass] or {}) do
- knownSpells[lesson.ids[1]]=true;spellNames[lesson.ids[1]]=lesson.name
+ if lesson.ids[1] then knownSpells[lesson.ids[1]]=true;spellNames[lesson.ids[1]]=lesson.name end
  if lesson.types and not dispelType then for dtype in pairs(lesson.types) do dispelType=dtype;break end end
 end
 IsPlayerSpell=function(id) return knownSpells[id]==true end

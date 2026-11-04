@@ -72,7 +72,7 @@ assert(selected and pickers[3].text:find('Second scenario'),'Scenario menu must 
 assert(ForeverCoachingDB.activeTalentBuilds.player=='keep-active','Guide browsing must never change the active talent allocation')
 print('PASS: interactive class/spec/scenario menus, direct scenario selection, refreshed content and isolated live build state.')`);
 run(`unpack=unpack or table.unpack;ForeverCoaching.IsTalentVFXEnabled=function()return false end`);
-for(const file of ['Data/LocaleMessages.lua','Core/Localization.lua','Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+for(const file of ['Data/LocaleMessages.lua','Core/Localization.lua','Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Core/GuideSources.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Data/WowheadGuideNotes.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/ProfessionGuide.lua','Data/ProfessionItems.lua','Core/ProfessionItems.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
 for index=1,6 do
@@ -192,3 +192,12 @@ function texts(node){return [node.text,...node.children.flatMap(texts)].filter(B
 assert(!texts(panel).includes('REMOVE CONTRIBUTION')&&!texts(panel).includes('REMOVE BASIS'));
 assert(texts(panel).includes('Single target')&&texts(panel).includes('Why: Damage'));
 console.log('PASS: browser scenario picker and action explanations remain, while the two unwanted introductory paragraphs are removed.');
+run(`local fc=ForeverCoaching;fc.GuideBrowser.class='MAGE';fc.GuideBrowser.buildID=nil
+local gear;for _,f in ipairs(TestFrames)do if f.navigationIndex==5 then gear=f end end;assert(gear);gear.scripts.OnClick(gear)
+local function find(label)for _,f in ipairs(TestFrames)do if f:IsShown() and f.text==label then return f end end end
+local toggle=assert(find('Professions'));toggle.scripts.OnClick(toggle)
+assert(find('Secondary professions') and find('Tailoring + Enchanting'),'Profession cards must render inside the native page')
+local goal=assert(find('Leveling'));goal.scripts.OnClick(goal);local gold=assert(find('Gold'));gold.scripts.OnClick(gold)
+assert(find('Herbalism + Mining'),'Goal selector must change the recommendation')
+local crafted=assert(find('Crafted items: On'));crafted.scripts.OnClick(crafted);assert(not fc.CraftedItems:IsEnabled());crafted.scripts.OnClick(crafted)
+print('PASS: native Professions mode, class-specific cards, selectable goal and saved item toggle.')`);
