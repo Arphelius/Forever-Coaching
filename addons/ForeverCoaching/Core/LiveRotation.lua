@@ -491,6 +491,39 @@ local function knownBuff(class,name)
   end
  end
 end
+local function playerBuffActive(class,name)
+ local catalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+ local source=catalog and catalog.spells[name]
+ local ids=source and source.ids or {}
+ if #ids==0 then local spell=resolve(name);if spell then ids={spell.id} end end
+ if #ids==0 and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+  local data=C_Spell and read(C_Spell.GetSpellInfo,name)
+  local id=data and read(function()return data.spellID end)
+  if type(id)=='number' then ids={id} else return false end
+ end
+ if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID and #ids>0 then
+  local unknown=false
+  for _,id in ipairs(ids) do
+   local ok,aura=pcall(C_UnitAuras.GetPlayerAuraBySpellID,id)
+   if not ok or (issecretvalue and issecretvalue(aura)) then unknown=true
+   elseif aura then return true end
+  end
+  if not unknown then return false end
+ end
+ -- Presence checks need only the aura name. Secret charges or duration must
+ -- not make an otherwise readable aura list unusable for buff upkeep.
+ if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return nil end
+ local spell=resolve(name);local wanted=spell and spell.name or name
+ for i=1,40 do
+  local ok,aura=pcall(C_UnitAuras.GetAuraDataByIndex,'player',i,'HELPFUL')
+  if not ok or (issecretvalue and issecretvalue(aura)) then return nil end
+  if not aura then return false end
+  local auraName=read(function()return aura.name end)
+  if not auraName then return nil end
+  if auraName==wanted then return true end
+ end
+ return nil
+end
 function Live:ShieldRecommendation()
  local _,class=read(UnitClass,'player')
  if not UPKEEP[class] or read(UnitIsDeadOrGhost,'player')~=false
@@ -504,8 +537,8 @@ function Live:ShieldRecommendation()
  for _,group in ipairs(UPKEEP[class]) do
   local missing=true
   for _,name in ipairs(group) do
-   local active=findAura('player','HELPFUL',name)
-   if active==nil or (active and active.remaining>0) then missing=false;break end
+   local active=playerBuffActive(class,name)
+   if active~=false then missing=false;break end
   end
   if missing then
    local names=group

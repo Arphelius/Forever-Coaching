@@ -25,11 +25,18 @@ function FC:CreateTalentThemeArt(owner)
     local behind=CreateFrame("Frame",nil,owner)
     behind:EnableMouse(false);behind:SetAllPoints(owner)
     local totem=behind:CreateTexture(nil,"ARTWORK")
-    local rear=behind:CreateTexture(nil,"OVERLAY")
+    local rear=owner:CreateTexture(nil,"OVERLAY",nil,5)
     rear:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\EnhancementRear.tga")
     rear:SetBlendMode("BLEND")
     totem:SetBlendMode("BLEND");totem:Hide();behind:Hide()
     art.totemBackdrop=behind
+    local totemPieces={}
+    for i=1,4 do
+        local texture=behind:CreateTexture(nil,'ARTWORK')
+        texture:SetTexture('Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\Enhancement.tga')
+        texture:SetBlendMode('BLEND');texture:Hide();totemPieces[i]=texture
+    end
+    art.totemPieces=totemPieces;art.enhancementRear=rear
     local simpleBorder=owner:CreateTexture(nil,"OVERLAY",nil,7)
     simpleBorder:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\ArmsBorder.tga")
     simpleBorder:SetTexCoord(.5/1024,127.5/1024,.5/1024,127.5/1024)
@@ -37,7 +44,8 @@ function FC:CreateTalentThemeArt(owner)
     function art:ShowSimpleBorder(width,height,keepAnimation)
         if not keepAnimation then
             self.started=nil;self.lastFrame=nil
-            authored:Hide();combatSmoke:Hide();combatBlood:Hide();behind:Hide()
+            authored:Hide();combatSmoke:Hide();combatBlood:Hide();behind:Hide();rear:Hide()
+            for _,texture in ipairs(totemPieces) do texture:Hide() end
             for _,p in ipairs(self.pool) do p.texture:Hide() end
         end
         local style=FC.TalentSimpleBorders and FC.TalentSimpleBorders[self.kind]
@@ -108,7 +116,8 @@ function FC:CreateTalentThemeArt(owner)
         combatSmoke:Hide()
         combatBlood:Hide()
         authored:SetRotation(0)
-        totem:Hide();behind:Hide()
+        totem:Hide();behind:Hide();rear:Hide()
+        for _,texture in ipairs(totemPieces) do texture:Hide() end
         for _,p in ipairs(self.pool) do p.texture:Hide() end
         self.count=0
         if self.authored then
@@ -212,9 +221,9 @@ function FC:CreateTalentThemeArt(owner)
         if self.authored then authored:Show() end
         if self.authored then
             local authored=self.kind=="enhancement" and totem or authored
-            if self.kind=="enhancement" and self.target then
-                behind:SetFrameStrata(self.target:GetFrameStrata())
-                behind:SetFrameLevel(math.max(0,self.target:GetFrameLevel()-1))
+            if self.kind=="enhancement" then
+                behind:SetFrameStrata(owner:GetFrameStrata())
+                behind:SetFrameLevel(owner:GetFrameLevel()+1)
                 behind:Show();totem:Show()
             end
             self.started=self.started or time
@@ -263,6 +272,25 @@ function FC:CreateTalentThemeArt(owner)
                 rear:SetTexCoord(authored:GetTexCoord())
                 rear:SetSize(width*2.4,height*2.4)
                 rear:SetPoint("CENTER",owner,"CENTER",0,0)
+                rear:Show()
+                -- Draw only the parts of the totem outside the icon. Keeping
+                -- these above the native talent panel avoids hiding the totem
+                -- behind its background, without painting over the icon.
+                local sw,sh=width*scale,height*scale
+                local ix,iy=(width-6)/2,(height-6)/2
+                local regions={{-sw/2,-ix,-sh/2,sh/2},{ix,sw/2,-sh/2,sh/2},
+                    {-ix,ix,iy,sh/2},{-ix,ix,-sh/2,-iy}}
+                local col,row=frame%8,math.floor(frame/8)
+                for i,region in ipairs(regions) do
+                    local x1,x2,y1,y2=(unpack or table.unpack)(region)
+                    local texture=totemPieces[i]
+                    texture:SetSize(x2-x1,y2-y1)
+                    texture:ClearAllPoints();texture:SetPoint('CENTER',owner,'CENTER',(x1+x2)/2,(y1+y2)/2)
+                    texture:SetTexCoord((col*128+.5+(x1/sw+.5)*127)/1024,(col*128+.5+(x2/sw+.5)*127)/1024,
+                        (row*128+.5+(.5-y2/sh)*127)/1024,(row*128+.5+(.5-y1/sh)*127)/1024)
+                    texture:Show()
+                end
+                totem:Hide()
             end
             authored:SetAlpha(1)
             return
@@ -372,6 +400,7 @@ local function disableThemeArt(message)
     if themeArt then
         if themeArt.authoredTexture then themeArt.authoredTexture:Hide() end
         if themeArt.totemBackdrop then themeArt.totemBackdrop:Hide() end
+        if themeArt.enhancementRear then themeArt.enhancementRear:Hide() end
         for _,piece in ipairs(themeArt.pool or {}) do piece.texture:Hide() end
     end
     themeArt=nil

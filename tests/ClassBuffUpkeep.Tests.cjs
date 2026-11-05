@@ -17,6 +17,10 @@ C_Spell={GetSpellInfo=function(id)if type(id)=='number' then return {spellID=id,
  IsSpellUsable=function()return not unusable,unusable end,
  GetSpellCooldown=function()return {startTime=0,duration=0,isEnabled=true}end}
 C_UnitAuras={GetAuraDataByIndex=function(_,i)if hidden then error('restricted')end;if i==1 and aura then return {name=aura,expirationTime=expiration,applications=1}end end}
+C_UnitAuras.GetPlayerAuraBySpellID=function(id)
+ if hidden then error('restricted')end
+ if names[id]==aura and (expiration==0 or expiration>GetTime()) then return {name=aura}end
+end
 fc.EncounterCoach={GetBuildContext=function()return {class=currentClass}end}
 fc.SpecScenarios={ForCurrent=function()return {available=true,class=currentClass,treeIndex=tree,role=tree==3 and 'healer' or 'damage'}end}
 local examples={MAGE='Arcane Intellect',PRIEST='Inner Fire',WARLOCK='Demon Armor',DRUID='Mark of the Wild',HUNTER='Aspect of the Hawk',WARRIOR='Battle Shout',PALADIN='Blessing of Kings',ROGUE='Slice and Dice',SHAMAN='Lightning Shield'}
@@ -37,6 +41,15 @@ currentClass='MAGE';tree=1;knownID=fc.ForeverSpellCatalog.classes.MAGE.spells['M
 assert(not live:ShieldRecommendation(),'Do not replace an active alternative armor')
 currentClass='SHAMAN';tree=3;knownID=fc.ForeverSpellCatalog.classes.SHAMAN.spells['Water Shield'].ids[1];aura=nil
 assert(live:ShieldRecommendation().spellName=='Water Shield','Healer upkeep prefers the learned Water Shield')
+currentClass='SHAMAN';tree=2;knownID=fc.ForeverSpellCatalog.classes.SHAMAN.spells['Lightning Shield'].ids[1]
+C_UnitAuras.GetAuraDataByIndex=function()error('Enumeration restricted')end
+C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end
+assert(live:ShieldRecommendation().spellID==knownID,'Targeted buff absence still works when enumeration is restricted and removed shield alternatives have no IDs')
+local secret={};issecretvalue=function(value)return value==secret end
+C_UnitAuras.GetPlayerAuraBySpellID=function(id)if id==knownID then return {name=secret,applications=secret,expirationTime=secret}end end
+assert(not live:ShieldRecommendation(),'Buff presence does not require reading secret names, stacks or duration')
+C_UnitAuras.GetPlayerAuraBySpellID=function()error('Restricted query')end
+assert(not live:ShieldRecommendation(),'Fully restricted aura data cannot be treated as expired')
 print('PASS: upkeep across all nine classes and three specs, expiry-only refresh, permanent buffs, hidden aura state, usability, alternatives and healer shield choice.')
 `);
 lua.lua_close(L);
