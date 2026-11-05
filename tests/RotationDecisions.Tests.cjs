@@ -46,12 +46,12 @@ TestNow=21;suggest(403,'Correct ranged filler.');cast(529,'rank-match')
 TestNow=22;suggest(403,'Correct ranged filler.');cast(331,'heal')
 local second,clean=finish()
 assert(#second.decisions==1 and second.decisions[1].matched)
-assert(clean.wrongText=='' and clean.improveText=='','A clean fight must not invent a mistake or correction')
+assert(clean.wrongText=='No mistakes recorded this fight.' and clean.improveText=='everything worked perfectly fine this fight','A clean fight shows the requested success message')
 assert(not clean.improveText:find('Earth Shock',1,true),'Previous fight must not leak')
 second.encounterCoaching={build={title='Clean fight'}}
 fc.EncounterCoach={Summarize=function()return 'Successful response.','Unconfirmed response.','Practice mechanics and check your movement.'end}
 local cleanEncounter=review:GetLatestSummary()
-assert(cleanEncounter.wrongText=='' and cleanEncounter.improveText=='','Generic encounter observations must not produce corrections without a recorded mistake')
+assert(cleanEncounter.improveText=='everything worked perfectly fine this fight','Generic encounter observations must not replace the success message with corrections')
 fc.EncounterCoach=nil
 -- Stale, ambiguous target, failed, unverified and absent-SENT observations are excluded.
 TestNow=30;fire('PLAYER_REGEN_DISABLED');suggest(403,'Stale')
@@ -61,7 +61,7 @@ suggest(403,'Unknown range',false);cast(8042,'unknown')
 suggest(403,'Failed');fire('UNIT_SPELLCAST_SENT','player','Enemy','failed',8042);fire('UNIT_SPELLCAST_FAILED','player','failed',8042)
 fire('UNIT_SPELLCAST_SUCCEEDED','player','no-sent',8042)
 local third,unknown=finish()
-assert(#third.decisions==0 and unknown.wrongText=='' and unknown.improveText=='','Unknown decisions do not establish mistakes')
+assert(#third.decisions==0 and unknown.wrongText=='No mistakes recorded this fight.' and unknown.improveText=='everything worked perfectly fine this fight','No recorded mistake shows the success message instead of corrective advice')
 assert(not unknown.wrongText:find('failed',1,true))
 assert(fc.LiveRotation:IsReviewableAttack('MAGE','Fireball'))
 assert(not fc.LiveRotation:IsReviewableAttack('MAGE','Counterspell'))

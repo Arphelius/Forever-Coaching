@@ -361,14 +361,11 @@ local function UpdateReviewText()
                 local offset=0
                 for i,body in ipairs({reviewWidgets.observation,reviewWidgets.takeaway,reviewWidgets.nextStep}) do
                     local card=reviewWidgets.cards[i]
-                    local shown=(body:GetText() or '')~=''
-                    card:SetShown(shown)
-                    if shown then
+                    card:Show()
                     card.title:SetText(result.headings and result.headings[i] or ({"WHAT YOU DID WELL","WHAT WENT WRONG","WHAT TO IMPROVE"})[i])
                     local height=math.max(84,body:GetStringHeight()+44)
                     card:ClearAllPoints();card:SetPoint("TOPLEFT",reviewWidgets.content,"TOPLEFT",18,-offset);card:SetHeight(height)
                     offset=offset+height+8
-                    end
                 end
                 reviewWidgets.coverage:SetShown(reviewExpanded)
                 reviewWidgets.attribution:Hide()

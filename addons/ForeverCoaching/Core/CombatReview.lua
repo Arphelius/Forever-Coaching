@@ -568,6 +568,8 @@ function Review:GetLatestSummary(filter)
             takeaway='',nextStep=''}
     end
     local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
+    if rotationWrong=='' then rotationWrong='No mistakes recorded this fight.' end
+    if rotationImprove=='' then rotationImprove='everything worked perfectly fine this fight' end
     if latest.encounterCoaching and FC.EncounterCoach then
         local good=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
