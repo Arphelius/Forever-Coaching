@@ -28,11 +28,17 @@ end
 assert(not sample(),'Solo DPS must not warn about threat')
 roster.pet={guid='pet',role='TANK'};assert(not sample(),'A tank pet does not register a group tank')
 roster.party1={guid='friend',role='DAMAGER'};assert(not sample(),'Tankless party must not warn')
+assert(not w:GroupThreatRelevant('tank'),'An inferred tank spec cannot replace a registered tank role')
+local injected={key='stale-threat',kind='threat',message='Check your threat.',priority=3}
+fc.WarningToast:Observe({injected});assert(not fc.WarningToast.current,'The renderer must reject even injected/stale threat alerts in a tankless group')
 roster.party1.role='TANK';local alert,alerts=sample();assert(alert,'Assigned dungeon tank enables threat advice')
 local toast=fc.WarningToast;toast:Observe(alerts);assert(toast.current and toast.current.kind=='threat')
 roster.party1=nil;sample();toast:Observe(w.alerts);assert(not toast.current,'Leaving the group immediately clears a displayed threat toast')
 roster.raid1={guid='self',role='DAMAGER'};roster.raid12={guid='raid-tank',role='TANK'}
 assert(sample(),'Registered raid tank enables threat advice')
+IsInGroup=function()return false end;IsInRaid=function()return false end
+assert(not sample(),'Stale unit tokens cannot enable warnings after leaving a group')
+IsInGroup=nil;IsInRaid=nil
 roster.raid12.dead=true;assert(not sample(),'Dead tank does not prompt easing off for that tank')
 roster.raid12.dead=false;roster.raid12.offline=true;assert(not sample(),'Offline tank is not available')
 roster.raid12.offline=false;hidden=true;assert(not sample(),'Unreadable roles cannot establish a tank');hidden=false

@@ -52,6 +52,7 @@ end
 -- Threat advice concerns a tank protecting other players. A pet, an empty
 -- roster slot or a tank specialization while solo does not establish that job.
 function W:GroupThreatRelevant(role)
+ if (IsInGroup or IsInRaid) and read(IsInGroup)~=true and read(IsInRaid)~=true then return false end
  local player=read(UnitGUID,'player');local grouped=false
  for _,prefix in ipairs({'party','raid'}) do
   for i=1,(prefix=='party' and 4 or 40) do
@@ -62,7 +63,7 @@ function W:GroupThreatRelevant(role)
    end
   end
  end
- return role=='tank' and grouped
+ return role=='tank' and read(UnitGroupRolesAssigned,'player')=='TANK' and grouped
 end
 -- Returns nil outside a tank's fight, {state='unknown'} when the game hides threat, else
 -- state = secure | warning | other-tank | lost-close | lost-far | lost (distance unknown),

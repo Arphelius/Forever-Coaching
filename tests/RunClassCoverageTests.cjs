@@ -4,6 +4,7 @@ const suites=[
  'BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
  'RunTalentArtPreviewTests.cjs','RunLiveRotationTests.cjs',
  'ProfessionItems.Tests.cjs','ShieldUpkeep.Tests.cjs','UtilityRotation.Tests.cjs',
+ 'GroupThreatWarnings.Tests.cjs','WarningToast.Tests.cjs',
 ];
 for(const suite of suites){
  const result=spawnSync(process.execPath,[`tests/${suite}`],{stdio:'inherit'});

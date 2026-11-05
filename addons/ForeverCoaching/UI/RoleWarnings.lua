@@ -7,14 +7,20 @@ label:SetPoint('CENTER');label:SetWidth(420);label:SetJustifyH('CENTER');label:S
 if label.SetMaxLines then label:SetMaxLines(2) end
 label:Hide()
 local colors={move={1,.25,.12},stop={1,.2,.15},danger={1,.25,.12},healing={.25,1,.4},health={1,.25,.25},interrupt={1,.75,.15},dispel={.5,.7,1},threat={1,.45,.15},mana={.35,.7,1}}
-local short={health='Low health — use a defensive or heal.',healing='Ally needs healing.',interrupt='Interrupt the assigned cast.',dispel='Check the removable debuff.',threat='Check your threat.',mana='Low mana — conserve resources.'}
+local short={health='Low health — use a defensive or heal.',healing='Ally needs healing.',interrupt='Interrupt the assigned cast.',dispel='Check the removable debuff.',mana='Low mana — conserve resources.'}
 -- Consume all present conditions together: lower priorities do not queue up
 -- when the selected notification fades. Persistent conditions stay silent.
 local toast={time=0,seen={},lastShown={},sampleElapsed=0,duration=2.8,fade=.8}
 FC.WarningToast=toast
 function toast:Observe(alerts)
  local chosen;local currentThreatPresent=false
+ local allowThreat=false
+ if FC.RoleWarnings and FC.RoleWarnings.GroupThreatRelevant then
+  local ok,result=pcall(function()return FC.RoleWarnings:GroupThreatRelevant(FC.RoleWarnings:Role())end)
+  allowThreat=ok and result==true
+ end
  for _,alert in ipairs(alerts or {}) do
+  if alert.kind~='threat' or allowThreat then
   if self.current and alert.key==self.current.key then currentThreatPresent=true end
   local previous=self.seen[alert.key]
   local group=alert.kind=='healing' and 'health' or alert.kind
@@ -22,8 +28,9 @@ function toast:Observe(alerts)
   local allowed=not self.lastShown[group] or self.time-self.lastShown[group]>=12
   if fresh and allowed and (not chosen or alert.priority<chosen.priority) then chosen=alert end
   self.seen[alert.key]=self.time
+  end
  end
- if self.current and self.current.kind=='threat' and not currentThreatPresent then
+ if self.current and self.current.kind=='threat' and (not allowThreat or not currentThreatPresent) then
   self.current=nil;label:Hide()
  end
  for key,at in pairs(self.seen) do if self.time-at>60 then self.seen[key]=nil end end
