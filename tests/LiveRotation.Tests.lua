@@ -1,5 +1,6 @@
 local FC=ForeverCoaching
 local state={class='MAGE',tree=3,role='damage',mana=100,moving=0,range=true,auras={},combo=0,health=100,mode='single'}
+UnitClass=function()return state.class,state.class end
 local ids,names={},{};local nextID=100
 local function id(name)if not ids[name] then nextID=nextID+1;ids[name]=nextID;names[nextID]=name end;return ids[name] end
 FC.EncounterCoach={lessons={},GetBuildContext=function()return {}end,GetRecommendation=function()return state.urgent end}

@@ -458,6 +458,31 @@ function Live:IsReviewableAttack(class,name)
  for _,profile in ipairs(P[class] or {}) do if includes(profile) then return true end end
  return class=='DRUID' and includes(bear) or false
 end
+function Live:ShieldRecommendation()
+ local _,class=read(UnitClass,'player')
+ if class~='SHAMAN' or read(UnitIsDeadOrGhost,'player')~=false
+  or read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return end
+ -- Do not replace a chosen shield, or treat unreadable auras as missing.
+ for _,name in ipairs({'Lightning Shield','Water Shield','Earth Shield'}) do
+  if findAura('player','HELPFUL',name)~=false then return end
+ end
+ local shield=resolve('Lightning Shield')
+ local source=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes.SHAMAN.spells['Lightning Shield']
+ for i=#(source and source.ids or {}),1,-1 do
+  local id=source.ids[i]
+  if read(IsPlayerSpell,id)==true or read(IsSpellKnown,id)==true
+   or (C_SpellBook and read(C_SpellBook.IsSpellKnown,id)==true) then
+   local data=C_Spell and read(C_Spell.GetSpellInfo,id)
+   shield={id=id,name=data and read(function()return data.name end) or 'Lightning Shield',icon=data and read(function()return data.iconID end)}
+   break
+  end
+ end
+ if not shield or not ready(shield,nil,false) then return end
+ return {spellID=shield.id,spellName=shield.name,icon=shield.icon,message=shield.name,
+  reason='Lightning Shield is missing; apply it before your next attack.',situation='buff upkeep',
+  selfBuff=true,targetHostile=false,reviewEligible=false,targetGUID=read(UnitGUID,'player'),
+  queue={{id=shield.id,name=shield.name,icon=shield.icon}}}
+end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
  if blocking then return blocking end
@@ -468,6 +493,7 @@ function Live:GetRecommendation()
   urgent.queue={{id=urgent.spellID,icon=urgent.icon,name=urgent.spellName}};return urgent
  end
  local item=self:ItemRecommendation();if item then return item end
+ local shield=self:ShieldRecommendation();if shield then return shield end
  local rec=self:ProfileRecommendation()
  if rec then
   local _,class=read(UnitClass,'player')

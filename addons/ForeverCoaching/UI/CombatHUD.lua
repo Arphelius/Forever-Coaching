@@ -505,7 +505,7 @@ controller:SetScript("OnUpdate", function(_, dt)
     if FC.CombatReview then pcall(FC.CombatReview.SetLatestRecommendation, FC.CombatReview, rec) end
     -- Prose stays in learning/review pages; warnings use one fading toast.
     encounterText:Hide()
-    if rec.targetHostile == false and not rec.encounterPrompt then
+    if rec.targetHostile == false and not rec.encounterPrompt and not rec.selfBuff then
         pcall(clearDisplay)
         return
     end
