@@ -13,6 +13,9 @@ local health={key='health',kind='health',emergency=true,priority=2,message='Long
 local healing={key='healing',kind='healing',emergency=true,priority=2,message='Long heal message'}
 local mana={key='mana',kind='mana',emergency=true,priority=5,message='Long mana message'}
 toast:Observe({health,healing,mana});assert(label:IsShown() and label.text=='Low health — use a defensive or heal.')
+local started=toast.started
+local precise={key='health',kind='health',emergency=true,priority=2,shortMessage='Low health — use Healing Potion.'}
+toast:Observe({precise,healing,mana});assert(label.text==precise.shortMessage and toast.started==started,'Action changes update stale advice without restarting the fade')
 toast:Advance(2.2);assert(label.alpha>0 and label.alpha<1,'Warning must fade after two seconds')
 toast:Observe({health,healing,mana});toast:Advance(.7);assert(not label:IsShown(),'Warning must disappear within three seconds')
 for i=1,100 do toast:Advance(.2);toast:Observe({health,healing,mana})end

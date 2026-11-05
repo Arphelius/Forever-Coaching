@@ -63,6 +63,33 @@ ForeverCoachingDB.liveRotation.burst=true
 assert(live:GetRecommendation().spellID==5,'Ready Orc racial is included during enabled burst')
 state.race='Troll';state.known[6]=true;assert(live:GetRecommendation().spellID==6,'Ready Troll racial uses the same burst policy')
 state.combat=false;assert(not live:UtilityRecommendation(),'No combat utility spam outside a fight')
+assert(not live:SurvivalWarning(),'No survival alerts outside combat')
+state.combat=true;state.health=15;state.race='Orc';state.known={};state.cast=false;state.moving=0;state.castTime=0;fc.EncounterCoach.lessons={}
+live.ItemRecommendation=function()return {itemID=100,spellName='Healing Potion',itemPriority=1}end
+assert(live:SurvivalWarning():find('Healing Potion',1,true),'A ready healing item gets a precise warning')
+live.ItemRecommendation=function()return {itemID=101,spellName='Mana Potion',itemPriority=2}end
+assert(not live:SurvivalWarning():find('Mana Potion',1,true),'A resource item is not emergency healing')
+live.ItemRecommendation=function()end
+local survival={SHAMAN='Lesser Healing Wave',PALADIN='Lay on Hands',PRIEST='Desperate Prayer',DRUID='Regrowth',
+ MAGE='Ice Block',WARRIOR='Shield Wall',ROGUE='Evasion',HUNTER='Deterrence',WARLOCK='Death Coil'}
+local serial=100
+for class,name in pairs(survival)do
+ serial=serial+1;ids[name]=serial;names[serial]=name;state.class=class;state.known={[serial]=true}
+ assert(live:SurvivalWarning():find(name,1,true),'Class-specific survival advice: '..class)
+ state.cooldown[serial]=true;assert(not live:SurvivalWarning():find(name,1,true),'Unavailable survival spell excluded: '..class);state.cooldown={}
+end
+state.class='SHAMAN';state.known={[ids['Lesser Healing Wave']]=true};state.castTime=1500;state.moving=7
+assert(not live:SurvivalWarning():find('Lesser Healing Wave',1,true),'Do not ask a moving player to hard-cast a heal')
+state.moving=0;state.unusable=true;assert(not live:SurvivalWarning():find('Lesser Healing Wave',1,true),'Unaffordable or unusable heals excluded');state.unusable=false
+state.known={};Enum={ItemClass={Consumable=0},ItemConsumableSubclass={Bandage=7}}
+C_Container={GetContainerNumSlots=function(bag)return bag==0 and 1 or 0 end,GetContainerItemInfo=function()return {itemID=14530}end,GetItemCooldown=function()return 0,0,1 end}
+C_Item={GetItemInfoInstant=function()return 14530,nil,nil,nil,nil,0,7 end,IsUsableItem=function()return true end,GetItemNameByID=function()return 'Heavy Runecloth Bandage'end}
+assert(live:SurvivalWarning():find('when damage stops',1,true),'Owned ready bandages require safety rather than an unsafe channel instruction')
+C_Item.GetItemInfoInstant=function(id)return id,nil,nil,nil,nil,0,6 end
+assert(live:SurvivalWarning():find('when damage stops',1,true),'Client bandage classification takes precedence over mismatched Classic enums')
+C_Item.IsUsableItem=function()return false end;assert(not live:SurvivalWarning():find('Bandage',1,true),'Unavailable bandages excluded')
+state.health=50;assert(not live:SurvivalWarning(),'Moderate health loss stays quiet')
+print('PASS: nine-class survival choices, healing items, cooldowns, movement, resources, safe bandage wording and combat scope.')
 print('PASS: necessary profession items, emergency healing, race/known/cooldown gates, observed control escapes, backup CC, boss/range/combo exclusions, burst racials and combat scope.')
 `);
 lua.lua_close(L);

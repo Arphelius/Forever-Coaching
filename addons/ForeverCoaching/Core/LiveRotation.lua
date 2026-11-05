@@ -666,6 +666,77 @@ local function utilityAction(s,unit,kind,reason,priority)
   situation=kind,unit=unit,targetGUID=read(UnitGUID,unit),targetHostile=unit=='target',encounterPrompt=true,
   reviewEligible=false,pressRequired=true,priority=priority,queue={{id=s.id,name=s.name,icon=s.icon}}}
 end
+-- Emergency text shares the rotation's learned-spell, resource, cooldown and
+-- movement checks. Never infer a safe bandage channel from missing aura data.
+function Live:SurvivalWarning()
+ if read(UnitAffectingCombat,'player')~=true or read(UnitIsDeadOrGhost,'player')~=false then return end
+ local hp=playerHealthPercent()
+ if not hp or hp<=0 or hp>=20 then return end
+ local item=self:ItemRecommendation()
+ if item and item.itemPriority==1 and item.itemID then
+  local name=C_Item and read(C_Item.GetItemNameByID,item.itemID) or read(GetItemInfo,item.itemID)
+  return 'Low health — use '..(name or item.spellName or 'your healing item')..'.','item:'..item.itemID
+ end
+ if read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then
+  return 'Low health — get to safety; do not interrupt a lifesaving heal.','recover'
+ end
+ local utility=self:UtilityRecommendation()
+ if utility and (utility.situation=='racial escape' or utility.situation=='racial dispel') then
+  return 'Low health — use '..utility.spellName..' and move to safety.','spell:'..utility.spellID
+ end
+ local _,class=read(UnitClass,'player')
+ local moving=read(GetUnitSpeed,'player');moving=type(moving)=='number' and moving>0
+ local heals={PALADIN={'Lay on Hands','Flash of Light','Holy Light'},PRIEST={'Desperate Prayer','Flash Heal','Heal','Lesser Heal'},
+  DRUID={'Swiftmend','Regrowth','Healing Touch'},SHAMAN={'Lesser Healing Wave','Healing Wave'}}
+ for _,name in ipairs(heals[class] or {}) do
+  local s=resolve(name)
+  -- Conditional heals need an observed qualifying aura; leave those to the
+  -- native usability check rather than assuming their prerequisites.
+  if s and ready(s,nil,moving) then return 'Low health — '..s.name..' on yourself.','spell:'..s.id end
+ end
+ if utility and utility.situation=='healing' then return 'Low health — '..utility.spellName..' on yourself.','spell:'..utility.spellID end
+ local defenses={WARRIOR={'Shield Wall','Last Stand'},ROGUE={'Evasion'},MAGE={'Ice Block'},DRUID={'Barkskin'},
+  PALADIN={'Divine Shield','Divine Protection'},HUNTER={'Deterrence'},PRIEST={'Dispersion'},WARLOCK={'Death Coil'}}
+ for _,name in ipairs(defenses[class] or {}) do
+  local s=resolve(name);local unit=name=='Death Coil' and 'target' or nil
+  if s and (not unit or read(UnitCanAttack,'player',unit)==true) and ready(s,unit,moving) then
+   local text=name=='Death Coil' and ('Low health — '..s.name..' on your enemy to recover.') or ('Low health — use '..s.name..'.')
+   return text,'spell:'..s.id
+  end
+ end
+ -- A backup control suggestion is only offered for an observed interruptible
+ -- cast on an ordinary enemy, with the same range/immunity gates as rotation.
+ if utility and utility.situation=='crowd control' then
+  return 'Low health — '..utility.spellName..' to stop the cast; move to safety.','spell:'..utility.spellID
+ end
+ local bandage=Enum and Enum.ItemConsumableSubclass and Enum.ItemConsumableSubclass.Bandage
+ local consumable=Enum and Enum.ItemClass and Enum.ItemClass.Consumable
+ -- Some Classic clients expose retail subclass enums with different values.
+ -- Read the client's own Linen Bandage classification rather than assuming it.
+ if C_Item and C_Item.GetItemInfoInstant then
+  local c,s=read(function()return select(6,C_Item.GetItemInfoInstant(1251))end)
+  if type(c)=='number' and type(s)=='number' then consumable,bandage=c,s end
+ end
+ if bandage and consumable and C_Container and C_Item then
+  for bag=0,4 do
+   local slots=read(C_Container.GetContainerNumSlots,bag)
+   if type(slots)=='number' then for slot=1,slots do
+    local data=read(C_Container.GetContainerItemInfo,bag,slot)
+    local id=data and read(function()return data.itemID end)
+    if type(id)=='number' then
+     local itemClass,subclass=read(function()return select(6,C_Item.GetItemInfoInstant(id))end)
+     local start,duration,enabled=read(C_Container.GetItemCooldown,id)
+     if itemClass==consumable and subclass==bandage and read(C_Item.IsUsableItem,id)==true
+      and type(start)=='number' and type(duration)=='number' and (enabled==1 or enabled==true) and (start==0 or start+duration<=now()) then
+      local name=read(C_Item.GetItemNameByID,id)
+      if type(name)=='string' then return 'Reach safety, then use '..name..' when damage stops.','bandage:'..id end
+     end
+    end
+   end end
+  end
+ end
+ return 'Low health — move out of danger and seek healing.','escape'
+end
 function Live:UtilityRecommendation()
  if read(UnitAffectingCombat,'player')~=true or read(UnitIsDeadOrGhost,'player')~=false then return end
  local _,race=read(UnitRace,'player')

@@ -129,8 +129,8 @@ function W:Sample()
  if combat then
   local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
   if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.2 then
-   local context=FC.EncounterCoach and FC.EncounterCoach.combatContext
-   local message=context and context.canHeal and 'Low health — use a ready defensive or self-heal.' or 'Low health — reduce damage and get to safety.'
+   local message=read(function()return FC.LiveRotation and FC.LiveRotation.SurvivalWarning and FC.LiveRotation:SurvivalWarning()end)
+   message=message or 'Low health — move out of danger and seek healing.'
    add('self-health','health',message,2,false,message)
   end
   local threatRelevant=self:GroupThreatRelevant(role) and read(UnitCanAttack,'player','target')==true

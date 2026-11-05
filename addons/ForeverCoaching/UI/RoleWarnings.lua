@@ -1,9 +1,9 @@
 local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 local frame=CreateFrame('Frame','ForeverCoachingRoleWarnings',UIParent)
-frame:SetSize(420,42);frame:SetPoint('CENTER',UIParent,'CENTER',0,95);frame:SetFrameStrata('HIGH');frame:EnableMouse(false)
-local label=frame:CreateFontString(nil,'OVERLAY','GameFontHighlight')
-label:SetPoint('CENTER');label:SetWidth(420);label:SetJustifyH('CENTER');label:SetWordWrap(true)
+frame:SetSize(560,60);frame:SetPoint('CENTER',UIParent,'CENTER',0,95);frame:SetFrameStrata('HIGH');frame:EnableMouse(false)
+local label=frame:CreateFontString(nil,'OVERLAY','GameFontHighlightLarge')
+label:SetPoint('CENTER');label:SetWidth(560);label:SetJustifyH('CENTER');label:SetWordWrap(true)
 if label.SetMaxLines then label:SetMaxLines(2) end
 label:Hide()
 local colors={move={1,.25,.12},stop={1,.2,.15},danger={1,.25,.12},healing={.25,1,.4},health={1,.25,.25},interrupt={1,.75,.15},dispel={.5,.7,1},threat={1,.45,.15},mana={.35,.7,1}}
@@ -21,7 +21,14 @@ function toast:Observe(alerts)
  end
  for _,alert in ipairs(alerts or {}) do
   if alert.emergency==true and (alert.kind~='threat' or allowThreat) then
-  if self.current and alert.key==self.current.key then currentThreatPresent=true end
+  if self.current and alert.key==self.current.key then
+   currentThreatPresent=true
+   -- An item may have been used or a heal become unavailable while the toast
+   -- is fading. Replace stale advice without restarting its display timer.
+   if alert.shortMessage~=self.current.shortMessage then
+    self.current=alert;label:SetText(alert.shortMessage or short[alert.kind] or alert.message)
+   end
+  end
   local previous=self.seen[alert.key]
   local group=alert.kind=='healing' and 'health' or alert.kind
   local fresh=not previous or self.time-previous>3

@@ -2,6 +2,8 @@
 
 The addon displays one short emergency warning at a time above the rotation. Routine opportunities remain rotation guidance. Persistent conditions do not repeatedly interrupt the player.
 
+Critical self-health warnings select a ready healing item, an observed racial escape, a usable class heal or defensive, or an eligible backup control action. Advice names the actual item or spell and checks learned abilities, readiness, resources and movement. Bandages are only suggested when owned, usable and ready, with an explicit instruction to reach safety and wait for damage to stop. If no supported action can be confirmed, the warning asks the player to move out of danger and seek healing. The medium-sized message fades within 2.8 seconds; changing availability updates the text without restarting its timer.
+
 Warnings require combat and observed urgency: own or healing-target Health below 20%, actual aggro trouble with an available registered group tank, or an explicitly dangerous interrupt, dispel or validated encounter mechanic. Tanks may also receive a warning when an assigned healer falls below 5% Mana during combat. Ordinary interrupts, removable effects, moderate health loss, rising threat and preparation between pulls do not produce warning toasts. These thresholds are coaching policy.
 
 ## Tank threat
