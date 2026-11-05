@@ -35,7 +35,7 @@ tick()
 assert(glowingButtons()==0,'Stop glowing as soon as auto-attack is active')
 HUDRecommendation={targetHostile=false}
 tick()
-assert(not ForeverCoachingRotationStrip:IsShown(),'Hide the strip with no hostile target')
+assert(ForeverCoachingRotationStrip:IsShown() and ForeverCoachingRotationStrip.alpha==1,'No target keeps the strip visible during combat')
 assert(glowingButtons()==0,'Clear weapon glow when target is gone')
 -- Tank threat bar: colour and fill follow RoleWarnings.threat; hidden when threat is unknown.
 local bar=ForeverCoachingThreatBar

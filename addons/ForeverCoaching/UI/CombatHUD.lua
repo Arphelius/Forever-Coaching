@@ -22,6 +22,11 @@ local elapsed, anchorElapsed = 1, 1
 local function secret(value)
     return issecretvalue and issecretvalue(value)
 end
+local function inCombat()
+    if not UnitAffectingCombat then return false end
+    local ok,value=pcall(UnitAffectingCombat,'player')
+    return ok and not secret(value) and value==true
+end
 local function shown(button)
     if not button then return false end
     local ok, visible = pcall(button.IsShown, button)
@@ -212,6 +217,7 @@ strip:EnableMouse(false)
 strip:SetClampedToScreen(true)
 strip:Hide()
 local slots, layoutKey, currentID = {}
+local lastQueue
 
 local function positionStrip()
     local top = 90
@@ -250,6 +256,8 @@ local function makeSlot(index)
     slot.highlight:SetBlendMode("ADD")
     slot.highlight:SetPoint("CENTER")
     slot.highlight:SetVertexColor(1, 0.8, 0.15)
+    slot.caption=slot:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall')
+    slot.caption:SetPoint('BOTTOM',0,2);slot.caption:SetText('')
     slot.enter = slot:CreateAnimationGroup()
     local alpha = slot.enter:CreateAnimation("Alpha")
     alpha:SetFromAlpha(0.25)
@@ -297,7 +305,11 @@ local function renderStrip(rec)
     for index=1,4 do local spell=entries[index];keys[#keys+1]=spell and (tostring(spell.itemID or spell.id)..':'..tostring(spell.icon)) or '-' end
     local key = table.concat(keys, ":")
     -- A situation change is not evidence that the previous action was used.
-    currentID = rec.spellID
+    currentID = not rec.preview and rec.spellID or nil
+    local combat=inCombat()
+    local active=combat and not rec.preview
+    strip:SetAlpha(combat and 1 or 0.12)
+    if not rec.preview then lastQueue=entries end
     if layoutKey ~= key then
         local width = 0
         for index=1,4 do
@@ -309,6 +321,7 @@ local function renderStrip(rec)
             slot:ClearAllPoints()
             slot:SetPoint("LEFT", strip, "LEFT", width, 0)
             slot.icon:SetTexture(spell and (spell.icon or "Interface\\Icons\\INV_Misc_QuestionMark") or nil)
+            slot.caption:SetText(spell and (spell.autoAttack or spell.id==6603) and 'AUTO' or '')
             slot.highlight:SetSize(size * 1.65, size * 1.65)
             slot.highlight:SetShown(index == 1)
             slot:Show()
@@ -318,21 +331,25 @@ local function renderStrip(rec)
         strip:SetSize(math.max(48, width - 6), 56)
         layoutKey = key
         slots[1].enter:Stop()
-        slots[1].enter:Play()
+        if active then slots[1].enter:Play() end
     end
     -- Restore brightness after a cast, even if the recommendation repeats.
     for index = 1,4 do
         slots[index]:SetAlpha(entries[index] and (index == 1 and 1 or (index == 2 and 0.6 or 0.3)) or 0.12)
-        slots[index].highlight:SetShown(index == 1)
+        slots[index].highlight:SetShown(active and index == 1 and rec.pressRequired~=false)
     end
     strip:Show()
 end
 
 local function clearDisplay()
-    strip:Hide()
+    local engine=FC.LiveRotation
+    local ok,idle
+    if engine and engine.GetIdleRecommendation then ok,idle=pcall(engine.GetIdleRecommendation,engine) end
+    if not ok then idle=nil end
+    renderStrip(idle or {queue=lastQueue or {{id=6603,icon='Interface\\Icons\\INV_Sword_04',autoAttack=true}},preview=true,pressRequired=false})
     ghost.fade:Stop()
     ghost:Hide()
-    layoutKey, currentID = nil, nil
+    currentID = nil
     updateGlows(nil)
 end
 
@@ -469,13 +486,15 @@ controller:SetScript("OnUpdate", function(_, dt)
             slots[1].highlight:Hide()
             slots[1]:SetAlpha(0.65)
         end
-        local glowOK, glowError = pcall(updateGlows, rec.pressRequired ~= false and buttonsOK and buttons or nil)
+        local combat=inCombat()
+        local glowOK, glowError = pcall(updateGlows, combat and rec.pressRequired ~= false and buttonsOK and buttons or nil)
         if not glowOK then FC.combatHUDLastError = tostring(glowError) end
     else
         pcall(updateGlows, nil)
         if rec.targetHostile ~= true or rec.situation~='casting' then
             pcall(clearDisplay)
         elseif strip:IsShown() then
+            strip:SetAlpha(inCombat() and 1 or 0.12)
             for _, slot in ipairs(slots) do
                 slot.enter:Stop()
                 slot:SetAlpha(0.25)
@@ -484,4 +503,6 @@ controller:SetScript("OnUpdate", function(_, dt)
         end
     end
 end)
+pcall(positionStrip)
+pcall(clearDisplay)
 

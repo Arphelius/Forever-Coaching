@@ -183,13 +183,79 @@ local function resourceCosts(id)
  end
  return result
 end
+local function autoAttack()
+ local data=C_Spell and read(C_Spell.GetSpellInfo,6603)
+ return {id=6603,name='Autoattack',icon=data and read(function()return data.iconID end) or 'Interface\\Icons\\INV_Sword_04',autoAttack=true}
+end
+function Live:GetIdleRecommendation()
+ local _,class=read(UnitClass,'player')
+ local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
+ local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
+ local queue={}
+ if class=='SHAMAN' then
+  queue[1]=autoAttack()
+  local shock=resolve('Earth Shock');if shock then queue[#queue+1]=shock end
+  queue[#queue+1]=autoAttack();queue[#queue+1]=autoAttack()
+ elseif spec and spec.available then
+  local profile=class=='DRUID' and spec.role=='tank' and bear or P[class] and P[class][spec.treeIndex]
+  for _,rule in ipairs(profile and profile[1] or {}) do
+   local s=resolve(rule.name);if s and #queue<4 then queue[#queue+1]=s end
+  end
+ end
+ if #queue==0 then queue[1]=autoAttack() end
+ return {queue=queue,preview=true,pressRequired=false,reviewEligible=false}
+end
+function Live:WithShamanSwings(rec,spec)
+ if not rec or rec.targetHostile~=true or rec.situation=='casting' or rec.situation=='interrupt' then return rec end
+ local attacking=read(IsCurrentSpell,6603)
+ local enhancement=spec and spec.available and spec.treeIndex==2
+ -- Before talent specialization exists, only an observed running melee attack
+ -- establishes that the player is fighting with a weapon.
+ if not enhancement and not (spec and not spec.available and attacking==true) then return rec end
+ local melee=resolve('Stormstrike')
+ local inRange=melee and C_Spell and read(C_Spell.IsSpellInRange,melee.id,'target')
+ if inRange~=true and inRange~=1 then
+  for _,prefix in ipairs({'ActionButton','MultiBarBottomLeftButton','MultiBarBottomRightButton','MultiBarRightButton','MultiBarLeftButton','MultiBar5Button','MultiBar6Button','MultiBar7Button'}) do
+   for i=1,12 do
+    local b=_G[prefix..i];local slot=b and read(function()return b.action end)
+    if type(slot)=='number' and read(IsAttackAction,slot)==true then
+     local value=read(IsActionInRange,slot,'target');if value==true or value==1 then inRange=true end
+    end
+   end
+  end
+ end
+ if inRange~=true and inRange~=1 then return rec end
+ local auto=autoAttack()
+ if not rec.spellID or (rec.spellName=='Lightning Bolt' and rec.situation~='maelstrom proc') then
+  local shock=resolve('Earth Shock')
+  if shock and ready(shock,'target',false) then
+   rec={spellID=shock.id,spellName=shock.name,icon=shock.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),
+    situation='melee attack',reason='Use the ready Earth Shock between weapon swings; keep autoattack running.'}
+  else
+   rec={spellID=auto.id,spellName=auto.name,icon=auto.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),
+    situation='weapon attack',reason='Keep weapon swings running while your melee abilities recover.',pressRequired=attacking~=true}
+  end
+ end
+ if not rec.spellID then return rec end
+ local ability={id=rec.spellID,name=rec.spellName,icon=rec.icon,autoAttack=rec.spellID==6603}
+ -- Auto icons describe ongoing swings, not repeated Attack button presses.
+ -- These are illustrative follow-ups, not a measured swing timer.
+ if attacking==false and ability.id~=6603 then
+  rec.queue={auto,ability,auto,auto};rec.spellID=6603;rec.spellName=auto.name;rec.icon=auto.icon
+  rec.pressRequired=true;rec.reason='Start autoattack in melee, then use the ready ability between swings.'
+ else
+  rec.queue={ability,auto,auto,auto}
+  if ability.id==6603 then rec.pressRequired=attacking~=true end
+ end
+ return rec
+end
 function Live:ProfileRecommendation()
  local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
  if context and context.class=='SHAMAN' and (not spec or not spec.available or spec.role~='healer') then
   FC.RotationCoach.burstAllowed=settings().burst==true
   FC.RotationCoach.allowArea=settings().mode=='aoe'
-  return FC.RotationCoach:GetRecommendation()
+  return self:WithShamanSwings(FC.RotationCoach:GetRecommendation(),spec)
  end
  if not spec or not spec.available then return {message='Current specialization unavailable',reason='Readable active talents are needed for a build-specific live rotation.'} end
  if spec.role=='healer' then return {message='Follow your healing assignment',reason='',targetHostile=false} end
