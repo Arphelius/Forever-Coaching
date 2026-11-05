@@ -49,22 +49,45 @@ function browser:LessonsFor(class,build)
  local guide=FC.SpecScenarios and FC.SpecScenarios.ForPreview and FC.SpecScenarios:ForPreview(class,build)
  local catalog={};for _,lesson in ipairs(FC.AbilityLessons and FC.AbilityLessons[class] or {}) do catalog[lesson.name]=lesson end
  local lessons,seen={},{}
+ local function append(name,source,step)
+  if seen[name] then return end
+  seen[name]=true
+  local data=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+  local spell=data and data.spells[name]
+  local first=spell and spell.rankEffects and spell.rankEffects[1]
+  local effect=first and first.text or spell and spell.description or source.description
+  local id=first and first.id or source.ids[#source.ids]
+  local level=UnitLevel and UnitLevel('player') or 60
+  local selectedLevel=-1
+  for _,rank in ipairs(spell and spell.rankEffects or {}) do
+   if rank and type(rank.text)=='string' and rank.text~='' and rank.level<=level and rank.level>=selectedLevel then
+    effect=rank.text;id=rank.id;selectedLevel=rank.level
+   end
+  end
+  local when=step and step.when or source.when
+  local how=step and step.action or source.how
+  if spell and spell.passive then
+   when='Applies automatically when learned and its listed conditions are met.'
+   how='No button press is required; follow the conditions in the effect description.'
+  elseif spell and spell.level and spell.level>level then
+   when='Available from level '..spell.level..'. '..(when or '')
+  end
+  lessons[#lessons+1]={name=name,spellID=id,description=effect or 'Effect unavailable in the reviewed spellbook.',
+   when=when,how=how,why=step and step.why or source.why,sourceUrl=source.sourceUrl or data and data.sourceUrl,
+   sourceBuild=source.sourceBuild,guideUrl=step and step.guideUrl or (reference and reference.url),
+   effectReferenceUrl=FC.GuideSources and FC.GuideSources:SpellUrl(id)}
+ end
+ -- Put the selected spec's practical examples first, then include its shared
+ -- class toolkit. Scenario membership must not hide buffs, utility or pet spells.
  for _,scenario in ipairs(guide and guide.scenarios or {}) do
   for _,step in ipairs(scenario.steps or {}) do
    local source=step.spell and catalog[step.spell]
    if source and not seen[step.spell] then
-    seen[step.spell]=true
-    local spell=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class] and FC.ForeverSpellCatalog.classes[class].spells[step.spell]
-    local effect=spell and spell.description
-    local level=UnitLevel and UnitLevel('player') or 60
-    local selectedLevel=-1
-    for _,rank in ipairs(spell and spell.rankEffects or {}) do
-     if rank and type(rank.text)=='string' and rank.text~='' and rank.level<=level and rank.level>=selectedLevel then effect=rank.text;selectedLevel=rank.level end
-    end
-    lessons[#lessons+1]={name=step.spell,spellID=source.ids[#source.ids],description=effect or 'Effect unavailable in the reviewed spellbook.',when=step.when,how=step.action,why=step.why,sourceUrl=source.sourceUrl,sourceBuild=source.sourceBuild,guideUrl=step.guideUrl or (reference and reference.url),effectReferenceUrl=FC.GuideSources and FC.GuideSources:SpellUrl(source.ids[#source.ids])}
+    append(step.spell,source,step)
    end
   end
  end
+ for _,source in ipairs(FC.AbilityLessons and FC.AbilityLessons[class] or {}) do append(source.name,source) end
  return lessons
 end
 -- A dropdown: the field shows the choice (cut with "..."), the list opens under it and

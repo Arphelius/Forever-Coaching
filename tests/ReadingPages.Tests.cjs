@@ -45,7 +45,12 @@ fc.EncounterCoach={GetBuildContext=function()return {class='ROGUE',id='test',tit
 fc.SpecScenarios={ForCurrent=function()return {available=true,spec='Test spec',role='damage',contribution='Contribution',basis='Observed',confidence='Confidence',scenarios={{title='Single',trigger='Enemy',prepare='Ready',react=string.rep('Action ',100),avoid='Avoid',steps={{action='Cast test spell',when='Ready',why='Damage'}}}}}end}
 fc.BuildPlanner={classes={'ROGUE'},GetBuilds=function()return {{id='test',title='Test build'}}end,GetBuildEvidenceUrl=function()return 'https://example.com' end}
 fc.GearGuide={ForBuild=function()return {title='Gear',importance='Important',available=true,plan='Plan',stats={{name='Stat',why=string.rep('Detail ',80)}},talentNotes={},companion='Companion',steps={'Step'},url='https://example.com',limits='Limits'}end}
-fc:BuildEncounterLearningPage(parent,'Learn');fc:BuildEncounterLearningPage(parent,'Scenarios');fc:BuildGearGuidePage(parent)
+fc.AbilityLessons={ROGUE={{name='Test spell',ids={1},description='Test effect',when='Test timing',how='Test execution',why='Test purpose'}}}
+fc:BuildEncounterLearningPage(parent,'Learn')
+local learnVisible=false
+for _,frame in ipairs(TestFrames)do if frame:IsShown() and frame.text and frame.text:find('How to use it:',1,true) and frame.text:find('Test execution',1,true) then learnVisible=true end end
+assert(learnVisible,'Supplemental toolkit lessons must render their execution guidance in the actual Learn page')
+fc:BuildEncounterLearningPage(parent,'Scenarios');fc:BuildGearGuidePage(parent)
 local scrolls=0
 for _,frame in ipairs(TestFrames)do if frame.clipped then scrolls=scrolls+1;assert(frame.child and frame.child:GetHeight()>0);frame:SetSize(600,240);frame.scripts.OnSizeChanged();frame.scripts.OnMouseWheel(frame,-1000);assert(frame:GetVerticalScroll()>=0)end end
 assert(scrolls==4,'Shared document must serve Learn, Scenarios and Gear')

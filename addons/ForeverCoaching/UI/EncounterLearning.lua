@@ -42,7 +42,7 @@ function FC:BuildEncounterLearningPage(parent,mode)
    local lesson=FC.TalentLessons and FC.TalentLessons:GetLesson(class,build,item)
    if lesson then document:Group(item.name..' / rank '..item.rank,'|cffffcc66What it does:|r '..lesson.effect..'\n\n|cffffcc66Why it is used:|r '..lesson.why..'\n\n|cffffcc66Good for this build:|r '..(lesson.buildBenefit or lesson.why)) end
   else
-   document:Group(item.name,'|cffffcc66What it does:|r '..(item.description or 'Effect unavailable for this ability.')..'\n\n|cffffcc66Why it is used:|r '..item.why..'\n\n|cffffcc66When to use it:|r '..item.when)
+   document:Group(item.name,'|cffffcc66What it does:|r '..(item.description or 'Effect unavailable for this ability.')..'\n\n|cffffcc66Why it is used:|r '..item.why..'\n\n|cffffcc66When to use it:|r '..item.when..'\n\n|cffffcc66How to use it:|r '..item.how)
   end
   local reference=FC.GuideSources and FC.GuideSources:ForBuild(class,build)
   if reference then document:Line('Wowhead Forever guide',true);guideLink:SetText(reference.url);guideLink:Show();document:AddWidget(guideLink,32)end
