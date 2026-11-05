@@ -35,6 +35,18 @@ for class,name in pairs(examples)do
   expiration=GetTime()-1;assert(live:ShieldRecommendation(),class..spec..': expired buff should appear')
   aura=nil;hidden=true;assert(not live:ShieldRecommendation(),class..spec..': hidden aura state cannot mean missing');hidden=false
   unusable=true;assert(not live:ShieldRecommendation(),class..spec..': unusable buff is excluded');unusable=false
+  local enumeration=C_UnitAuras.GetAuraDataByIndex;local targeted=C_UnitAuras.GetPlayerAuraBySpellID
+  C_UnitAuras.GetAuraDataByIndex=function()error('Enumeration restricted')end
+  C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end
+  assert(live:ShieldRecommendation(),class..spec..': targeted absence survives restricted enumeration')
+  local secretField={};local originalSecretCheck=issecretvalue
+  issecretvalue=function(value)return value==secretField end
+  C_UnitAuras.GetPlayerAuraBySpellID=function(id)if id==knownID then return {name=secretField,applications=secretField,expirationTime=secretField}end end
+  assert(not live:ShieldRecommendation(),class..spec..': secret aura fields must not hide readable presence')
+  issecretvalue=originalSecretCheck
+  C_UnitAuras.GetPlayerAuraBySpellID=function()error('Fully restricted')end
+  assert(not live:ShieldRecommendation(),class..spec..': fully restricted state is never considered missing')
+  C_UnitAuras.GetAuraDataByIndex=enumeration;C_UnitAuras.GetPlayerAuraBySpellID=targeted
  end
 end
 currentClass='MAGE';tree=1;knownID=fc.ForeverSpellCatalog.classes.MAGE.spells['Mage Armor'].ids[1];aura='Frost Armor';expiration=100

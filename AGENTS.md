@@ -6,3 +6,7 @@
 - Report the pushed branch and commit. If a push fails, say so clearly and retain
   the local commit for retrying. Never force-push or overwrite unrelated changes.
 - Keep local backups and generated scratch artifacts out of commits.
+- Treat shared addon changes as class-wide. For changes to rotations, buff
+  upkeep, build recommendations or talent effects, run
+  `node tests/RunClassCoverageTests.cjs`. Distinguish simulated coverage from
+  behavior actually checked in the live game client.

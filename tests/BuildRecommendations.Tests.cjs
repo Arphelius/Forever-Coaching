@@ -7,7 +7,7 @@ run(`
 local planner=ForeverCoaching.BuildPlanner
 for _,class in ipairs(planner.classes) do
  for _,activity in ipairs(planner.activities) do
-  for _,level in ipairs({20,60}) do
+  for _,level in ipairs({1,10,20,30,40,50,60}) do
    local count=0
    for _,choice in ipairs(planner:GetVisibleSpecBuilds(class,activity.id,level)) do
     if choice.activityRecommended then
@@ -24,6 +24,6 @@ for _,class in ipairs(planner.classes) do
   end
  end
 end
-print('PASS: all nine classes have valid recommendations for all four experiences at levels 20 and 60; adapted plans retain evidence limits.')
+print('PASS: all nine classes have valid recommendations for all four experiences at seven preview levels; adapted plans retain evidence limits.')
 `);
 lua.lua_close(L);
