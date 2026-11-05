@@ -1,12 +1,16 @@
 [CmdletBinding()]
-param([string]$Version='0.1.0-beta.1')
+param([string]$Version)
 $ErrorActionPreference='Stop'
-if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$') { throw 'Invalid release version.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
 $root=Split-Path $PSScriptRoot -Parent
 $source=Join-Path $root 'addons/ForeverCoaching'
 $manifest=Get-Content (Join-Path $source 'ForeverCoaching.toc') -Raw
+if ($manifest -notmatch '(?m)^## Version:\s*(\S+)\s*$') { throw 'Missing addon version in ForeverCoaching.toc.' }
+$manifestVersion=$Matches[1]
+if (-not $Version) { $Version=$manifestVersion }
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$') { throw 'Invalid release version.' }
+if ($Version -ne $manifestVersion) { throw "Package version must match ForeverCoaching.toc ($manifestVersion)." }
 if ($manifest -notmatch '(?m)^## Interface: 16001\s*$') { throw 'Expected Forever Interface 16001.' }
 foreach ($line in $manifest -split '\r?\n') {
  if ($line.Trim() -and -not $line.StartsWith('#') -and -not (Test-Path -LiteralPath (Join-Path $source $line.Trim()))) { throw "Missing addon file: $line" }
