@@ -29,12 +29,13 @@ for class,name in pairs(examples)do
  for spec=1,3 do
   tree=spec;aura=nil;expiration=nil
   local r=live:ShieldRecommendation();assert(r and r.spellID==knownID,class..spec..': missing buff must appear')
+  for refresh=1,3 do assert(live:GetRecommendation().spellID==knownID,class..spec..': pending buff must remain top priority across updates')end
   aura=name;expiration=GetTime()+.1
   assert(not live:ShieldRecommendation(),class..spec..': even nearly expired buffs stay active')
   expiration=0;assert(not live:ShieldRecommendation(),class..spec..': permanent buff stays active')
   expiration=GetTime()-1;assert(live:ShieldRecommendation(),class..spec..': expired buff should appear')
   aura=nil;hidden=true;assert(not live:ShieldRecommendation(),class..spec..': hidden aura state cannot mean missing');hidden=false
-  unusable=true;assert(not live:ShieldRecommendation(),class..spec..': unusable buff is excluded');unusable=false
+  unusable=true;r=live:ShieldRecommendation();assert(r and r.spellID==knownID and r.pressRequired==false,class..spec..': pending buff remains visible while unusable');unusable=false
   local enumeration=C_UnitAuras.GetAuraDataByIndex;local targeted=C_UnitAuras.GetPlayerAuraBySpellID
   C_UnitAuras.GetAuraDataByIndex=function()error('Enumeration restricted')end
   C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end

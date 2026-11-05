@@ -490,11 +490,16 @@ local function knownBuff(class,name)
    return {id=id,name=data and read(function()return data.name end) or name,icon=data and read(function()return data.iconID end)}
   end
  end
+ -- Resolve the client's current learned rank as well as the bundled IDs.
+ return resolve(name)
 end
 local function playerBuffActive(class,name)
  local catalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
  local source=catalog and catalog.spells[name]
- local ids=source and source.ids or {}
+ local ids={}
+ for _,id in ipairs(source and source.ids or {}) do ids[#ids+1]=id end
+ local learned=knownBuff(class,name)
+ if learned then ids[#ids+1]=learned.id end
  if #ids==0 then local spell=resolve(name);if spell then ids={spell.id} end end
  if #ids==0 and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
   local data=C_Spell and read(C_Spell.GetSpellInfo,name)
@@ -526,8 +531,7 @@ local function playerBuffActive(class,name)
 end
 function Live:ShieldRecommendation()
  local _,class=read(UnitClass,'player')
- if not UPKEEP[class] or read(UnitIsDeadOrGhost,'player')~=false
-  or read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return end
+ if not UPKEEP[class] or read(UnitIsDeadOrGhost,'player')~=false then return end
  if class=='ROGUE' then
   local combo=read(GetComboPoints,'player','target')
   if read(UnitAffectingCombat,'player')~=true or type(combo)~='number' or combo<1 then return end
@@ -545,10 +549,11 @@ function Live:ShieldRecommendation()
    if class=='SHAMAN' and spec and spec.available and spec.role=='healer' then names={'Water Shield','Lightning Shield'} end
    local shield
    for _,name in ipairs(names) do shield=knownBuff(class,name);if shield then break end end
-   if shield and ready(shield,nil,false) then
+   if shield then
+    local usable=ready(shield,nil,false)
     return {spellID=shield.id,spellName=shield.name,icon=shield.icon,message=shield.name,
      reason=shield.name..' is missing or expired; apply it before your next attack.',situation='buff upkeep',
-     selfBuff=true,targetHostile=false,reviewEligible=false,targetGUID=read(UnitGUID,'player'),
+     selfBuff=true,pressRequired=usable,targetHostile=false,reviewEligible=false,targetGUID=read(UnitGUID,'player'),
      queue={{id=shield.id,name=shield.name,icon=shield.icon}}}
    end
   end
@@ -638,6 +643,7 @@ end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
  if blocking then return blocking end
+ local shield=self:ShieldRecommendation();if shield then return shield end
  local utility=self:UtilityRecommendation()
  if utility and utility.priority==1 then return utility end
  local urgent=FC.EncounterCoach and FC.EncounterCoach:GetRecommendation()
@@ -650,7 +656,6 @@ function Live:GetRecommendation()
  if utility and utility.priority<=3 and (not item or (item.itemPriority or 1)>utility.priority) then return utility end
  if item then return item end
  if utility then return utility end
- local shield=self:ShieldRecommendation();if shield then return shield end
  local rec=self:ProfileRecommendation()
  if rec then
   local _,class=read(UnitClass,'player')

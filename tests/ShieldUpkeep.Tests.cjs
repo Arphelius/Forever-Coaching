@@ -26,18 +26,29 @@ aura='Lightning Shield';assert(live:GetRecommendation().spellID==403,'Active Lig
 aura='Water Shield';assert(live:GetRecommendation().spellID==403,'Preserve the chosen Water Shield')
 aura='Earth Shield';assert(live:GetRecommendation().spellID==403,'Preserve the chosen Earth Shield')
 aura=false;hidden=true;assert(live:GetRecommendation().spellID==403,'Unreadable aura state is not a missing buff');hidden=false
-unusable=true;assert(live:GetRecommendation().spellID==403,'Do not suggest an unaffordable shield');unusable=false
-cooldown=true;assert(live:GetRecommendation().spellID==403,'Shield cooldown is respected');cooldown=false
+unusable=true;assert(live:GetRecommendation().spellID==325 and live:GetRecommendation().pressRequired==false,'Missing shield stays visible without an unaffordable press instruction');unusable=false
+cooldown=true;assert(live:GetRecommendation().spellID==325 and live:GetRecommendation().pressRequired==false,'Missing shield stays visible while its cooldown prevents a press');cooldown=false
 known={};assert(live:GetRecommendation().spellID==403,'Never suggest an unlearned shield');known[324]=true
 assert(live:GetRecommendation().spellID==324,'Lower learned rank remains supported')
 dead=true;assert(live:GetRecommendation().spellID==403,'No shield upkeep while dead');dead=false
-casting=true;assert(live:GetRecommendation().spellID==403,'Do not interrupt the current cast for shield upkeep');casting=false
+casting=true;assert(live:GetRecommendation().spellID==324,'Keep the pending buff visible during other casts');casting=false
 fc.EncounterCoach={GetRecommendation=function()return {spellID=8042,spellName='Earth Shock',situation='interrupt'}end}
-assert(live:GetRecommendation().spellID==8042,'Urgent interrupts take priority over shield upkeep');fc.EncounterCoach=nil
+assert(live:GetRecommendation().spellID==324,'Missing buff has the requested priority over other ability suggestions');fc.EncounterCoach=nil
+local spellInfo=C_Spell.GetSpellInfo
+C_Spell.GetSpellInfo=function(value)
+ if value=='Lightning Shield' or value==326 then return {spellID=326,name='Lightning Shield',iconID=326,castTime=0}end
+ return spellInfo(value)
+end
+known={[326]=true}
+assert(live:GetRecommendation().spellID==326,'A live learned rank absent from the bundled ID list must still be recommended')
+aura='Lightning Shield';assert(live:GetRecommendation().spellID==403,'The live rank clears only after the buff is observed active')
+aura=false;assert(live:GetRecommendation().spellID==326,'Expired live rank returns as the top suggestion')
+C_Spell.GetSpellInfo=spellInfo;known={[324]=true}
 `);
 run(fs.readFileSync('addons/ForeverCoaching/UI/CombatHUD.lua','utf8'));
 run(`ForeverCoachingCombatHUD.scripts.OnUpdate(ForeverCoachingCombatHUD,1)
 assert(not ForeverCoaching.combatHUDLastError,ForeverCoaching.combatHUDLastError)
 assert(ForeverCoachingRotationStrip:IsShown() and ForeverCoachingRotationSlot1.icon:GetTexture()==324,'HUD displays self-buff upkeep without a hostile target')
+assert(ForeverCoachingRotationStrip.alpha==1 and ForeverCoachingRotationSlot1.highlight:IsShown(),'Pending buffs are fully visible and highlighted outside combat')
 print('PASS: missing/active/alternative/hidden shields, highest learned rank, usability, cooldown, death/casting gates, interrupt priority and no-target HUD rendering.')`);
 lua.lua_close(L);

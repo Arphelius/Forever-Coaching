@@ -317,8 +317,8 @@ local function renderStrip(rec)
     -- A situation change is not evidence that the previous action was used.
     currentID = not rec.preview and rec.spellID or nil
     local combat=inCombat()
-    local active=combat and not rec.preview
-    strip:SetAlpha(combat and 1 or 0.12)
+    local active=(combat or rec.selfBuff) and not rec.preview
+    strip:SetAlpha((combat or rec.selfBuff) and 1 or 0.12)
     if not rec.preview then lastQueue=entries end
     if layoutKey ~= key then
         local width = 0
@@ -522,7 +522,7 @@ controller:SetScript("OnUpdate", function(_, dt)
             slots[1]:SetAlpha(0.65)
         end
         local combat=inCombat()
-        local glowOK, glowError = pcall(updateGlows, combat and rec.pressRequired ~= false and buttonsOK and buttons or nil)
+        local glowOK, glowError = pcall(updateGlows, (combat or rec.selfBuff) and rec.pressRequired ~= false and buttonsOK and buttons or nil)
         if not glowOK then FC.combatHUDLastError = tostring(glowError) end
     else
         pcall(updateGlows, nil)
