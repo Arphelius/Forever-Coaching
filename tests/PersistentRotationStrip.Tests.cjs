@@ -35,6 +35,14 @@ assert(not rec.reviewEligible,'Passive weapon swings are not scored as missed at
 RotationState.meleeRange=false;rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID==403,'Out of melee, preserve a ready ranged attack')
 RotationState.meleeRange=nil;rec=fc.LiveRotation:GetRecommendation();assert(rec.spellID==403,'Unknown melee range must not invent an autoattack instruction')
+assert(rec.queue[#rec.queue].autoAttack,'Unknown melee range must still display Enhancement AUTO as a follow-up')
+local unknownRangeRec=fc.LiveRotation:WithShamanSwings({spellID=8042,spellName='Earth Shock',icon=8042,targetHostile=true,
+ queue={{id=8042},{id=403},{id=403},{id=403}}},TestSpec)
+assert(unknownRangeRec.spellID==8042 and #unknownRangeRec.queue<=4 and unknownRangeRec.queue[#unknownRangeRec.queue].autoAttack,'Reserve a visible AUTO slot even when the spell forecast fills the strip')
+fc.LiveRotation:ObserveSwing(2,0)
+rec=fc.LiveRotation:GetRecommendation()
+assert(rec.queue[#rec.queue].swingEnds==GetTime()+2,'Unknown range still uses Blizzard swing timing')
+fc.LiveRotation.swings={}
 RotationState.meleeRange=true
 local proc={spellID=403,spellName='Lightning Bolt',icon=403,situation='maelstrom proc',targetHostile=true}
 assert(fc.LiveRotation:WithShamanSwings(proc,TestSpec).spellID==403,'Preserve Maelstrom-enhanced casting')

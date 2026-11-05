@@ -209,6 +209,20 @@ function Live:GetUpcomingSwings()
  table.sort(queue,function(a,b)if a.swingEnds==b.swingEnds then return a.hand<b.hand end;return a.swingEnds<b.swingEnds end)
  return queue
 end
+function Live:WithAutoPreview(rec)
+ if not rec.spellID then return rec end
+ local swings=self:GetUpcomingSwings()
+ if #swings==0 then swings[1]=autoAttack() end
+ if rec.spellID==6603 then rec.queue=swings;return rec end
+ local source=rec.queue or rec.forecast or {}
+ local queue={{id=rec.spellID,name=rec.spellName,icon=rec.icon}}
+ for _,entry in ipairs(source) do
+  if #queue<4-#swings and entry.id~=rec.spellID and entry.id~=6603 then queue[#queue+1]=entry end
+ end
+ for _,entry in ipairs(swings) do queue[#queue+1]=entry end
+ rec.queue=queue
+ return rec
+end
 function Live:GetIdleRecommendation()
  local _,class=read(UnitClass,'player')
  local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
@@ -261,7 +275,9 @@ function Live:WithShamanSwings(rec,spec)
     situation='ranged opener',reason='Open with Lightning Bolt while the enemy is outside melee range; switch to weapon swings and instant attacks when it closes.',
     queue={bolt,autoAttack()}}
   end
-  return rec
+  -- Missing range data must not remove Enhancement's weapon swings from
+  -- the strip. Keep them as follow-ups without claiming melee is in range.
+  return self:WithAutoPreview(rec)
  end
  local auto=autoAttack()
  if not rec.spellID or (rec.spellName=='Lightning Bolt' and rec.situation~='maelstrom proc') then
