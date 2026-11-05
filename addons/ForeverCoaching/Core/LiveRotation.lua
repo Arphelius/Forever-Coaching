@@ -493,6 +493,52 @@ local function knownBuff(class,name)
  -- Resolve the client's current learned rank as well as the bundled IDs.
  return resolve(name)
 end
+local function rememberBuff(class,name,aura)
+ local instance=read(function()return aura.auraInstanceID end)
+ if type(instance)~='number' then return end
+ for index,group in ipairs(UPKEEP[class] or {}) do
+  for _,candidate in ipairs(group) do if candidate==name then
+   local key=class..':'..index
+   Live.buffGroups=Live.buffGroups or {};Live.buffInstances=Live.buffInstances or {}
+   local state=Live.buffGroups[key] or {instances={}};Live.buffGroups[key]=state
+   state.instances[instance]=true;state.present=true;Live.buffInstances[instance]=key
+   return
+  end end
+ end
+end
+function Live:ObserveBuffAuras(unit,update)
+ if unit~='player' or type(update)~='table' then return end
+ if read(function()return update.isFullUpdate end)==true then
+  self.buffGroups={};self.buffInstances={};return
+ end
+ local removed=read(function()return update.removedAuraInstanceIDs end)
+ for _,instance in ipairs(type(removed)=='table' and removed or {}) do
+  if not (issecretvalue and issecretvalue(instance)) then
+   local key=self.buffInstances and self.buffInstances[instance]
+   local state=key and self.buffGroups and self.buffGroups[key]
+   if state then
+    state.instances[instance]=nil;state.present=next(state.instances)~=nil
+    self.buffInstances[instance]=nil
+   end
+  end
+ end
+ local added=read(function()return update.addedAuras end)
+ local _,class=read(UnitClass,'player')
+ for _,aura in ipairs(type(added)=='table' and added or {}) do
+  if not (issecretvalue and issecretvalue(aura)) then
+   local auraName=read(function()return aura.name end)
+   local auraID=read(function()return aura.spellId or aura.spellID end)
+   for _,group in ipairs(UPKEEP[class] or {}) do for _,name in ipairs(group) do
+    local learned=knownBuff(class,name)
+    local matched=auraName==name or learned and (auraName==learned.name or auraID==learned.id)
+    local catalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+    local source=catalog and catalog.spells[name]
+    for _,id in ipairs(source and source.ids or {}) do if auraID==id then matched=true;break end end
+    if matched then rememberBuff(class,name,aura) end
+   end end
+  end
+ end
+end
 local function playerBuffActive(class,name)
  local catalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
  local source=catalog and catalog.spells[name]
@@ -509,7 +555,7 @@ local function playerBuffActive(class,name)
  if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID and #ids>0 then
   for _,id in ipairs(ids) do
    local ok,aura=pcall(C_UnitAuras.GetPlayerAuraBySpellID,id)
-   if ok and not (issecretvalue and issecretvalue(aura)) and aura then return true end
+   if ok and not (issecretvalue and issecretvalue(aura)) and aura then rememberBuff(class,name,aura);return true end
   end
   -- A cast spell ID can differ from the applied aura's ID. A nil lookup
   -- is not enough to declare the buff missing: check the player's aura list.
@@ -517,7 +563,7 @@ local function playerBuffActive(class,name)
  if C_UnitAuras and C_UnitAuras.GetUnitAuraBySpellID then
   for _,id in ipairs(ids) do
    local ok,aura=pcall(C_UnitAuras.GetUnitAuraBySpellID,'player',id)
-   if ok and not (issecretvalue and issecretvalue(aura)) and aura then return true end
+   if ok and not (issecretvalue and issecretvalue(aura)) and aura then rememberBuff(class,name,aura);return true end
   end
  end
  -- Presence checks need only the aura name. Secret charges or duration must
@@ -531,7 +577,7 @@ local function playerBuffActive(class,name)
   if not aura then if unknown then return nil end;return false end
   local auraName=read(function()return aura.name end)
   if not auraName then unknown=true end
-  if auraName==wanted then return true end
+  if auraName==wanted then rememberBuff(class,name,aura);return true end
  end
  return nil
 end
@@ -544,12 +590,16 @@ function Live:ShieldRecommendation()
  end
  local context=FC.EncounterCoach and FC.EncounterCoach.GetBuildContext and FC.EncounterCoach:GetBuildContext()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
- for _,group in ipairs(UPKEEP[class]) do
+ for index,group in ipairs(UPKEEP[class]) do
   local missing=true
+  local observed=self.buffGroups and self.buffGroups[class..':'..index]
+  local unknown=false
   for _,name in ipairs(group) do
    local active=playerBuffActive(class,name)
-   if active~=false then missing=false;break end
+   if active==true then missing=false;break end
+   if active==nil then unknown=true end
   end
+  if missing and unknown and (not observed or observed.present~=false) then missing=false end
   if missing then
    local names=group
    if class=='SHAMAN' and spec and spec.available and spec.role=='healer' then names={'Water Shield','Lightning Shield'} end
@@ -693,8 +743,15 @@ SlashCmdList.FOREVERCOACHINGROTATION=function(text)
 end
 local events=CreateFrame('Frame');events:RegisterEvent('PLAYER_REGEN_ENABLED');events:RegisterEvent('PLAYER_ENTERING_WORLD')
 for _,event in ipairs({'PLAYER_SWING','PLAYER_DEAD','PLAYER_LEAVE_COMBAT','PLAYER_EQUIPMENT_CHANGED'})do pcall(events.RegisterEvent,events,event)end
+pcall(events.RegisterEvent,events,'UNIT_AURA')
 events:SetScript('OnEvent',function(_,event,...)
+ if event=='UNIT_AURA' then
+  local unit,update=...
+  if not (issecretvalue and (issecretvalue(unit) or issecretvalue(update))) then Live:ObserveBuffAuras(unit,update) end
+  return
+ end
  if event=='PLAYER_SWING' then Live:ObserveSwing(...);return end
  Live.swings={}
+ if event=='PLAYER_ENTERING_WORLD' then Live.buffGroups={};Live.buffInstances={} end
  if event=='PLAYER_REGEN_ENABLED' or event=='PLAYER_ENTERING_WORLD' then settings().burst=false end
 end)
