@@ -411,7 +411,7 @@ function Live:ItemRecommendation()
   if C_Item and C_Item.GetItemSpell then name,spellID=read(C_Item.GetItemSpell,id) else name,spellID=read(GetItemSpell,id) end
   if qualifies and (slot or type(count)=='number' and count>0) and usable==true and type(start)=='number' and type(duration)=='number' and enabled~=0 and enabled~=false and (start==0 or start+duration<=now()) and type(spellID)=='number' then
    local icon=C_Item and read(C_Item.GetItemIconByID,id) or read(GetItemIcon,id)
-   return {itemID=id,spellID=spellID,spellName=name,icon=icon,message=name,reason='Use your configured '..trigger..' item; its inventory and cooldown checks passed.',situation='item '..trigger,queue={{id=spellID,itemID=id,name=name,icon=icon}},targetHostile=true}
+   return {itemID=id,spellID=spellID,spellName=name,icon=icon,message=name,reason='Use your configured '..trigger..' item; its inventory and cooldown checks passed.',situation='item '..trigger,itemPriority=priorities[trigger],queue={{id=spellID,itemID=id,name=name,icon=icon}},targetHostile=true}
   end
  end
  return automatic
@@ -521,16 +521,102 @@ function Live:ShieldRecommendation()
   end
  end
 end
+local function utilityAction(s,unit,kind,reason,priority)
+ return {spellID=s.id,spellName=s.name,icon=s.icon,message=s.name,reason=reason,shortReason=reason,
+  situation=kind,unit=unit,targetGUID=read(UnitGUID,unit),targetHostile=unit=='target',encounterPrompt=true,
+  reviewEligible=false,pressRequired=true,priority=priority,queue={{id=s.id,name=s.name,icon=s.icon}}}
+end
+function Live:UtilityRecommendation()
+ if read(UnitAffectingCombat,'player')~=true or read(UnitIsDeadOrGhost,'player')~=false then return end
+ local _,race=read(UnitRace,'player')
+ local controlTypes={}
+ local count=C_LossOfControl and read(C_LossOfControl.GetActiveLossOfControlDataCount)
+ if type(count)=='number' then for i=1,math.min(count,40) do
+  local control=read(C_LossOfControl.GetActiveLossOfControlData,i)
+  local kind,left
+  if type(control)=='table' then kind,left=read(function()return control.locType,control.timeRemaining end) end
+  if type(kind)=='string' and type(left)=='number' and left>0 then controlTypes[kind]=true end
+ end end
+ local escape
+ if race=='Gnome' and (controlTypes.ROOT or controlTypes.SNARE) then escape='Escape Artist'
+ elseif race=='Scourge' and (controlTypes.FEAR or controlTypes.CHARM or controlTypes.SLEEP) then escape='Will of the Forsaken'
+ elseif race=='Human' and controlTypes.STUN then escape='Every Man for Himself' end
+ if escape then
+  local s=resolve(escape)
+  if s and ready(s,nil,false) then return utilityAction(s,'player','racial escape','Use '..s.name..' to break the observed control effect.',1) end
+ end
+ if race=='Dwarf' and C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+  for i=1,40 do
+   local a=read(C_UnitAuras.GetAuraDataByIndex,'player',i,'HARMFUL');if not a then break end
+   local kind=read(function()return a.dispelName end)
+   if kind=='Poison' or kind=='Disease' or kind=='Bleed' then
+    local s=resolve('Stoneform')
+    if s and ready(s,nil,false) then return utilityAction(s,'player','racial dispel','Use Stoneform for the observed '..kind..' effect.',1) end
+   end
+  end
+ end
+ if read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return end
+ local hp=playerHealthPercent()
+ local moving=read(GetUnitSpeed,'player');moving=type(moving)=='number' and moving>0
+ if hp and hp>0 and hp<30 then
+  if race=='Draenei' then
+   local s=resolve('Gift of the Naaru')
+   if s and ready(s,nil,moving) then return utilityAction(s,'player','healing','Use Gift of the Naaru on yourself; your health is below 30%.',2) end
+  end
+  for _,lesson in ipairs(FC.EncounterCoach and FC.EncounterCoach.lessons or {}) do
+   if lesson.kind=='heal' and not lesson.periodicOnly then
+    local s={id=lesson.spellID,name=lesson.name,icon=lesson.icon}
+    if s.id and (read(IsPlayerSpell,s.id)==true or read(IsSpellKnown,s.id)==true) and ready(s,nil,moving) then return utilityAction(s,'player','healing','Heal yourself with '..s.name..'; your health is below 30%.',2) end
+   end
+  end
+ end
+ local hostile=read(UnitExists,'target')==true and read(UnitIsDeadOrGhost,'target')==false and read(UnitCanAttack,'player','target')==true
+ if hostile then
+  local cast,ends,blocked=read(function()
+   if UnitCastingInfo then local name,_,_,_,ending,_,_,immune=UnitCastingInfo('target');if name then return name,ending,immune end end
+   if UnitChannelInfo then local name,_,_,_,ending,_,immune=UnitChannelInfo('target');return name,ending,immune end
+  end)
+  -- Single-target backup stops only on ordinary enemies with an observed
+  -- interruptible cast. Never assume bosses can be stunned or use AoE control
+  -- around nearby enemies whose crowd-control assignments are unknown.
+  if cast and blocked==false and type(ends)=='number' and ends/1000>now()+.3 and read(UnitClassification,'target')=='normal' then
+   local _,class=read(UnitClass,'player')
+   local stops={PALADIN='Hammer of Justice',ROGUE='Kidney Shot',DRUID='Bash',HUNTER='Scatter Shot'}
+   local combo=read(GetComboPoints,'player','target')
+   local name=stops[class]
+   local s=name and resolve(name)
+   if s and (class~='ROGUE' or type(combo)=='number' and combo>=1) and ready(s,'target',moving) then
+    return utilityAction(s,'target','crowd control','Stop '..cast..' with '..s.name..' if this enemy is susceptible to control.',3)
+   end
+   if race=='Tauren' and settings().mode=='aoe' then
+    local types=Enum and Enum.PlayerSwingType or {MainHand=0}
+    local close=C_SwingTimer and read(C_SwingTimer.IsTargetWithinSwingRange,types.MainHand)
+    local stomp=resolve('War Stomp')
+    if close==true and stomp and ready(stomp,nil,moving) then return utilityAction(stomp,'target','crowd control','Use War Stomp to stop the nearby cast if the enemies may safely be stunned.',3) end
+   end
+  end
+ end
+ if settings().burst==true and hp and hp>=50 and hostile then
+  local name=race=='Orc' and 'Blood Fury' or race=='Troll' and 'Berserking'
+  local s=name and resolve(name)
+  if s and ready(s,nil,moving) then return utilityAction(s,'player','racial cooldown','Use '..s.name..' during your enabled burst window.',5) end
+ end
+end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
  if blocking then return blocking end
+ local utility=self:UtilityRecommendation()
+ if utility and utility.priority==1 then return utility end
  local urgent=FC.EncounterCoach and FC.EncounterCoach:GetRecommendation()
  if urgent and urgent.spellID then
   local data=C_Spell and read(C_Spell.GetSpellInfo,urgent.spellID)
   urgent.icon=urgent.icon or data and read(function()return data.iconID end)
   urgent.queue={{id=urgent.spellID,icon=urgent.icon,name=urgent.spellName}};return urgent
  end
- local item=self:ItemRecommendation();if item then return item end
+ local item=self:ItemRecommendation()
+ if utility and utility.priority<=3 and (not item or (item.itemPriority or 1)>utility.priority) then return utility end
+ if item then return item end
+ if utility then return utility end
  local shield=self:ShieldRecommendation();if shield then return shield end
  local rec=self:ProfileRecommendation()
  if rec then

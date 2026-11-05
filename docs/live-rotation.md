@@ -27,6 +27,14 @@ Live recommendations use the actual current specialization and readable learned 
 
 Shaman retains the existing tooltip/observed-damage comparison and talent/proc interactions, now with resource-spending forecasts. Other supported classes have conservative named baseline priorities, derived from the curated scenario checklists. They check readiness, range, movement, relevant owned DoTs, execute health and combo points. Forecasts spend readable resources, avoid repeated cooldown uses and do not invent future proc or combo-point gains. They do not model future target death, every talent interaction, regeneration, cooldown recovery or every encounter. Healing follows observed needs rather than inventing four future injuries.
 
+## Situational items, healing, control and racials
+
+Owned, ready profession items retain their inventory, resource and profession-skill checks. Emergency self-heals can replace damage advice below 30% health; party healing continues to follow the observed needs and current healer role. Moving suppresses hard-cast self-heals.
+
+Known racial escapes respond to readable active control effects, using Blizzard's [loss-of-control API](https://github.com/Gethe/wow-ui-source/blob/70ef1b2f/Interface/AddOns/Blizzard_APIDocumentationGenerated/LossOfControlDocumentation.lua). Supported prompts include Escape Artist for roots/snares, Will of the Forsaken for fear/charm/sleep, Stoneform for applicable debuffs, and Gift of the Naaru at low health. Offensive Blood Fury and Berserking suggestions require the enabled burst window and at least 50% health.
+
+Backup control includes learned, ready Hammer of Justice, Kidney Shot, Bash and Scatter Shot for an ordinary enemy's observed interruptible cast when no higher-priority interrupt prompt is active. Kidney Shot needs combo points. War Stomp additionally requires area mode and confirmed melee range. Bosses and unreadable or out-of-range control opportunities are excluded; susceptibility and assignments still need player judgment. No ability is cast automatically.
+
 ## Tank priorities
 
 Protection Paladin, Protection Warrior and Bear follow MythicSim's Forever tank APLs ([mythicsim-forever-engine-go](https://github.com/sage3648/mythicsim-forever-engine-go), MIT; the same engine behind SimGear Forever), translated to spell names so whatever rank the character knows is used and unlearned spells drop out (a level 20 tank gets a shorter list, never an invented one).
