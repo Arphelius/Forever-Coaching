@@ -187,6 +187,28 @@ local function autoAttack()
  local data=C_Spell and read(C_Spell.GetSpellInfo,6603)
  return {id=6603,name='Autoattack',icon=data and read(function()return data.iconID end) or 'Interface\\Icons\\INV_Sword_04',autoAttack=true}
 end
+-- Same anchor as Blizzard_SwingTimer: PLAYER_SWING(duration, swingType),
+-- with expiration = GetTime() + duration. Never seed a swing from weapon speed.
+-- Source: Gethe/wow-ui-source @ 70ef1b2f, Blizzard_SwingTimer.lua.
+function Live:ObserveSwing(duration,hand)
+ if (issecretvalue and (issecretvalue(duration) or issecretvalue(hand)))
+  or type(duration)~='number' or duration<=0 or duration~=duration or duration==math.huge then return end
+ local types=Enum and Enum.PlayerSwingType or {MainHand=0,OffHand=1,Ranged=2}
+ if hand~=types.MainHand and hand~=types.OffHand then return end
+ self.swings=self.swings or {}
+ self.swings[hand]={duration=duration,ends=now()+duration,hand=hand}
+end
+function Live:GetUpcomingSwings()
+ local queue={}
+ for hand,state in pairs(self.swings or {}) do
+  if state.ends>now() then
+   local entry=autoAttack();entry.swingEnds=state.ends;entry.swingDuration=state.duration;entry.hand=hand
+   queue[#queue+1]=entry
+  end
+ end
+ table.sort(queue,function(a,b)if a.swingEnds==b.swingEnds then return a.hand<b.hand end;return a.swingEnds<b.swingEnds end)
+ return queue
+end
 function Live:GetIdleRecommendation()
  local _,class=read(UnitClass,'player')
  local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
@@ -238,13 +260,17 @@ function Live:WithShamanSwings(rec,spec)
  end
  if not rec.spellID then return rec end
  local ability={id=rec.spellID,name=rec.spellName,icon=rec.icon,autoAttack=rec.spellID==6603}
- -- Auto icons describe ongoing swings, not repeated Attack button presses.
- -- These are illustrative follow-ups, not a measured swing timer.
+ local swings=attacking==true and self:GetUpcomingSwings() or {}
+ -- One actual in-flight swing per hand. With no native timing, show a single
+ -- untimed AUTO indicator rather than inventing future swing boundaries.
  if attacking==false and ability.id~=6603 then
-  rec.queue={auto,ability,auto,auto};rec.spellID=6603;rec.spellName=auto.name;rec.icon=auto.icon
+  rec.queue={auto,ability};rec.spellID=6603;rec.spellName=auto.name;rec.icon=auto.icon
   rec.pressRequired=true;rec.reason='Start autoattack in melee, then use the ready ability between swings.'
  else
-  rec.queue={ability,auto,auto,auto}
+  rec.queue={}
+  if ability.id~=6603 then rec.queue[1]=ability end
+  for _,swing in ipairs(swings) do rec.queue[#rec.queue+1]=swing end
+  if #swings==0 then rec.queue[#rec.queue+1]=auto end
   if ability.id==6603 then rec.pressRequired=attacking~=true end
  end
  return rec
@@ -440,4 +466,9 @@ SlashCmdList.FOREVERCOACHINGROTATION=function(text)
  if FC.CraftedItems then FC.CraftedItems:Invalidate()end
 end
 local events=CreateFrame('Frame');events:RegisterEvent('PLAYER_REGEN_ENABLED');events:RegisterEvent('PLAYER_ENTERING_WORLD')
-events:SetScript('OnEvent',function()settings().burst=false end)
+for _,event in ipairs({'PLAYER_SWING','PLAYER_DEAD','PLAYER_LEAVE_COMBAT','PLAYER_EQUIPMENT_CHANGED'})do pcall(events.RegisterEvent,events,event)end
+events:SetScript('OnEvent',function(_,event,...)
+ if event=='PLAYER_SWING' then Live:ObserveSwing(...);return end
+ Live.swings={}
+ if event=='PLAYER_REGEN_ENABLED' or event=='PLAYER_ENTERING_WORLD' then settings().burst=false end
+end)

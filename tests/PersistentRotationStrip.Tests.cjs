@@ -13,7 +13,7 @@ RotationState.known[8042]=true;RotationState.meleeRange=true;RotationState.attac
 InstallAttackButton()
 local rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID==6603 and rec.pressRequired and rec.queue[2].id==8042,'Start swings, then ready Earth Shock')
-assert(rec.queue[3].autoAttack and rec.queue[4].autoAttack,'Follow-ups include ongoing weapon swings')
+assert(#rec.queue==2,'Before the first native swing, do not fabricate timed follow-ups')
 RotationState.attacking=true;rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID==8042 and rec.queue[2].autoAttack,'Running autoattack must not delay a ready shock')
 local cooldown=C_Spell.GetSpellCooldown

@@ -218,6 +218,16 @@ strip:SetClampedToScreen(true)
 strip:Hide()
 local slots, layoutKey, currentID = {}
 local lastQueue
+local function updateSwingLabels()
+    local stamp=GetTime and GetTime() or 0
+    local offhand=Enum and Enum.PlayerSwingType and Enum.PlayerSwingType.OffHand or 1
+    for _,slot in ipairs(slots) do
+        if slot.autoAttack then
+            local remaining=slot.swingEnds and slot.swingEnds-stamp
+            slot.caption:SetText(remaining and remaining>0 and string.format('%s %.1f',slot.hand==offhand and 'O' or 'M',remaining) or 'AUTO')
+        end
+    end
+end
 
 local function positionStrip()
     local top = 90
@@ -335,9 +345,14 @@ local function renderStrip(rec)
     end
     -- Restore brightness after a cast, even if the recommendation repeats.
     for index = 1,4 do
+        local entry=entries[index]
+        slots[index].autoAttack=entry and (entry.autoAttack or entry.id==6603)
+        slots[index].swingEnds=entry and entry.swingEnds
+        slots[index].hand=entry and entry.hand
         slots[index]:SetAlpha(entries[index] and (index == 1 and 1 or (index == 2 and 0.6 or 0.3)) or 0.12)
         slots[index].highlight:SetShown(active and index == 1 and rec.pressRequired~=false)
     end
+    updateSwingLabels()
     strip:Show()
 end
 
@@ -426,14 +441,33 @@ for _, event in ipairs({
     "UPDATE_OVERRIDE_ACTIONBAR", "UPDATE_BINDINGS", "PLAYER_ENTERING_WORLD",
     "UNIT_SPELLCAST_SUCCEEDED",
 }) do events:RegisterEvent(event) end
+pcall(events.RegisterEvent,events,'PLAYER_SWING')
+for _,event in ipairs({'PLAYER_LEAVE_COMBAT','PLAYER_DEAD','PLAYER_ENTERING_WORLD','PLAYER_EQUIPMENT_CHANGED'})do pcall(events.RegisterEvent,events,event)end
 events:SetScript("OnEvent", function(_, event, ...)
-    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+    if event=='PLAYER_SWING' then
+        local duration,hand=...
+        local types=Enum and Enum.PlayerSwingType or {MainHand=0,OffHand=1}
+        if not secret(duration) and not secret(hand) and type(duration)=='number' and duration>0 and duration<math.huge
+            and (hand==types.MainHand or hand==types.OffHand) then
+            for _,slot in ipairs(slots) do
+                if slot.autoAttack and (slot.hand==hand or slot.hand==nil) then
+                    slot.enter:Stop();slot.enter:Play()
+                    break
+                end
+            end
+        end
+        elapsed=1
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit, _, spellID = ...
         if not secret(unit) and not secret(spellID) and unit == "player" then
             if spellID == currentID then fadeCurrent() end
             elapsed = 1
         end
     else
+        if event=='PLAYER_LEAVE_COMBAT' or event=='PLAYER_DEAD' or event=='PLAYER_ENTERING_WORLD' or event=='PLAYER_EQUIPMENT_CHANGED' then
+            for _,slot in ipairs(slots) do slot.swingEnds=nil;slot.hand=nil end
+            updateSwingLabels()
+        end
         cachedSpell, cachedButtons = nil, nil
         tankCacheName, tankCacheButtons = nil, nil
         anchorElapsed, elapsed = 1, 1
@@ -448,6 +482,7 @@ controller:SetScript("OnUpdate", function(_, dt)
     end
     if elapsed < 0.12 then return end
     elapsed = 0
+    updateSwingLabels()
     if not pcall(updateThreatBar) then threatBar:Hide() end
     pcall(updateTankGlows, FC.RoleWarnings and FC.RoleWarnings.threatAction)
     local engine=FC.LiveRotation or FC.RotationCoach
