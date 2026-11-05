@@ -3,7 +3,7 @@
 ## X-Website: https://github.com/Arphelius/Forever-Coaching
 ## Title: Forever Coaching
 ## IconTexture: Interface\AddOns\ForeverCoaching\Media\ForeverCoachingIcon.tga
-## Notes: Your personal WoW: Forever coaching addon
+## Notes: Live combat rotation guidance, swing timing, talent builds, class guides and fight reviews for WoW: Forever.
 ## Author: Forever Coaching
 ## SavedVariables: ForeverCoachingDB
 

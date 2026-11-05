@@ -1,5 +1,16 @@
 # Forever-Coaching
 
+Forever Coaching combines talent builds, class guides, fight reviews and a live
+combat rotation strip for World of Warcraft: Forever. The strip stays faintly
+visible outside combat and brightens during fights, suggesting abilities based
+on your learned spells, current specialization and readable combat conditions.
+Enhancement Shaman advice includes a Lightning Bolt ranged opener, melee
+abilities and AUTO icons timed to Blizzard's native swing events.
+
+Use `/fcrotation` to choose single-target or area advice and configure cooldowns
+and items. Suggestions guide your decisions; you perform every action yourself.
+See [live rotation instructions](docs/live-rotation.md).
+
 Class-guide references use **Wowhead Forever**, matched to the selected class,
 specialization and role. Practical summaries are checked against current tuning;
 see [the guide source review](docs/research/wowhead-guides.md).
