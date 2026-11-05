@@ -49,6 +49,21 @@ local function groupUnits()
  for i=1,40 do units[#units+1]='raid'..i end
  return units
 end
+-- Threat advice concerns a tank protecting other players. A pet, an empty
+-- roster slot or a tank specialization while solo does not establish that job.
+function W:GroupThreatRelevant(role)
+ local player=read(UnitGUID,'player');local grouped=false
+ for _,prefix in ipairs({'party','raid'}) do
+  for i=1,(prefix=='party' and 4 or 40) do
+   local unit=prefix..i;local guid=read(UnitGUID,unit)
+   if guid and guid~=player and read(UnitIsConnected,unit)~=false then
+    grouped=true
+    if read(UnitGroupRolesAssigned,unit)=='TANK' and read(UnitIsDeadOrGhost,unit)==false then return true end
+   end
+  end
+ end
+ return role=='tank' and grouped
+end
 -- Returns nil outside a tank's fight, {state='unknown'} when the game hides threat, else
 -- state = secure | warning | other-tank | lost-close | lost-far | lost (distance unknown),
 -- with name/percent of the closest other player and mine (my scaled percent).
@@ -117,8 +132,10 @@ function W:Sample()
    local message=context and context.canHeal and 'Low health — use a ready defensive or self-heal.' or 'Low health — reduce damage and get to safety.'
    add('self-health','health',message,2,false,message)
   end
-  local _,status=read(UnitDetailedThreatSituation,'player','target')
-  if role=='tank' then
+  local threatRelevant=self:GroupThreatRelevant(role) and read(UnitCanAttack,'player','target')==true
+  local _,status
+  if threatRelevant then _,status=read(UnitDetailedThreatSituation,'player','target') else self.lastTankState=nil end
+  if threatRelevant and role=='tank' then
    local t=self:TankThreat();self.threat=t
    local action=self:ThreatAction(t);self.threatAction=action
    local previous=self.lastTankState;self.lastTankState=t and t.state
@@ -128,7 +145,7 @@ function W:Sample()
    elseif t and t.state=='secure' and previous and previous:find('^lost') then
     add('threat-back','threat','Aggro back',6,false,'Aggro back')
    end
-  elseif type(status)=='number' and status>=2 then add('threat','threat','High threat — ease off so the tank keeps it; a threat drop helps if you have one.',3) end
+  elseif threatRelevant and type(status)=='number' and status>=2 then add('threat','threat','High threat — ease off so the tank keeps it; a threat drop helps if you have one.',3,false,'High threat — ease off for the tank.') end
   for _,o in ipairs(FC.EncounterCoach and FC.EncounterCoach.currentOffers or {})do
    if o.expires>=now() and o.status=='observed' then
     if o.kind=='interrupt' then add(o.key,'interrupt','INTERRUPT: '..o.reason,2)
@@ -156,6 +173,7 @@ function W:Sample()
    end
   end
  end
+ if not combat then self.lastTankState=nil end
  if role=='tank' then
   local units={};for i=1,4 do units[#units+1]='party'..i end;for i=1,40 do units[#units+1]='raid'..i end
   local groupSeen={}

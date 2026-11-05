@@ -13,14 +13,18 @@ local short={health='Low health — use a defensive or heal.',healing='Ally need
 local toast={time=0,seen={},lastShown={},sampleElapsed=0,duration=2.8,fade=.8}
 FC.WarningToast=toast
 function toast:Observe(alerts)
- local chosen
+ local chosen;local currentThreatPresent=false
  for _,alert in ipairs(alerts or {}) do
+  if self.current and alert.key==self.current.key then currentThreatPresent=true end
   local previous=self.seen[alert.key]
   local group=alert.kind=='healing' and 'health' or alert.kind
   local fresh=not previous or self.time-previous>3
   local allowed=not self.lastShown[group] or self.time-self.lastShown[group]>=12
   if fresh and allowed and (not chosen or alert.priority<chosen.priority) then chosen=alert end
   self.seen[alert.key]=self.time
+ end
+ if self.current and self.current.kind=='threat' and not currentThreatPresent then
+  self.current=nil;label:Hide()
  end
  for key,at in pairs(self.seen) do if self.time-at>60 then self.seen[key]=nil end end
  if chosen and (not self.current or chosen.priority<self.current.priority) then
