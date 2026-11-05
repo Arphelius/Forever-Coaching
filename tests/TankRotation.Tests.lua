@@ -50,7 +50,7 @@ assert(queue()=='Righteous Fury, Seal of Righteousness, Judgement, Holy Shield',
 state.buffs={{'Righteous Fury'},{'Seal of Righteousness'},{'Holy Shield'}}
 assert(first()=='Judgement','Judgement while the seal is up: '..queue())
 state.buffs={{'Righteous Fury'},{'Seal of Righteousness',10.5},{'Holy Shield'}}
-assert(queue():find('Seal of Righteousness',1,true),'Seal refreshed when 1 s or less remains: '..queue())
+assert(not queue():find('Seal of Righteousness',1,true),'Do not refresh a Seal while it is still active: '..queue())
 state.buffs={{'Righteous Fury'},{'Seal of Righteousness'},{'Holy Shield'}};state.cd={Judgement=true}
 assert(first()=='Holy Strike','Holy Strike when Judgement is on cooldown: '..queue())
 state.targetHealth=15;assert(first()=='Hammer of Wrath','Hammer of Wrath below 20%');state.targetHealth=100

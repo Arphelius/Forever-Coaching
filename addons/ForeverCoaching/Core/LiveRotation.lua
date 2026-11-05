@@ -117,7 +117,7 @@ local function selfRulesPass(rule,s,applied,resources)
  if rule.selfBuff then
   if applied['self:'..rule.name] then return false end
   local a=findAura('player','HELPFUL',rule.name)
-  if a==nil or (a and a.remaining>(rule.refresh or 0)) then return false end
+  if a==nil or (a and a.remaining>0) then return false end
  end
  if rule.stance then
   if applied['self:'..rule.name] or inStance(s.name)~=false then return false end
@@ -466,30 +466,60 @@ function Live:IsReviewableAttack(class,name)
  for _,profile in ipairs(P[class] or {}) do if includes(profile) then return true end end
  return class=='DRUID' and includes(bear) or false
 end
-function Live:ShieldRecommendation()
- local _,class=read(UnitClass,'player')
- if class~='SHAMAN' or read(UnitIsDeadOrGhost,'player')~=false
-  or read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return end
- -- Do not replace a chosen shield, or treat unreadable auras as missing.
- for _,name in ipairs({'Lightning Shield','Water Shield','Earth Shield'}) do
-  if findAura('player','HELPFUL',name)~=false then return end
- end
- local shield=resolve('Lightning Shield')
- local source=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes.SHAMAN.spells['Lightning Shield']
- for i=#(source and source.ids or {}),1,-1 do
+local UPKEEP={
+ SHAMAN={{'Lightning Shield','Water Shield','Earth Shield'}},
+ MAGE={{'Arcane Intellect'},{'Mage Armor','Ice Armor','Frost Armor'}},
+ PRIEST={{'Power Word: Fortitude','Prayer of Fortitude'},{'Divine Spirit','Prayer of Spirit'},{'Inner Fire'}},
+ WARLOCK={{'Demon Armor'}},
+ DRUID={{'Mark of the Wild','Gift of the Wild'},{'Thorns'}},
+ HUNTER={{'Aspect of the Hawk','Aspect of the Monkey','Aspect of the Beast','Aspect of the Wild','Aspect of the Cheetah','Aspect of the Pack'},{'Trueshot Aura'}},
+ WARRIOR={{'Battle Shout'}},
+ PALADIN={{'Blessing of Kings','Greater Blessing of Kings','Blessing of Might','Greater Blessing of Might','Blessing of Wisdom','Greater Blessing of Wisdom'},
+  {'Devotion Aura','Retribution Aura','Concentration Aura','Fire Resistance Aura','Frost Resistance Aura','Shadow Resistance Aura'}},
+ ROGUE={{'Slice and Dice'}},
+}
+local function knownBuff(class,name)
+ local catalog=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class]
+ local source=catalog and catalog.spells[name]
+ if not source then return class=='SHAMAN' and resolve(name) or nil end
+ for i=#(source.ids or {}),1,-1 do
   local id=source.ids[i]
   if read(IsPlayerSpell,id)==true or read(IsSpellKnown,id)==true
    or (C_SpellBook and read(C_SpellBook.IsSpellKnown,id)==true) then
    local data=C_Spell and read(C_Spell.GetSpellInfo,id)
-   shield={id=id,name=data and read(function()return data.name end) or 'Lightning Shield',icon=data and read(function()return data.iconID end)}
-   break
+   return {id=id,name=data and read(function()return data.name end) or name,icon=data and read(function()return data.iconID end)}
   end
  end
- if not shield or not ready(shield,nil,false) then return end
- return {spellID=shield.id,spellName=shield.name,icon=shield.icon,message=shield.name,
-  reason='Lightning Shield is missing; apply it before your next attack.',situation='buff upkeep',
-  selfBuff=true,targetHostile=false,reviewEligible=false,targetGUID=read(UnitGUID,'player'),
-  queue={{id=shield.id,name=shield.name,icon=shield.icon}}}
+end
+function Live:ShieldRecommendation()
+ local _,class=read(UnitClass,'player')
+ if not UPKEEP[class] or read(UnitIsDeadOrGhost,'player')~=false
+  or read(UnitCastingInfo,'player') or read(UnitChannelInfo,'player') then return end
+ if class=='ROGUE' then
+  local combo=read(GetComboPoints,'player','target')
+  if read(UnitAffectingCombat,'player')~=true or type(combo)~='number' or combo<1 then return end
+ end
+ local context=FC.EncounterCoach and FC.EncounterCoach.GetBuildContext and FC.EncounterCoach:GetBuildContext()
+ local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
+ for _,group in ipairs(UPKEEP[class]) do
+  local missing=true
+  for _,name in ipairs(group) do
+   local active=findAura('player','HELPFUL',name)
+   if active==nil or (active and active.remaining>0) then missing=false;break end
+  end
+  if missing then
+   local names=group
+   if class=='SHAMAN' and spec and spec.available and spec.role=='healer' then names={'Water Shield','Lightning Shield'} end
+   local shield
+   for _,name in ipairs(names) do shield=knownBuff(class,name);if shield then break end end
+   if shield and ready(shield,nil,false) then
+    return {spellID=shield.id,spellName=shield.name,icon=shield.icon,message=shield.name,
+     reason=shield.name..' is missing or expired; apply it before your next attack.',situation='buff upkeep',
+     selfBuff=true,targetHostile=false,reviewEligible=false,targetGUID=read(UnitGUID,'player'),
+     queue={{id=shield.id,name=shield.name,icon=shield.icon}}}
+   end
+  end
+ end
 end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
