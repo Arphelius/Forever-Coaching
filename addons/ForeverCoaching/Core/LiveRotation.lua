@@ -186,13 +186,13 @@ end
 function Live:ProfileRecommendation()
  local context=FC.EncounterCoach and FC.EncounterCoach:GetBuildContext()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
- if not spec or not spec.available then return {message='Current specialization unavailable',reason='Readable active talents are needed for a build-specific live rotation.'} end
- if spec.role=='healer' then return {message='Follow your healing assignment',reason='',targetHostile=false} end
- if spec.class=='SHAMAN' then
+ if context and context.class=='SHAMAN' and (not spec or not spec.available or spec.role~='healer') then
   FC.RotationCoach.burstAllowed=settings().burst==true
   FC.RotationCoach.allowArea=settings().mode=='aoe'
   return FC.RotationCoach:GetRecommendation()
  end
+ if not spec or not spec.available then return {message='Current specialization unavailable',reason='Readable active talents are needed for a build-specific live rotation.'} end
+ if spec.role=='healer' then return {message='Follow your healing assignment',reason='',targetHostile=false} end
  local profile=P[spec.class] and P[spec.class][spec.treeIndex]
  if spec.class=='DRUID' and spec.role=='tank' then profile=bear end
  if not profile then return {message='No live priority profile for this specialization'} end
@@ -319,6 +319,21 @@ function Live:BestThreatSpell()
  end
  return best
 end
+-- Only compare rotational attacks. Utility, healing, stances and defensive
+-- actions can be deliberate encounter responses rather than damage mistakes.
+function Live:IsReviewableAttack(class,name)
+ if class=='SHAMAN' then
+  return name=='Lightning Bolt' or name=='Chain Lightning' or name=='Earth Shock'
+   or name=='Flame Shock' or name=='Frost Shock' or name=='Stormstrike' or name=='Fire Nova'
+ end
+ local function includes(profile)
+  for _,rules in ipairs(profile or {}) do for _,rule in ipairs(rules) do
+   if rule.name==name and not rule.selfBuff and not rule.stance and rule.unit~='player' then return true end
+  end end
+ end
+ for _,profile in ipairs(P[class] or {}) do if includes(profile) then return true end end
+ return class=='DRUID' and includes(bear) or false
+end
 function Live:GetRecommendation()
  local blocking=FC.RoleWarnings and FC.RoleWarnings:GetBlockingRecommendation()
  if blocking then return blocking end
@@ -330,6 +345,11 @@ function Live:GetRecommendation()
  end
  local item=self:ItemRecommendation();if item then return item end
  local rec=self:ProfileRecommendation()
+ if rec then
+  local _,class=read(UnitClass,'player')
+  local uncertain=rec.situation=='range check unavailable' or rec.situation=='fallback damage choice'
+  rec.reviewEligible=not uncertain and rec.spellID~=nil and self:IsReviewableAttack(class,rec.spellName)==true
+ end
  if rec and not rec.queue then
   rec.queue={}
   if rec.spellID then rec.queue[1]={id=rec.spellID,icon=rec.icon,name=rec.spellName} end

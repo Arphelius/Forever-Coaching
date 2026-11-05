@@ -5,6 +5,7 @@ FC.CombatReview = Review
 
 local session
 local pendingRecommendations = {}
+local pendingDecisions = {}
 local cachedCharacterKey
 
 local function isSecret(value)
@@ -81,6 +82,7 @@ function Review:SetLatestRecommendation(recommendation)
         playerLevel = recommendation.playerLevel,
         targetLevel = recommendation.targetLevel,
         targetGUID = recommendation.targetGUID or visibleUnitGUID("target"),
+        reviewEligible = recommendation.reviewEligible==true,
         shownAt = GetTime and GetTime() or 0,
     }
     self.latestRecommendation = latest
@@ -168,6 +170,7 @@ local function beginCombat()
         recommendations = {},
         activeTalents = nil,
         alternatives = {},
+        decisions = {},
         failedAttempts = {},
         damage = {},
         totalDamage = 0,
@@ -223,12 +226,25 @@ local function recordFailedAttempt(spellID, interrupted)
     pendingRecommendations[spellID] = nil
 end
 
-local function recordCast(spellID, shownRecommendation, hasSentSnapshot)
+local function recordCast(spellID, shownRecommendation, hasSentSnapshot, decision)
     if not session or not spellID then return end
     session.casts = session.casts + 1
     local name = spellName(spellID) or ("Spell " .. spellID)
     session.damage[spellID] = session.damage[spellID] or { spellID = spellID, name = name, casts = 0, damage = 0 }
     session.damage[spellID].casts = session.damage[spellID].casts + 1
+
+    if decision and GetTime()-decision.at<=15 and #session.decisions<200 then
+        local actual=spellName(spellID)
+        local engine=FC.LiveRotation
+        if actual and engine and engine.IsReviewableAttack and engine:IsReviewableAttack(session.class,actual) then
+            session.decisions[#session.decisions+1]={
+                at=math.max(0,decision.at-session.started),spellID=spellID,name=actual,
+                suggestedID=decision.spellID,suggestedName=decision.spellName,
+                reason=decision.reason,situation=decision.situation,targetGUID=decision.targetGUID,
+                matched=actual==decision.spellName or spellID==decision.spellID,
+            }
+        end
+    end
 
     local rec = shownRecommendation
     if not hasSentSnapshot then
@@ -410,6 +426,7 @@ local function buildReport(reviewSession)
         scenarioCoaching = session.scenarioCoaching,
         fightTimelineId = session.fightTimelineId,
         failedAttempts = session.failedAttempts,
+        decisions = session.decisions,
         timestamp = time and time() or 0,
         character = session.character,
         tuningRevision = session.tuningRevision,
@@ -428,6 +445,39 @@ local function buildReport(reviewSession)
         damageByAbility = savedDamage,
         damageSource = session.damageMeterAvailable and "BlizzardDamageMeter" or nil,
     }
+end
+
+function Review:SummarizeDecisions(report)
+    local good,wrong,improve={},{},{}
+    local groups,ordered={},{}
+    local matched,compared=0,0
+    for _,decision in ipairs(report.decisions or {}) do
+        compared=compared+1
+        if decision.matched then
+            matched=matched+1
+            if #good<3 then good[#good+1]=string.format('%.1fs: %s followed the ready attack priority. %s',decision.at,decision.name,decision.reason or '') end
+        else
+            local key=decision.name..'|'..decision.suggestedName..'|'..(decision.reason or '')
+            local group=groups[key]
+            if not group then group={first=decision,count=0};groups[key]=group;ordered[#ordered+1]=group end
+            group.count=group.count+1
+        end
+    end
+    table.sort(ordered,function(a,b)if a.count~=b.count then return a.count>b.count end;return a.first.at<b.first.at end)
+    for index=1,math.min(3,#ordered) do
+        local group=ordered[index];local d=group.first
+        wrong[#wrong+1]=string.format('%.1fs: Used %s while %s was the higher-priority ready attack.%s',d.at,d.name,d.suggestedName,group.count>1 and (' '..group.count..' similar choices this fight.') or '')
+        improve[#improve+1]=string.format('At %.1fs, use %s before %s. %s',d.at,d.suggestedName,d.name,d.reason or 'It was the first ready attack in the current priority.')
+    end
+    if compared>0 then
+        table.insert(good,1,string.format('%d/%d assessed attacks followed the live priority in this fight.',matched,compared))
+        if #wrong==0 then wrong[1]='No attack-priority mistakes identified in the assessed casts.';improve[1]='No rotation correction identified for this fight.' end
+    else
+        good[1]=tostring(report.casts or 0)..' successful casts recorded in this fight.'
+        wrong[1]='Not enough readable pre-cast state to assess attack choices in this fight.'
+        improve[1]='No specific rotation correction can be supported by this recording.'
+    end
+    return table.concat(good,'\n\n'),table.concat(wrong,'\n\n'),table.concat(improve,'\n\n')
 end
 
 function Review:GetLatestText()
@@ -518,7 +568,7 @@ function Review:GetLatestSummary(filter)
         return {metrics="Local observations / No fight recorded yet",goodText="Finish a fight to see what you did well, supported by recorded actions.",wrongText="No mistakes can be assessed before a fight is recorded.",improveText="Select an enemy and finish a fight. You can also import a Forever Logs encounter.",observation="Finish a fight to see a review for this character.",
             takeaway="Recorded decisions will appear here after combat.",nextStep="Select a hostile target so the coach can record its recommendations."}
     end
-    local failures=latest.failedAttempts or {}
+    local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
     if latest.encounterCoaching and FC.EncounterCoach then
         local good,investigate,improve=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
@@ -529,7 +579,9 @@ function Review:GetLatestSummary(filter)
             local sg,sw,sn=FC.ScenarioTracker:Summarize(scenarios,identity)
             if sg~='' then good=sg..'\n\n'..good;investigate=sw..'\n\n'..investigate;improve=sn..'\n\n'..improve end
         end
-        if recorded then good=recorded.good..(good~='' and '\n\n'..good or '');investigate=recorded.investigate..(investigate~='' and '\n\n'..investigate or '') end
+        good=rotationGood..(good~='' and '\n\n'..good or '')
+        investigate=rotationWrong..(investigate~='' and '\n\n'..investigate or '')
+        improve=rotationImprove..(improve~='' and '\n\n'..improve or '')
         local build=latest.encounterCoaching.build or {}
         return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
@@ -537,37 +589,10 @@ function Review:GetLatestSummary(filter)
             improveText=improve~="" and improve or "Practice the next assigned mechanic with this build. Review the exact target and timing of each response.",
             coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
     end
-    local casts=tonumber(latest.casts) or 0
-    local observation=casts.." successful casts; "..#failures.." failed or interrupted attempts recorded."
-    local nextStep="Focus on one decision at a time during your next fight."
-    if #failures>0 then
-        local first=failures[1]
-        local name=shortText(first.name or "Spell",5)
-        if first.clientMessage then
-            nextStep="Before retrying "..name..", address the game message: "..shortText(first.clientMessage,10)
-        elseif first.interrupted then
-            nextStep="Check whether movement or an enemy interrupt stopped "..name.." before changing your rotation."
-        else
-            nextStep="Watch the game error when "..name.." fails; its cause was not recorded."
-        end
-    elseif #(latest.recommendations or {})>0 then
-        local first=latest.recommendations[1]
-        if first.situation=="resource recovery" then nextStep="Watch your resource reserve before starting another cast."
-        elseif first.situation=="interrupt" then nextStep="Keep your interrupt ready for an interruptible enemy cast."
-        elseif first.situation=="movement" then nextStep="Look for a safe moment to stop and cast."
-        else nextStep="Compare the coach's suggestion with your target, range and resources before each cast." end
-    else nextStep="Select an enemy so recommendations can be recorded alongside your casts." end
-    local takeaway=compactReviewText(latest)
-    -- Match percentage describes agreement with a suggestion, not correctness.
-    if latest.comparedCasts and latest.comparedCasts>0 and #failures==0 then
-        observation=observation.." "..(latest.matchedCasts or 0).."/"..latest.comparedCasts.." compared casts followed the suggestion."
-    end
-    local goodText=casts>0 and (casts.." successful casts recorded.\nYour abilities reached the successful-cast event. This confirms execution, but does not establish that each spell was the best choice.") or "No successful casts were recorded. This alone does not establish poor play."
-    local wrongText=#failures>0 and (#failures.." failed or interrupted attempts recorded.\n"..observation.."\nA failed cast can delay your next action. Check the recorded game message before assigning a cause.") or "No failed attempts were recorded.\nThis is not a complete assessment of your rotation or encounter mechanics."
-    if failures[1] then wrongText=wrongText.."\n"..shortText(failures[1].name or "Spell",6)..": "..(failures[1].clientMessage and shortText(failures[1].clientMessage,14) or failures[1].interrupted and "Cast interrupted; cause not established." or "Cause not recorded.") end
-    return {goodText=goodText,wrongText=wrongText,improveText=nextStep.."\n"..takeaway,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
+    return {goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
             latest.damageSource and "damage available" or "cast observations only"),
-        observation=observation,takeaway=takeaway,nextStep=nextStep}
+        observation=rotationGood,takeaway=rotationWrong,nextStep=rotationImprove,
+        coverage='Assesses fresh, same-target pre-cast attack priorities. Healing, utility and unreadable decisions are excluded. Priority comparisons do not measure damage lost.'}
 end
 
 function Review:GetSource()
@@ -640,6 +665,7 @@ pcall(events.RegisterEvent, events, "UI_ERROR_MESSAGE")
 events:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         characterKey()
+        pendingDecisions = {}
     elseif event == "PLAYER_REGEN_DISABLED" then
         beginCombat()
     elseif event == "UI_ERROR_MESSAGE" and session then
@@ -651,7 +677,7 @@ events:SetScript("OnEvent", function(_, event, ...)
             if last and now - last.at <= 0.4 then last.clientMessage = message end
         end
     elseif event == "UNIT_SPELLCAST_SENT" then
-        local unit, _, _, spellID = ...
+        local unit, targetName, castGUID, spellID = ...
         if not isSecret(unit) and not isSecret(spellID) and unit == "player" and spellID then
             local rec = Review.latestRecommendation
             local targetGUID = visibleUnitGUID("target")
@@ -660,22 +686,37 @@ events:SetScript("OnEvent", function(_, event, ...)
             else
                 pendingRecommendations[spellID] = false
             end
+            -- Use the pre-cast suggestion, never a post-cast cooldown/proc state.
+            -- Named target confirmation excludes mouseover/focus casts and target switches.
+            local key=not isSecret(castGUID) and castGUID or spellID
+            pendingDecisions[key]=nil
+            local readable,name=pcall(UnitName,'target')
+            if rec and rec.reviewEligible and targetGUID and rec.targetGUID==targetGUID
+                and GetTime()-(rec.shownAt or 0)<=0.5 and readable and not isSecret(name)
+                and not isSecret(targetName) and name and targetName==name then
+                pendingDecisions[key]={at=GetTime(),spellID=rec.spellID,spellName=rec.spellName,
+                    reason=rec.reason,shortReason=rec.shortReason,situation=rec.situation,targetGUID=targetGUID}
+            end
         end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        local unit, _, spellID = ...
-        if not isSecret(unit) and not isSecret(spellID) and unit == "player" then
+        local unit, castGUID, spellID = ...
+        if not isSecret(unit) and not isSecret(spellID) and unit == "player" and spellID then
             local rec = pendingRecommendations[spellID]
             pendingRecommendations[spellID] = nil
-            recordCast(spellID, rec, rec ~= nil)
+            local key=not isSecret(castGUID) and castGUID or spellID
+            local decision=pendingDecisions[key];pendingDecisions[key]=nil
+            recordCast(spellID, rec, rec ~= nil, decision)
         end
     elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET" then
-        local unit, _, spellID = ...
-        if not isSecret(unit) and not isSecret(spellID) and unit == "player" then
+        local unit, castGUID, spellID = ...
+        if not isSecret(unit) and not isSecret(spellID) and unit == "player" and spellID then
+            pendingDecisions[not isSecret(castGUID) and castGUID or spellID]=nil
             recordFailedAttempt(spellID, false)
         end
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
-        local unit, _, spellID = ...
-        if not isSecret(unit) and not isSecret(spellID) and unit == "player" then
+        local unit, castGUID, spellID = ...
+        if not isSecret(unit) and not isSecret(spellID) and unit == "player" and spellID then
+            pendingDecisions[not isSecret(castGUID) and castGUID or spellID]=nil
             recordFailedAttempt(spellID, true)
         end
     elseif event == "PLAYER_REGEN_ENABLED" and session then
@@ -683,6 +724,7 @@ events:SetScript("OnEvent", function(_, event, ...)
         finishedSession.ended = GetTime()
         session = nil
         pendingRecommendations = {}
+        pendingDecisions = {}
 
         local function saveFinishedReview()
             local timeline=FC.FightRecorder and FC.FightRecorder.last

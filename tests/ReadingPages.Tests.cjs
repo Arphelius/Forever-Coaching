@@ -192,6 +192,11 @@ function texts(node){return [node.text,...node.children.flatMap(texts)].filter(B
 assert(!texts(panel).includes('REMOVE CONTRIBUTION')&&!texts(panel).includes('REMOVE BASIS'));
 assert(texts(panel).includes('Single target')&&texts(panel).includes('Why: Damage'));
 console.log('PASS: browser scenario picker and action explanations remain, while the two unwanted introductory paragraphs are removed.');
+// Exercise the live context provider too; earlier page fixtures replace it.
+for(const file of ['Core/RotationCoach.lua','Core/EncounterCoach.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+run(`ForeverCoaching.GuideBrowser.class=nil;ForeverCoaching.GuideBrowser.buildID=nil
+for _,frame in ipairs(TestFrames)do if frame.navigationIndex and frame.navigationIndex>1 then frame.scripts.OnClick(frame) end end
+print('PASS: all reading tabs construct with the real live context provider on a level 2 Shaman.')`);
 run(`local fc=ForeverCoaching;fc.GuideBrowser.class='MAGE';fc.GuideBrowser.buildID=nil
 local gear;for _,f in ipairs(TestFrames)do if f.navigationIndex==5 then gear=f end end;assert(gear);gear.scripts.OnClick(gear)
 local function find(label)for _,f in ipairs(TestFrames)do if f:IsShown() and f.text==label then return f end end end

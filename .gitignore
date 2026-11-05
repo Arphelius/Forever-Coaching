@@ -4,6 +4,7 @@ tools/preview-runtime/node_modules/
 .vscode/
 art/
 dist/
+output/
 FreezeTrace-analysis/
 FreezeTrace-summary.txt
 debug.log

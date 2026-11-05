@@ -1,7 +1,8 @@
 ## Interface: 16001
-## Version: 0.1.0-beta.1
+## Version: 0.1.0-beta.2
 ## X-Website: https://github.com/Arphelius/Forever-Coaching
 ## Title: Forever Coaching
+## IconTexture: Interface\AddOns\ForeverCoaching\Media\ForeverCoachingIcon.tga
 ## Notes: Your personal WoW: Forever coaching addon
 ## Author: Forever Coaching
 ## SavedVariables: ForeverCoachingDB

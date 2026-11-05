@@ -466,14 +466,15 @@ function FC:BuildPresetTalentPage(parent)
             visibleCount=visibleCount+1
             local card=cards[index]
             if not card then
-                card=button(list,"",0,0,LEFT_W-24,function() end);card:SetHeight(36);card.caption:Hide()
+                card=button(list,"",0,0,LEFT_W-24,function() end);card:SetHeight(50);card.caption:Hide()
                 card.title=text(card,"",12,LEFT_W-40);card.title:SetPoint("TOPLEFT",8,-5);card.title:SetHeight(14);card.title:SetMaxLines(1);card.title:SetWordWrap(false)
-                card.detail=text(card,"",10,LEFT_W-100,MUTED);card.detail:SetPoint("TOPLEFT",8,-21);card.detail:SetWordWrap(false)
-                card.badge=text(card,"",10,70,GOLD);card.badge:SetPoint("TOPRIGHT",-6,-21);card.badge:SetJustifyH("RIGHT")
+                card.detail=text(card,"",10,LEFT_W-40,MUTED);card.detail:SetPoint("TOPLEFT",8,-21);card.detail:SetWordWrap(false)
+                card.badge=text(card,"",10,LEFT_W-40,GOLD);card.badge:SetPoint("TOPLEFT",8,-35)
+                card.badge:SetHeight(12);card.badge:SetWordWrap(false);card.badge:SetMaxLines(1)
                 cards[index]=card
             end
             local build=choice.build
-            card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*40)
+            card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*54)
             card.title:SetText(choice.displayName or choice.spec)
             card.detail:SetText(build and build.role or "Source needed")
             card.badge:SetText(isRecommended(index,choice) and "Recommended" or "")
@@ -501,7 +502,7 @@ function FC:BuildPresetTalentPage(parent)
             card:SetScript("OnLeave",function(self) self:SetBackdropBorderColor(unpack(buildIndex==selectedSpec and accent or {.16,.18,.22})) end)
             card:Show()
         end
-        list:SetHeight(math.max(1,visibleCount*40))
+        list:SetHeight(math.max(1,visibleCount*54))
         local choice=choices[selectedSpec]
         selected=choice and choice.index
         if not selected then routeWindow:Hide();detail:SetHeight(TREE_H+42) end

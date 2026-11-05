@@ -463,7 +463,10 @@ local function ShowTab(tabName)
         if FC.OpenFightTimeline then
             local timelineButton=NewButton(currentPage,'View fight timeline',120)
             timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',rightEdge,rowTop)
-            timelineButton:SetScript('OnClick',function()FC:OpenFightTimeline()end)
+            timelineButton:SetScript('OnClick',function()
+                FC:OpenFightTimeline()
+                if ForeverCoachingFightTimeline and ForeverCoachingFightTimeline:IsShown() then frame:Hide() end
+            end)
             rightEdge=rightEdge-timelineButton:GetWidth()-6
         end
         local noticeButton = NewButton(currentPage, "Analysis reminders: On", 140)

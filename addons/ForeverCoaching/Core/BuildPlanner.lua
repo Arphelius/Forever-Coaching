@@ -79,13 +79,17 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                 if activity=="raids" then scenario=build.role=="healer" and "raid_healing" or (build.role=="tank" and "tank_threat" or "raid_damage") end
                 if activity=="dungeons" then scenario=build.role=="healer" and "dungeon_healing" or (build.role=="tank" and "dungeon_tanking" or "dungeon_damage") end
                 local matches=self:MatchesPlaystyle(build,scenario)
+                local adapted=build.evidence=="adapted"
+                local guide=build.evidence=="guide" or (adapted and build.previousEvidence=="guide")
                 local healingSuggestion=activity=="raids" and build.role=="healer"
-                    and build.evidence=="guide" and self:MatchesPlaystyle(build,"dungeon_healing") and not matches
+                    and guide and self:MatchesPlaystyle(build,"dungeon_healing") and not matches
                 local dungeonSuggestion=activity=="dungeons" and build.role=="damage"
-                    and build.evidence=="guide" and self:MatchesPlaystyle(build,"leveling") and not matches
+                    and guide and self:MatchesPlaystyle(build,"leveling") and not matches
                 local benchmark=activity=="raids" and build.evidence=="simulation" and (build.boardRank or 0)>0
                 local duel=activity=="pvp" and build.evidence=="tournament"
-                if matches or benchmark or duel or dungeonSuggestion or healingSuggestion then
+                local adaptedReference=adapted and ((activity=="raids" and build.previousEvidence=="simulation")
+                    or (activity=="pvp" and build.previousEvidence=="tournament"))
+                if matches or benchmark or duel or adaptedReference or dungeonSuggestion or healingSuggestion then
                     local score=build.evidence=="guide" and 400 or (benchmark and 500 or (duel and 100 or 250))
                     if activity=="leveling" and build.levelingOrder then score=score+50 end
                     if dungeonSuggestion or healingSuggestion then score=150 end
@@ -100,7 +104,7 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                     if valid and (not bestScore or score>bestScore) then
                         bestScore=score
                         choice.index=index;choice.build=build
-                        choice.provisional=dungeonSuggestion or healingSuggestion
+                        choice.provisional=adapted or dungeonSuggestion or healingSuggestion
                         choice.badge=build.evidence=='adapted' and 'UPDATED PLAN' or (benchmark and "SIM REFERENCE" or (duel and "DUEL EXAMPLE" or (build.evidence=="guide" and "RECOMMENDED" or "EXPERIMENTAL")))
                         choice.reason=benchmark and (build.role=="tank" and "Raid threat reference; survival is not ranked." or "Published single-target raid reference; fixed gear and buffs.") or (build.note~="" and build.note or "Published plan for this activity; combat comparison pending.")
                         if build.evidence=="experimental" then
@@ -117,9 +121,10 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                         if build.maxLevel>level then choice.reason="Level "..build.maxLevel.." destination. "..choice.reason end
                         if dungeonSuggestion then choice.reason="Dungeon starting point from this leveling guide; dungeon ranking unverified. "..build.note end
                         if healingSuggestion then choice.reason="Healing guide starting point; no raid comparison published. "..(build.note or "") end
-                        if duel then
+                        if adapted then choice.reason=build.note or "Updated planning allocation; performance comparison pending." end
+                        if duel or (adaptedReference and activity=="pvp") then
                             choice.reason="Level 30 duel reference; requires 5 extra talent points. Not validated for level 60."
-                            if build.seriesWins then choice.reason=build.seriesWins.." finals series won, "..build.seriesLosses.." lost. Level 30 duels; requires 5 extra points." end
+                            if build.seriesWins then choice.reason=build.seriesWins.." finals series won, "..build.seriesLosses.." lost. Level 30 duels; requires 5 extra points. Not validated for level 60." end
                         end
                         choice.proof=(build.source.name or "Source").." / "..(build.source.guideUpdated or "snapshot unknown")
                         choice.proofUrl=(benchmark or duel) and build.source.comparisonUrl or build.source.url
@@ -201,7 +206,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
             or ((b.evidence=="guide" or b.evidence=="theorycraft") and self:MatchesPlaystyle(b,
                 b.role=="healer" and "raid_healing" or (b.role=="tank" and "tank_threat" or "raid_damage"))))
         local dungeonTank=b and activity=="dungeons" and b.role=="tank" and b.evidence~="guide_conflict"
-            and ((b.evidence=="simulation" and b.maxLevel==60)
+            and (((b.evidence=="simulation" or (b.evidence=="adapted" and b.previousEvidence=="simulation")) and b.maxLevel==60)
                 or self:MatchesPlaystyle(b,"dungeon_tanking"))
         if b and (choice.index==choice.recommendedIndex or raidCandidate or dungeonTank) then
             local score
@@ -216,6 +221,9 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
                 score=10000-b.boardRank
             elseif activity=="pvp" and b.evidence=="tournament" then
                 score=1000+(b.seriesWins or 0)*10-(b.seriesLosses or 0)
+            elseif b.evidence=="adapted" then
+                -- A planning starting point, without reviving pre-tuning ranks.
+                score=(self:MatchesPlaystyle(b,activity) and 300 or 100)-math.abs((b.maxLevel or 60)-level)
             elseif b.evidence=="guide" or b.evidence=="theorycraft" then
                 score=(choice.provisional and 100 or 500)-math.abs((b.maxLevel or 60)-level)
             end
@@ -235,6 +243,10 @@ end
 function Planner:GetBuildSummary(choice, activity, choices)
     local b=choice.build
     if not b then return choice.reason end
+    if b.evidence=="adapted" then
+        local prefix=choice.activityRecommended and "Recommended starting point. " or "Updated planning allocation. "
+        return prefix..(choice.reason or b.note or "Performance comparison pending.")
+    end
     if activity=="dungeons" and b.role=="tank" and b.evidence=="simulation" then
         return choice.activityRecommended
             and "Recommended tank starting point: a dedicated level 60 tank allocation. Dungeon AoE threat and survival have not been ranked."

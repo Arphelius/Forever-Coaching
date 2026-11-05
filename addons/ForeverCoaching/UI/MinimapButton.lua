@@ -84,7 +84,7 @@ button:SetScript("OnEvent", function(self, event, addonName)
 end)
 
 button.icon = button:CreateTexture(nil, "BACKGROUND")
-button.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
+button.icon:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\ForeverCoachingIcon.tga")
 button.icon:SetSize(20, 20)
 button.icon:SetPoint("CENTER", button, "CENTER", 0, 0)
 
