@@ -44,6 +44,18 @@ assert(live:GetRecommendation().spellID==326,'A live learned rank absent from th
 aura='Lightning Shield';assert(live:GetRecommendation().spellID==403,'The live rank clears only after the buff is observed active')
 aura=false;assert(live:GetRecommendation().spellID==326,'Expired live rank returns as the top suggestion')
 C_Spell.GetSpellInfo=spellInfo;known={[324]=true}
+local enumerate=C_UnitAuras.GetAuraDataByIndex
+C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end
+aura='Lightning Shield'
+assert(live:GetRecommendation().spellID==403,'Active shield with a different applied aura ID must not be suggested again')
+local secret={};issecretvalue=function(value)return value==secret end
+C_UnitAuras.GetAuraDataByIndex=function(_,index)
+ if index==1 then return {name=secret,applications=secret}end
+ if index==2 then return {name='Lightning Shield',applications=secret,expirationTime=secret,spellId=999999}end
+end
+assert(live:GetRecommendation().spellID==403,'Continue past unrelated secret names and recognize the active shield without inspecting charges or duration')
+C_UnitAuras.GetAuraDataByIndex=enumerate;issecretvalue=function()return false end
+aura=false;assert(live:GetRecommendation().spellID==324,'Return to the shield only after the aura is absent from the player list')
 `);
 run(fs.readFileSync('addons/ForeverCoaching/UI/CombatHUD.lua','utf8'));
 run(`ForeverCoachingCombatHUD.scripts.OnUpdate(ForeverCoachingCombatHUD,1)

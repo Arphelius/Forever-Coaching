@@ -504,27 +504,33 @@ local function playerBuffActive(class,name)
  if #ids==0 and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
   local data=C_Spell and read(C_Spell.GetSpellInfo,name)
   local id=data and read(function()return data.spellID end)
-  if type(id)=='number' then ids={id} else return false end
+  if type(id)=='number' then ids={id} end
  end
  if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID and #ids>0 then
-  local unknown=false
   for _,id in ipairs(ids) do
    local ok,aura=pcall(C_UnitAuras.GetPlayerAuraBySpellID,id)
-   if not ok or (issecretvalue and issecretvalue(aura)) then unknown=true
-   elseif aura then return true end
+   if ok and not (issecretvalue and issecretvalue(aura)) and aura then return true end
   end
-  if not unknown then return false end
+  -- A cast spell ID can differ from the applied aura's ID. A nil lookup
+  -- is not enough to declare the buff missing: check the player's aura list.
+ end
+ if C_UnitAuras and C_UnitAuras.GetUnitAuraBySpellID then
+  for _,id in ipairs(ids) do
+   local ok,aura=pcall(C_UnitAuras.GetUnitAuraBySpellID,'player',id)
+   if ok and not (issecretvalue and issecretvalue(aura)) and aura then return true end
+  end
  end
  -- Presence checks need only the aura name. Secret charges or duration must
  -- not make an otherwise readable aura list unusable for buff upkeep.
  if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return nil end
  local spell=resolve(name);local wanted=spell and spell.name or name
+ local unknown=false
  for i=1,40 do
   local ok,aura=pcall(C_UnitAuras.GetAuraDataByIndex,'player',i,'HELPFUL')
   if not ok or (issecretvalue and issecretvalue(aura)) then return nil end
-  if not aura then return false end
+  if not aura then if unknown then return nil end;return false end
   local auraName=read(function()return aura.name end)
-  if not auraName then return nil end
+  if not auraName then unknown=true end
   if auraName==wanted then return true end
  end
  return nil

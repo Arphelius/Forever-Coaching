@@ -16,7 +16,7 @@ IsPlayerSpell=function(id)return id==knownID end
 C_Spell={GetSpellInfo=function(id)if type(id)=='number' then return {spellID=id,name=names[id],iconID=id,castTime=0}end end,
  IsSpellUsable=function()return not unusable,unusable end,
  GetSpellCooldown=function()return {startTime=0,duration=0,isEnabled=true}end}
-C_UnitAuras={GetAuraDataByIndex=function(_,i)if hidden then error('restricted')end;if i==1 and aura then return {name=aura,expirationTime=expiration,applications=1}end end}
+C_UnitAuras={GetAuraDataByIndex=function(_,i)if hidden then error('restricted')end;if i==1 and aura and (expiration==0 or expiration>GetTime()) then return {name=aura,expirationTime=expiration,applications=1}end end}
 C_UnitAuras.GetPlayerAuraBySpellID=function(id)
  if hidden then error('restricted')end
  if names[id]==aura and (expiration==0 or expiration>GetTime()) then return {name=aura}end
@@ -39,7 +39,7 @@ for class,name in pairs(examples)do
   local enumeration=C_UnitAuras.GetAuraDataByIndex;local targeted=C_UnitAuras.GetPlayerAuraBySpellID
   C_UnitAuras.GetAuraDataByIndex=function()error('Enumeration restricted')end
   C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end
-  assert(live:ShieldRecommendation(),class..spec..': targeted absence survives restricted enumeration')
+  assert(not live:ShieldRecommendation(),class..spec..': ID misses plus restricted enumeration cannot establish a missing buff')
   local secretField={};local originalSecretCheck=issecretvalue
   issecretvalue=function(value)return value==secretField end
   C_UnitAuras.GetPlayerAuraBySpellID=function(id)if id==knownID then return {name=secretField,applications=secretField,expirationTime=secretField}end end
@@ -57,7 +57,7 @@ assert(live:ShieldRecommendation().spellName=='Water Shield','Healer upkeep pref
 currentClass='SHAMAN';tree=2;knownID=fc.ForeverSpellCatalog.classes.SHAMAN.spells['Lightning Shield'].ids[1]
 C_UnitAuras.GetAuraDataByIndex=function()error('Enumeration restricted')end
 C_UnitAuras.GetPlayerAuraBySpellID=function()return nil end
-assert(live:ShieldRecommendation().spellID==knownID,'Targeted buff absence still works when enumeration is restricted and removed shield alternatives have no IDs')
+assert(not live:ShieldRecommendation(),'An ID miss with restricted enumeration must not repeatedly demand an already-active buff')
 local secret={};issecretvalue=function(value)return value==secret end
 C_UnitAuras.GetPlayerAuraBySpellID=function(id)if id==knownID then return {name=secret,applications=secret,expirationTime=secret}end end
 assert(not live:ShieldRecommendation(),'Buff presence does not require reading secret names, stacks or duration')
