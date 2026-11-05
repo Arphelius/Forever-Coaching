@@ -16,6 +16,17 @@ assert(rec.spellID==6603 and rec.pressRequired and rec.queue[2].id==8042,'Start 
 assert(#rec.queue==2,'Before the first native swing, do not fabricate timed follow-ups')
 RotationState.attacking=true;rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID==8042 and rec.queue[2].autoAttack,'Running autoattack must not delay a ready shock')
+RotationState.meleeRange=false;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID==403 and rec.situation=='ranged opener','Prefer Lightning Bolt at range even when Earth Shock is ready')
+RotationState.combat=true;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID==403,'Continue the ranged cast window while the enemy approaches')
+RotationState.speed=7;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID~=403,'Do not hard-cast the opener while moving')
+RotationState.speed=0;RotationState.known[403]=false;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID~=403,'The opener must be learned')
+RotationState.known[403]=true;RotationState.meleeRange=true;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID==8042,'Enemy reaching melee immediately switches to instant attacks and swings')
+RotationState.combat=false
 local cooldown=C_Spell.GetSpellCooldown
 C_Spell.GetSpellCooldown=function(id)return id==8042 and {startTime=9,duration=6,isEnabled=true} or cooldown(id)end
 rec=fc.LiveRotation:GetRecommendation()
@@ -38,7 +49,7 @@ local function tick()ForeverCoachingCombatHUD.scripts.OnUpdate(ForeverCoachingCo
 assert(strip:IsShown() and strip.alpha==.12,'Strip exists dimly immediately, before selecting any enemy')
 UnitExists=function(unit)return unit=='player'end;tick()
 assert(strip:IsShown() and strip.alpha==.12,'Idle/no-target strip stays barely visible')
-assert(ForeverCoachingRotationSlot1.caption.text=='AUTO','Passive swings have an AUTO label')
+assert(ForeverCoachingRotationSlot1.icon:GetTexture()==403 and ForeverCoachingRotationSlot2.caption.text=='AUTO','Idle preview starts with Lightning Bolt, followed by weapon swings')
 UnitExists=function()return true end;RotationState.combat=true;tick()
 assert(strip:IsShown() and strip.alpha==1,'Combat makes the strip fully visible')
 assert(not ForeverCoachingRotationSlot1.highlight:IsShown(),'Already running autoattack has no press highlight')

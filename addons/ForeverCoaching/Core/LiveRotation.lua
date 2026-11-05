@@ -215,9 +215,10 @@ function Live:GetIdleRecommendation()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
  local queue={}
  if class=='SHAMAN' then
-  queue[1]=autoAttack()
+  local bolt=resolve('Lightning Bolt');if bolt then queue[#queue+1]=bolt end
+  queue[#queue+1]=autoAttack()
   local shock=resolve('Earth Shock');if shock then queue[#queue+1]=shock end
-  queue[#queue+1]=autoAttack();queue[#queue+1]=autoAttack()
+  queue[#queue+1]=autoAttack()
  elseif spec and spec.available then
   local profile=class=='DRUID' and spec.role=='tank' and bear or P[class] and P[class][spec.treeIndex]
   for _,rule in ipairs(profile and profile[1] or {}) do
@@ -231,22 +232,37 @@ function Live:WithShamanSwings(rec,spec)
  if not rec or rec.targetHostile~=true or rec.situation=='casting' or rec.situation=='interrupt' then return rec end
  local attacking=read(IsCurrentSpell,6603)
  local enhancement=spec and spec.available and spec.treeIndex==2
- -- Before talent specialization exists, only an observed running melee attack
- -- establishes that the player is fighting with a weapon.
- if not enhancement and not (spec and not spec.available and attacking==true) then return rec end
+ -- Before talent specialization exists, use observed weapon range rather
+ -- than treating a browsed talent build as the character's live allocation.
+ if not enhancement and spec and spec.available then return rec end
  local melee=resolve('Stormstrike')
- local inRange=melee and C_Spell and read(C_Spell.IsSpellInRange,melee.id,'target')
- if inRange~=true and inRange~=1 then
+ local types=Enum and Enum.PlayerSwingType or {MainHand=0}
+ local inRange=C_SwingTimer and read(C_SwingTimer.IsTargetWithinSwingRange,types.MainHand)
+ if inRange==nil and melee and C_Spell then inRange=read(C_Spell.IsSpellInRange,melee.id,'target') end
+ if inRange==nil then
   for _,prefix in ipairs({'ActionButton','MultiBarBottomLeftButton','MultiBarBottomRightButton','MultiBarRightButton','MultiBarLeftButton','MultiBar5Button','MultiBar6Button','MultiBar7Button'}) do
    for i=1,12 do
     local b=_G[prefix..i];local slot=b and read(function()return b.action end)
     if type(slot)=='number' and read(IsAttackAction,slot)==true then
-     local value=read(IsActionInRange,slot,'target');if value==true or value==1 then inRange=true end
+     local value=read(IsActionInRange,slot,'target')
+     if value==true or value==1 then inRange=true elseif (value==false or value==0) and inRange==nil then inRange=false end
     end
    end
   end
  end
- if inRange~=true and inRange~=1 then return rec end
+ if inRange~=true and inRange~=1 then
+  -- Prefer a ranged pull while the enemy is outside weapon reach, even when
+  -- an instant Shock has a higher per-cast damage score. Recheck every update
+  -- so closing to melee immediately hands back to weapon/instant priorities.
+  local speed=read(GetUnitSpeed,'player')
+  local bolt=resolve('Lightning Bolt')
+  if (inRange==false or inRange==0) and speed==0 and bolt and ready(bolt,'target',false) then
+   return {spellID=bolt.id,spellName=bolt.name,icon=bolt.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),
+    situation='ranged opener',reason='Open with Lightning Bolt while the enemy is outside melee range; switch to weapon swings and instant attacks when it closes.',
+    queue={bolt,autoAttack()}}
+  end
+  return rec
+ end
  local auto=autoAttack()
  if not rec.spellID or (rec.spellName=='Lightning Bolt' and rec.situation~='maelstrom proc') then
   local shock=resolve('Earth Shock')
