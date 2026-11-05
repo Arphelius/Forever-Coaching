@@ -452,6 +452,7 @@ function Review:SummarizeDecisions(report)
     local groups,ordered={},{}
     local matched,compared=0,0
     for _,decision in ipairs(report.decisions or {}) do
+        if decision.matched==true or decision.matched==false then
         compared=compared+1
         if decision.matched then
             matched=matched+1
@@ -462,6 +463,7 @@ function Review:SummarizeDecisions(report)
             if not group then group={first=decision,count=0};groups[key]=group;ordered[#ordered+1]=group end
             group.count=group.count+1
         end
+        end
     end
     table.sort(ordered,function(a,b)if a.count~=b.count then return a.count>b.count end;return a.first.at<b.first.at end)
     for index=1,math.min(3,#ordered) do
@@ -471,11 +473,8 @@ function Review:SummarizeDecisions(report)
     end
     if compared>0 then
         table.insert(good,1,string.format('%d/%d assessed attacks followed the live priority in this fight.',matched,compared))
-        if #wrong==0 then wrong[1]='No attack-priority mistakes identified in the assessed casts.';improve[1]='No rotation correction identified for this fight.' end
     else
         good[1]=tostring(report.casts or 0)..' successful casts recorded in this fight.'
-        wrong[1]='Not enough readable pre-cast state to assess attack choices in this fight.'
-        improve[1]='No specific rotation correction can be supported by this recording.'
     end
     return table.concat(good,'\n\n'),table.concat(wrong,'\n\n'),table.concat(improve,'\n\n')
 end
@@ -564,29 +563,29 @@ function Review:GetLatestSummary(filter)
         end
     end
     if not latest then
-        if filter then return {metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='No matching fight to assess.',improveText='Record a fight on this class and specialization.'} end
-        return {metrics="Local observations / No fight recorded yet",goodText="Finish a fight to see what you did well, supported by recorded actions.",wrongText="No mistakes can be assessed before a fight is recorded.",improveText="Select an enemy and finish a fight. You can also import a Forever Logs encounter.",observation="Finish a fight to see a review for this character.",
-            takeaway="Recorded decisions will appear here after combat.",nextStep="Select a hostile target so the coach can record its recommendations."}
+        if filter then return {metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='',improveText=''} end
+        return {metrics="Local observations / No fight recorded yet",goodText="Finish a fight to see your review.",wrongText='',improveText='',observation="Finish a fight to see a review for this character.",
+            takeaway='',nextStep=''}
     end
     local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
     if latest.encounterCoaching and FC.EncounterCoach then
-        local good,investigate,improve=FC.EncounterCoach:Summarize(latest.encounterCoaching)
+        local good=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
         local recorded=timeline and FC.FightRecorder:Analyze(timeline)
         local scenarios=latest.scenarioCoaching or timeline and timeline.scenarios
         if scenarios and FC.ScenarioTracker then
             local identity=latest.combatContext or latest.encounterCoaching.build or {class=latest.class,role=latest.specRole}
-            local sg,sw,sn=FC.ScenarioTracker:Summarize(scenarios,identity)
-            if sg~='' then good=sg..'\n\n'..good;investigate=sw..'\n\n'..investigate;improve=sn..'\n\n'..improve end
+            local sg=FC.ScenarioTracker:Summarize(scenarios,identity)
+            if sg~='' then good=sg..'\n\n'..good end
         end
         good=rotationGood..(good~='' and '\n\n'..good or '')
-        investigate=rotationWrong..(investigate~='' and '\n\n'..investigate or '')
-        improve=rotationImprove..(improve~='' and '\n\n'..improve or '')
+        -- Unconfirmed responses and movement are observations, not established
+        -- mistakes. Only an assessed wrong attack supplies corrective advice.
         local build=latest.encounterCoaching.build or {}
         return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
-            wrongText=investigate~="" and investigate or "No unconfirmed situational response in the observed windows. This does not establish a flawless fight.",
-            improveText=improve~="" and improve or "Practice the next assigned mechanic with this build. Review the exact target and timing of each response.",
+            wrongText=rotationWrong,
+            improveText=rotationImprove,
             coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
     end
     return {goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
