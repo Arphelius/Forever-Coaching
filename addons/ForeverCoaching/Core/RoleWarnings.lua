@@ -124,11 +124,11 @@ function W:Sample()
  self.threat=nil;self.threatAction=nil
  local function add(key,kind,message,priority,blocks,shortMessage)
   if seen[key]then return end;seen[key]=true
-  alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true,shortMessage=shortMessage}
+  alerts[#alerts+1]={key=key,kind=kind,message=message,priority=priority,blocksRotation=blocks==true,shortMessage=shortMessage,emergency=true}
  end
  if combat then
   local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
-  if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.3 then
+  if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.2 then
    local context=FC.EncounterCoach and FC.EncounterCoach.combatContext
    local message=context and context.canHeal and 'Low health — use a ready defensive or self-heal.' or 'Low health — reduce damage and get to safety.'
    add('self-health','health',message,2,false,message)
@@ -138,21 +138,25 @@ function W:Sample()
   if threatRelevant then _,status=read(UnitDetailedThreatSituation,'player','target') else self.lastTankState=nil end
   if threatRelevant and role=='tank' then
    local t=self:TankThreat();self.threat=t
-   local action=self:ThreatAction(t);self.threatAction=action
-   local previous=self.lastTankState;self.lastTankState=t and t.state
+   local action=self:ThreatAction(t)
+   if action and action.color~='red' then action=nil end
+   self.threatAction=action
+   self.lastTankState=t and t.state
    -- Calm, short lines: what happened and what to press. Shown once per change (toast cooldown).
    if action then
     add('threat','threat',action.message,action.color=='red' and 2 or 4,false,action.message)
-   elseif t and t.state=='secure' and previous and previous:find('^lost') then
-    add('threat-back','threat','Aggro back',6,false,'Aggro back')
    end
-  elseif threatRelevant and type(status)=='number' and status>=2 then add('threat','threat','High threat — ease off so the tank keeps it; a threat drop helps if you have one.',3,false,'High threat — ease off for the tank.') end
+  elseif threatRelevant and type(status)=='number' and status>=3 then add('threat','threat','You have aggro — reduce threat and let the tank recover it.',2,false,'You have aggro — let the tank recover it.') end
   for _,o in ipairs(FC.EncounterCoach and FC.EncounterCoach.currentOffers or {})do
    if o.expires>=now() and o.status=='observed' then
-    if o.kind=='interrupt' then add(o.key,'interrupt','INTERRUPT: '..o.reason,2)
-    elseif o.kind=='healing' and role=='healer' then add(o.key,'healing','URGENT HEAL: '..(read(UnitName,o.unit) or o.unit)..' — '..(o.name or 'use a ready heal')..'. Check range and incoming damage.',2)
-    elseif o.kind=='dispel' then add(o.key,'dispel','DISPEL: '..o.reason,4)
-    elseif o.kind=='resource recovery' then add(o.key,'mana',o.reason,5) end
+    local emergency=o.emergency==true or (o.detail and o.detail.emergency==true)
+    if o.kind=='interrupt' and emergency then add(o.key,'interrupt','INTERRUPT: '..o.reason,1)
+    elseif o.kind=='healing' and role=='healer' then
+     local h,m=read(UnitHealth,o.unit),read(UnitHealthMax,o.unit)
+     if type(h)=='number' and type(m)=='number' and m>0 and h>0 and h/m<.2 then
+      add(o.key,'healing','URGENT HEAL: '..(read(UnitName,o.unit) or o.unit)..' — '..(o.name or 'use a ready heal')..'.',2)
+     end
+    elseif o.kind=='dispel' and emergency then add(o.key,'dispel','DISPEL: '..o.reason,1) end
    end
   end
   local _,_,_,_,_,_,_,instance=read(GetInstanceInfo)
@@ -175,7 +179,7 @@ function W:Sample()
   end
  end
  if not combat then self.lastTankState=nil end
- if role=='tank' then
+ if combat and role=='tank' then
   local units={};for i=1,4 do units[#units+1]='party'..i end;for i=1,40 do units[#units+1]='raid'..i end
   local groupSeen={}
   for _,unit in ipairs(units)do
@@ -183,7 +187,7 @@ function W:Sample()
    if guid and not groupSeen[guid] and read(UnitGroupRolesAssigned,unit)=='HEALER' and read(UnitIsDeadOrGhost,unit)==false then
     groupSeen[guid]=true
     local mana,max=read(UnitPower,unit,0),read(UnitPowerMax,unit,0)
-    if type(mana)=='number' and type(max)=='number' and max>0 and mana/max<.2 then add('healer-mana:'..guid,'mana',(read(UnitName,unit) or 'Healer')..' has low Mana — '..(combat and 'avoid adding another pack; protect the healer.' or 'wait before pulling and let them drink.'),combat and 4 or 2) end
+    if type(mana)=='number' and type(max)=='number' and max>0 and mana/max<.05 then add('healer-mana:'..guid,'mana',(read(UnitName,unit) or 'Healer')..' is nearly out of Mana — avoid additional pulls.',2) end
    end
   end
  end

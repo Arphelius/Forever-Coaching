@@ -20,7 +20,7 @@ function toast:Observe(alerts)
   allowThreat=ok and result==true
  end
  for _,alert in ipairs(alerts or {}) do
-  if alert.kind~='threat' or allowThreat then
+  if alert.emergency==true and (alert.kind~='threat' or allowThreat) then
   if self.current and alert.key==self.current.key then currentThreatPresent=true end
   local previous=self.seen[alert.key]
   local group=alert.kind=='healing' and 'health' or alert.kind

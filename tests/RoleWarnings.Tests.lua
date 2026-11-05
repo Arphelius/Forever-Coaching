@@ -1,5 +1,5 @@
 local FC=ForeverCoaching
-local state={role='TANK',combat=true,health=100,mana=100,healerMana=10,status=0,tanking=false,auras={},instance=7}
+local state={role='TANK',combat=true,health=100,mana=100,healerMana=3,status=0,tanking=false,auras={},instance=7}
 UnitGroupRolesAssigned=function(unit)return unit=='party1' and 'HEALER' or unit=='party2' and state.tankPresent and 'TANK' or unit=='player' and state.role or 'NONE'end
 UnitAffectingCombat=function()return state.combat end
 UnitHealth=function()return state.health end;UnitHealthMax=function()return 100 end
@@ -21,8 +21,10 @@ local W=FC.RoleWarnings
 local function has(kind)for _,a in ipairs(W.alerts)do if a.kind==kind then return a end end end
 W:Sample();assert(has('threat') and has('mana'),'Tank gets threat and healer mana alerts')
 local count=recorded;W:Sample();assert(recorded==count,'Persistent conditions do not flood the timeline')
-state.combat=false;W:Sample();assert(has('mana') and not has('threat'),'Healer mana preparation survives out of combat')
-state.role='DAMAGER';state.tankPresent=true;state.combat=true;state.status=3;state.health=20;W:Sample();assert(has('health') and has('threat') and not has('mana'),'DPS gets own health and threat warnings with a registered tank')
+state.healerMana=10;W:Sample();assert(not has('mana'),'Routine healer mana depletion stays quiet')
+state.healerMana=3;state.combat=false;W:Sample();assert(not has('mana') and not has('threat'),'No preparation warnings outside combat')
+state.role='DAMAGER';state.tankPresent=true;state.combat=true;state.status=2;state.health=25;W:Sample();assert(#W.alerts==0,'Elevated threat and moderate health loss are not emergencies')
+state.status=3;state.health=15;W:Sample();assert(has('health') and has('threat') and not has('mana'),'DPS gets own critical health and actual aggro warnings with a registered tank')
 state.tankPresent=false;W:Sample();assert(has('health') and not has('threat'),'A party without a tank still gets health advice, but no threat warning')
 state.tankPresent=true
 state.hiddenThreat=true;W:Sample();assert(not has('threat'),'Hidden threat is not a danger observation');state.hiddenThreat=nil
@@ -30,8 +32,12 @@ state.role='HEALER';state.status=0;state.health=100
 FC.EncounterCoach.currentOffers={{key='heal',kind='healing',unit='party1',name='Fast heal',expires=12,status='observed'},
  {key='dispel',kind='dispel',unit='party1',reason='Alice: Poison can be removed.',expires=12,status='observed'},
  {key='kick',kind='interrupt',reason='Use your kick on Enemy.',expires=12,status='observed'}}
-W:Sample();assert(has('healing').message:find('Alice',1,true) and has('dispel') and has('interrupt'),'Healer sees named heal, dispel and interrupt alerts')
+W:Sample();assert(#W.alerts==0,'Routine heal, dispel and interrupt opportunities do not produce warnings')
+state.health=15;FC.EncounterCoach.currentOffers[2].emergency=true;FC.EncounterCoach.currentOffers[3].detail={emergency=true}
+W:Sample();assert(has('healing').message:find('Alice',1,true) and has('dispel') and has('interrupt'),'Critical healing and explicitly dangerous interrupt/dispel opportunities warn')
+for _,alert in ipairs(W.alerts)do assert(alert.emergency==true,'Every emitted warning carries emergency evidence')end
 FC.EncounterCoach.currentOffers[1].status='responded';W:Sample();assert(not has('healing'),'Resolved prompts disappear')
+state.health=100;FC.EncounterCoach.currentOffers={}
 W:RegisterMechanic({id='test-ground',spellID=9001,trigger='playerAura',action='move',message='MOVE OUT — test ground effect.',source='test fixture only',instanceID=7})
 W:RegisterMechanic({id='test-reflect',spellID=9002,trigger='targetAura',action='stop',message='STOP DPS — test reflect.',source='test fixture only',instanceID=7})
 state.auras.player=9001;W:Sample();assert(W.alerts[1].kind=='move' and W:GetBlockingRecommendation().blocksRotation,'Observed known movement mechanic outranks throughput')

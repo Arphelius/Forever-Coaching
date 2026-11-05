@@ -29,7 +29,7 @@ assert(not sample(),'Solo DPS must not warn about threat')
 roster.pet={guid='pet',role='TANK'};assert(not sample(),'A tank pet does not register a group tank')
 roster.party1={guid='friend',role='DAMAGER'};assert(not sample(),'Tankless party must not warn')
 assert(not w:GroupThreatRelevant('tank'),'An inferred tank spec cannot replace a registered tank role')
-local injected={key='stale-threat',kind='threat',message='Check your threat.',priority=3}
+local injected={key='stale-threat',kind='threat',emergency=true,message='Check your threat.',priority=3}
 fc.WarningToast:Observe({injected});assert(not fc.WarningToast.current,'The renderer must reject even injected/stale threat alerts in a tankless group')
 roster.party1.role='TANK';local alert,alerts=sample();assert(alert,'Assigned dungeon tank enables threat advice')
 local toast=fc.WarningToast;toast:Observe(alerts);assert(toast.current and toast.current.kind=='threat')
@@ -47,6 +47,6 @@ combat=false;assert(not sample(),'No threat warning out of combat');combat=true
 roster={};role='TANK';assert(not sample() and not w.threat and not w.threatAction,'Solo tank has no group threat UI')
 roster.raid1={guid='self',role='TANK'};assert(not sample() and not w.threat,'A self-only raid roster is still solo')
 roster.party1={guid='friend',role='DAMAGER'};sample();assert(w.threat,'Grouped player tank retains threat monitoring')
-role='DAMAGER';health=20;local _,remaining=sample();assert(#remaining==1 and remaining[1].kind=='health','Tankless group retains relevant health warnings')
+role='DAMAGER';health=15;local _,remaining=sample();assert(#remaining==1 and remaining[1].kind=='health','Tankless group retains relevant health warnings')
 print('PASS: solo/pet/tankless party suppression, assigned party/raid tanks, dead/offline/hidden roles, hostile target/combat scope, solo versus grouped tank HUD and immediate threat-toast clearing.')
 `);
