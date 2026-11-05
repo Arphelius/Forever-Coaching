@@ -506,10 +506,28 @@ local function rememberBuff(class,name,aura)
   end end
  end
 end
+function Live:RefreshTrackedBuffs()
+ local query=C_UnitAuras and C_UnitAuras.GetAuraDataByAuraInstanceID
+ if not query then return end
+ for instance,key in pairs(self.buffInstances or {}) do
+  local ok,aura=pcall(query,'player',instance)
+  if ok and not (issecretvalue and issecretvalue(aura)) and not aura then
+   local state=self.buffGroups and self.buffGroups[key]
+   if state then state.instances[instance]=nil;state.present=next(state.instances)~=nil end
+   self.buffInstances[instance]=nil
+   self.buffInstanceMissCount=(self.buffInstanceMissCount or 0)+1
+  end
+ end
+end
 function Live:ObserveBuffAuras(unit,update)
- if unit~='player' or type(update)~='table' then return end
+ if unit~='player' then return end
+ self.buffEventCount=(self.buffEventCount or 0)+1
+ if type(update)~='table' then self:RefreshTrackedBuffs();return end
  if read(function()return update.isFullUpdate end)==true then
-  self.buffGroups={};self.buffInstances={};return
+  -- A full update is not evidence that every tracked aura was removed.
+  -- Retain the instance IDs so a later removal or instance query can resolve it.
+  self.buffFullUpdateCount=(self.buffFullUpdateCount or 0)+1
+  self:RefreshTrackedBuffs();return
  end
  local removed=read(function()return update.removedAuraInstanceIDs end)
  for _,instance in ipairs(type(removed)=='table' and removed or {}) do
@@ -519,6 +537,7 @@ function Live:ObserveBuffAuras(unit,update)
    if state then
     state.instances[instance]=nil;state.present=next(state.instances)~=nil
     self.buffInstances[instance]=nil
+    self.buffRemovedCount=(self.buffRemovedCount or 0)+1
    end
   end
  end
@@ -590,6 +609,7 @@ function Live:ShieldRecommendation()
  end
  local context=FC.EncounterCoach and FC.EncounterCoach.GetBuildContext and FC.EncounterCoach:GetBuildContext()
  local spec=context and FC.SpecScenarios and FC.SpecScenarios:ForCurrent(context,true)
+ self:RefreshTrackedBuffs()
  for index,group in ipairs(UPKEEP[class]) do
   local missing=true
   local observed=self.buffGroups and self.buffGroups[class..':'..index]
@@ -614,6 +634,32 @@ function Live:ShieldRecommendation()
    end
   end
  end
+end
+function Live:GetBuffDiagnosticLines()
+ local _,class=read(UnitClass,'player')
+ local lines={'Buffs '..tostring(class)..': combat='..tostring(read(UnitAffectingCombat,'player'))
+  ..', events='..(self.buffEventCount or 0)..', full='..(self.buffFullUpdateCount or 0)
+  ..', removed='..(self.buffRemovedCount or 0)..', instance misses='..(self.buffInstanceMissCount or 0)}
+ for index,group in ipairs(UPKEEP[class] or {}) do
+  local state=self.buffGroups and self.buffGroups[class..':'..index]
+  for _,name in ipairs(group) do
+   local spell=knownBuff(class,name)
+   if spell then
+    local active=playerBuffActive(class,name)
+    lines[#lines+1]=name..' ('..spell.id..'): aura='..(active==true and 'active' or active==false and 'missing' or 'unreadable')
+     ..', tracked='..(state and tostring(state.present) or 'none')
+   end
+  end
+ end
+ local ok,rec=pcall(self.ShieldRecommendation,self)
+ lines[#lines+1]='Buff suggestion: '..(ok and (rec and rec.spellName or 'none') or tostring(rec))
+ lines[#lines+1]='HUD error: '..tostring(FC.combatHUDLastError or 'none')
+ return lines
+end
+SLASH_FOREVERCOACHINGBUFFS1='/fcbuffs'
+SlashCmdList=SlashCmdList or {}
+SlashCmdList.FOREVERCOACHINGBUFFS=function()
+ for _,line in ipairs(Live:GetBuffDiagnosticLines()) do print('Forever Coaching: '..line) end
 end
 local function utilityAction(s,unit,kind,reason,priority)
  return {spellID=s.id,spellName=s.name,icon=s.icon,message=s.name,reason=reason,shortReason=reason,

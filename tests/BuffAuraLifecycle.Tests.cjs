@@ -22,6 +22,8 @@ for token,name in pairs(examples)do
  class=token;known=fc.ForeverSpellCatalog.classes[class].spells[name].ids[1]
  live.buffGroups={};live.buffInstances={};restricted=false;aura=name;instance=instance+1
  assert(not live:ShieldRecommendation(),class..': record the active aura instance')
+ event('player',{isFullUpdate=true})
+ assert(live.buffInstances[instance],class..': full updates must not discard the instance needed to recognize expiration')
  restricted=true
  assert(not live:ShieldRecommendation(),class..': active aura with restricted scan must not create a duplicate buff prompt')
  event('party1',{removedAuraInstanceIDs={instance}})
@@ -39,6 +41,28 @@ for token,name in pairs(examples)do
  restricted=false;instance=instance+1;aura=name
  assert(not live:ShieldRecommendation(),class..': a readable active aura overrides an old removal observation')
 end
+local instanceHidden=false
+C_UnitAuras.GetAuraDataByAuraInstanceID=function(unit,id)
+ assert(unit=='player');if instanceHidden then error('restricted instance query')end
+ if aura and id==instance then return {auraInstanceID=id}end
+end
+for token,name in pairs(examples)do
+ class=token;known=fc.ForeverSpellCatalog.classes[class].spells[name].ids[1]
+ live.buffGroups={};live.buffInstances={};restricted=false;aura=name;instance=instance+1
+ assert(not live:ShieldRecommendation())
+ restricted=true;event('player',{isFullUpdate=true})
+ assert(not live:ShieldRecommendation(),class..': instance lookup keeps active buff recognized during full/restricted updates')
+ instanceHidden=true;assert(not live:ShieldRecommendation(),class..': a restricted instance query must not imply removal');instanceHidden=false
+ aura=nil -- Native removal delta unavailable: query the previously observed instance.
+ local rec=live:ShieldRecommendation();assert(rec and rec.spellID==known,class..': absent tracked instance restores the reminder without a removal delta')
+ aura=name;instance=instance+1;event('player',{addedAuras={{name=name,spellId=known,auraInstanceID=instance}}})
+ assert(not live:ShieldRecommendation(),class..': new instance suppresses the reminder again')
+ aura=nil;event('player',nil)
+ assert(live:ShieldRecommendation(),class..': payload-less aura notification also reconciles instance disappearance')
+end
+assert(SlashCmdList.FOREVERCOACHINGBUFFS and SLASH_FOREVERCOACHINGBUFFS1=='/fcbuffs')
+local lines=live:GetBuffDiagnosticLines();assert(#lines>=3 and lines[1]:find('instance misses=',1,true),'Diagnostics expose readable event/query state for live-client verification')
 print('PASS: nine-class active -> restricted combat -> explicit removal -> persistent reminder -> reapplication -> repeated expiration, with unit/instance isolation and recovery.')
+print('PASS: nine-class full-update retention, payload-less notifications, missing removal deltas, native instance existence checks and live diagnostic command.')
 `);
 lua.lua_close(L);

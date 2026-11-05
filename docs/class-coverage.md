@@ -10,6 +10,8 @@ recommendation or talent-effect code.
 - Nine-class buff lifecycle: confirmed aura-instance removal during restricted
   combat, persistent reminders, reapplication, repeated expiration, unrelated
   unit/instance isolation, and recovery when direct aura reads become available.
+  Full updates retain tracked IDs; native instance queries cover missing removal
+  deltas and payload-less notifications. `/fcbuffs` reports live detection state.
 - All nine classes and four activities: recommendations at levels 1, 10, 20,
   30, 40, 50 and 60, retaining provisional evidence labels.
 - All 29 visual designs: animation at four icon sizes, static-border toggles,
