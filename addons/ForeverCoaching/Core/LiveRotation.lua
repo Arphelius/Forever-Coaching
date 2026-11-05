@@ -209,7 +209,7 @@ function Live:GetUpcomingSwings()
  table.sort(queue,function(a,b)if a.swingEnds==b.swingEnds then return a.hand<b.hand end;return a.swingEnds<b.swingEnds end)
  return queue
 end
-function Live:WithAutoPreview(rec)
+function Live:WithAutoPreview(rec,meleeCombat)
  if not rec.spellID then return rec end
  local swings=self:GetUpcomingSwings()
  if #swings==0 then swings[1]=autoAttack() end
@@ -217,7 +217,8 @@ function Live:WithAutoPreview(rec)
  local source=rec.queue or rec.forecast or {}
  local queue={{id=rec.spellID,name=rec.spellName,icon=rec.icon}}
  for _,entry in ipairs(source) do
-  if #queue<4-#swings and entry.id~=rec.spellID and entry.id~=6603 then queue[#queue+1]=entry end
+  if #queue<4-#swings and entry.id~=rec.spellID and entry.id~=6603
+   and not (meleeCombat and entry.name=='Lightning Bolt') then queue[#queue+1]=entry end
  end
  for _,entry in ipairs(swings) do queue[#queue+1]=entry end
  rec.queue=queue
@@ -249,6 +250,8 @@ function Live:WithShamanSwings(rec,spec)
  -- Before talent specialization exists, use observed weapon range rather
  -- than treating a browsed talent build as the character's live allocation.
  if not enhancement and spec and spec.available then return rec end
+ local combat=read(UnitAffectingCombat,'player')==true
+ local hardBolt=rec.spellName=='Lightning Bolt' and rec.instantCast~=true
  local melee=resolve('Stormstrike')
  local types=Enum and Enum.PlayerSwingType or {MainHand=0}
  local inRange=C_SwingTimer and read(C_SwingTimer.IsTargetWithinSwingRange,types.MainHand)
@@ -270,17 +273,22 @@ function Live:WithShamanSwings(rec,spec)
   -- so closing to melee immediately hands back to weapon/instant priorities.
   local speed=read(GetUnitSpeed,'player')
   local bolt=resolve('Lightning Bolt')
-  if (inRange==false or inRange==0) and speed==0 and bolt and ready(bolt,'target',false) then
+  if not combat and (inRange==false or inRange==0) and speed==0 and bolt and ready(bolt,'target',false) then
    return {spellID=bolt.id,spellName=bolt.name,icon=bolt.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),
     situation='ranged opener',reason='Open with Lightning Bolt while the enemy is outside melee range; switch to weapon swings and instant attacks when it closes.',
     queue={bolt,autoAttack()}}
   end
+  if combat and (hardBolt or not rec.spellID) then
+   local auto=autoAttack()
+   rec={spellID=auto.id,spellName=auto.name,icon=auto.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),
+    situation='weapon attack',reason='Keep autoattack running and close to melee range; hold hard-cast Lightning Bolt during melee combat.',pressRequired=false}
+  end
   -- Missing range data must not remove Enhancement's weapon swings from
   -- the strip. Keep them as follow-ups without claiming melee is in range.
-  return self:WithAutoPreview(rec)
+  return self:WithAutoPreview(rec,combat)
  end
  local auto=autoAttack()
- if not rec.spellID or (rec.spellName=='Lightning Bolt' and rec.situation~='maelstrom proc') then
+ if not rec.spellID or hardBolt then
   local shock=resolve('Earth Shock')
   if shock and ready(shock,'target',false) then
    rec={spellID=shock.id,spellName=shock.name,icon=shock.icon,targetHostile=true,targetGUID=read(UnitGUID,'target'),

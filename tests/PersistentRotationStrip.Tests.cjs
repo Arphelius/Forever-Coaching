@@ -19,7 +19,7 @@ assert(rec.spellID==8042 and rec.queue[2].autoAttack,'Running autoattack must no
 RotationState.meleeRange=false;rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID==403 and rec.situation=='ranged opener','Prefer Lightning Bolt at range even when Earth Shock is ready')
 RotationState.combat=true;rec=fc.LiveRotation:GetRecommendation()
-assert(rec.spellID==403,'Continue the ranged cast window while the enemy approaches')
+assert(rec.spellID~=403 and rec.queue[#rec.queue].autoAttack,'After combat starts, Enhancement uses instant attacks and swings instead of repeating the opener')
 RotationState.speed=7;rec=fc.LiveRotation:GetRecommendation()
 assert(rec.spellID~=403,'Do not hard-cast the opener while moving')
 RotationState.speed=0;RotationState.known[403]=false;rec=fc.LiveRotation:GetRecommendation()
@@ -43,12 +43,21 @@ fc.LiveRotation:ObserveSwing(2,0)
 rec=fc.LiveRotation:GetRecommendation()
 assert(rec.queue[#rec.queue].swingEnds==GetTime()+2,'Unknown range still uses Blizzard swing timing')
 fc.LiveRotation.swings={}
+RotationState.combat=true;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID==6603 and rec.pressRequired==false,'Unknown range in Enhancement combat cannot fall back to hard-cast Lightning Bolt')
+RotationState.meleeRange=false;rec=fc.LiveRotation:GetRecommendation()
+assert(rec.spellID==6603,'Out-of-range combat must not repeatedly restart the ranged opener')
+RotationState.combat=false
 RotationState.meleeRange=true
-local proc={spellID=403,spellName='Lightning Bolt',icon=403,situation='maelstrom proc',targetHostile=true}
+local proc={spellID=403,spellName='Lightning Bolt',icon=403,situation='maelstrom proc',instantCast=true,targetHostile=true}
 assert(fc.LiveRotation:WithShamanSwings(proc,TestSpec).spellID==403,'Preserve Maelstrom-enhanced casting')
+local partial={spellID=403,spellName='Lightning Bolt',icon=403,situation='maelstrom proc',instantCast=false,targetHostile=true}
+assert(fc.LiveRotation:WithShamanSwings(partial,TestSpec).spellID~=403,'A partial Maelstrom cast-time reduction must not replace Enhancement weapon swings')
 local interrupt={spellID=8042,situation='interrupt',targetHostile=true}
 assert(fc.LiveRotation:WithShamanSwings(interrupt,TestSpec)==interrupt,'Interrupts are never delayed by swings')
 TestSpec.treeIndex=1;rec=fc.LiveRotation:GetRecommendation();assert(rec.spellID==403,'Elemental does not receive Enhancement melee advice')
+RotationState.combat=true;rec=fc.LiveRotation:GetRecommendation();assert(rec.spellID==403,'Actual Elemental spec retains caster advice during combat')
+RotationState.combat=false
 TestSpec.treeIndex=2
 `);
 run(fs.readFileSync('addons/ForeverCoaching/UI/CombatHUD.lua','utf8'));

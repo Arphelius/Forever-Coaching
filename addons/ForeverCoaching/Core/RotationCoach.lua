@@ -1438,6 +1438,7 @@ function Coach:GetRecommendation()
             reason = reason .. string.format(" Maelstrom Weapon reduces its cast time and mana cost by %d%%.", maelstromReduction)
         end
         local recommendation = result(bestSpell.name, reason, bestSpell, bestSpell.key == "chainLightning" and "area damage" or (maelstromReduction > 0 and bestSpell.key == "lightningBolt" and "maelstrom proc" or "damage choice"), targetGUID)
+        recommendation.instantCast = bestSpell.key == "lightningBolt" and maelstromReduction >= 100
         if recommendation.situation == "damage choice" then
             if resourceDataAvailable and manaCostKnown and cost ~= nil then
                 if playerInCombat() then
