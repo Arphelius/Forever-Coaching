@@ -1,9 +1,8 @@
 const {spawnSync}=require('child_process');
 const suites=[
- 'ClassSpecRotationMatrix.Tests.cjs','ClassBuffUpkeep.Tests.cjs','BuffAuraLifecycle.Tests.cjs',
- 'BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
- 'RunTalentArtPreviewTests.cjs','RunLiveRotationTests.cjs',
- 'ProfessionItems.Tests.cjs','ShieldUpkeep.Tests.cjs','UtilityRotation.Tests.cjs',
+ 'RotationRemoval.Tests.cjs','BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
+ 'RunTalentArtPreviewTests.cjs',
+ 'ProfessionItems.Tests.cjs',
  'GroupThreatWarnings.Tests.cjs','WarningToast.Tests.cjs','GuideSources.Tests.cjs',
 ];
 for(const suite of suites){

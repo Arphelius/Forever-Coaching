@@ -90,7 +90,7 @@ account's Actions settings. No gameplay code is automatically published.
    manufacture simulator rankings from tooltip multipliers. Replace new source
    allocations directly when supplied and validate them against the current trees.
 6. Run `tests/TuningUpdate.Tests.cjs`, `tests/ForeverSpellAudit.Tests.cjs`,
-   `tests/RunLiveRotationTests.cjs`, `tests/ReadingPages.Tests.cjs` and
+   `tests/RotationRemoval.Tests.cjs`, `tests/ReadingPages.Tests.cjs` and
    `tests/ForeverSpellPreview.Tests.cjs` with Node. Update dated expected facts
    intentionally; investigate failures before accepting a new baseline.
 7. Only after review and tests, run

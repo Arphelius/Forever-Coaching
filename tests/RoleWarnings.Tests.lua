@@ -16,7 +16,6 @@ C_UnitAuras={GetAuraDataByIndex=function(unit,index)
 end}
 FC.EncounterCoach={currentOffers={}}
 local recorded=0;FC.FightRecorder={Record=function(_,kind)assert(kind=='role_warning');recorded=recorded+1 end}
-FC.RotationCoach={GetRecommendation=function()return {spellID=123}end}
 local W=FC.RoleWarnings
 local function has(kind)for _,a in ipairs(W.alerts)do if a.kind==kind then return a end end end
 W:Sample();assert(has('threat') and has('mana'),'Tank gets threat and healer mana alerts')
@@ -41,7 +40,6 @@ state.health=100;FC.EncounterCoach.currentOffers={}
 W:RegisterMechanic({id='test-ground',spellID=9001,trigger='playerAura',action='move',message='MOVE OUT — test ground effect.',source='test fixture only',instanceID=7})
 W:RegisterMechanic({id='test-reflect',spellID=9002,trigger='targetAura',action='stop',message='STOP DPS — test reflect.',source='test fixture only',instanceID=7})
 state.auras.player=9001;W:Sample();assert(W.alerts[1].kind=='move' and W:GetBlockingRecommendation().blocksRotation,'Observed known movement mechanic outranks throughput')
-assert(FC.LiveRotation:GetRecommendation().blocksRotation,'Known mechanic suppresses normal rotation')
 state.auras.player=nil;state.auras.target=9002;W:Sample();assert(has('stop') and W:GetBlockingRecommendation(),'Known target buff triggers stop DPS')
 state.instance=8;W:Sample();assert(not has('stop'),'A rule cannot fire in another encounter instance')
 state.instance=7;state.hiddenAura=true;W:Sample();assert(not has('stop'),'Hidden aura does not invent a mechanic');state.hiddenAura=nil

@@ -58,8 +58,5 @@ frames and estimate text widths.
   on three rows; the trees are 392px tall.
 
 ## Tank guide
-- `RoleWarnings:ThreatAction(t)` turns a tank threat state into a calm line and the spell to press:
-  slipping → yellow, the best threat spell; lost close → red, the threat spell; lost far → red, the taunt if known.
-- The HUD draws that colour as a border on the matching action button (`FC.CombatHUDTank.update`) and shows the
-  spell beside the threat bar. "Aggro back" appears once after a loss.
-- Nameplate overlay: waiting for in-game `/dump` checks of `C_NamePlate` and threat in combat.
+The rotation HUD, threat bar and spell highlights have been removed. Independent
+role warnings retain observed threat loss and known taunts. See role-warnings.md.

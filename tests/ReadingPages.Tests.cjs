@@ -198,7 +198,7 @@ assert(!texts(panel).includes('REMOVE CONTRIBUTION')&&!texts(panel).includes('RE
 assert(texts(panel).includes('Single target')&&texts(panel).includes('Why: Damage'));
 console.log('PASS: browser scenario picker and action explanations remain, while the two unwanted introductory paragraphs are removed.');
 // Exercise the live context provider too; earlier page fixtures replace it.
-for(const file of ['Core/RotationCoach.lua','Core/EncounterCoach.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+for(const file of ['Core/TalentSnapshot.lua','Core/EncounterCoach.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`ForeverCoaching.GuideBrowser.class=nil;ForeverCoaching.GuideBrowser.buildID=nil
 for _,frame in ipairs(TestFrames)do if frame.navigationIndex and frame.navigationIndex>1 then frame.scripts.OnClick(frame) end end
 print('PASS: all reading tabs construct with the real live context provider on a level 2 Shaman.')`);

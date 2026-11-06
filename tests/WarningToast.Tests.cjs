@@ -27,5 +27,3 @@ local mechanic={key='mechanic',kind='move',emergency=true,priority=1,message='Mo
 toast:Observe({health,mechanic});assert(toast.current==mechanic and label.text=='Move out now','Urgent mechanic must preempt a lesser warning')
 toast:Advance(3);assert(not label:IsShown());toast:Observe({mechanic});assert(not label:IsShown(),'Persistent mechanic must not restart its toast')
 print('PASS: single compact warning, short copy, timed fade, persistent-condition suppression, no alert queue, recurrence and urgent preemption.')`);
-const hud=fs.readFileSync('addons/ForeverCoaching/UI/CombatHUD.lua','utf8');
-if(hud.includes('encounterText:Show()'))throw Error('Persistent explanatory HUD text must remain removed');

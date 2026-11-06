@@ -7,7 +7,7 @@ function suite(files,source=''){
  }
  lua.lua_close(L);
 }
-const base=['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/LiveRotation.lua','addons/ForeverCoaching/Core/RoleWarnings.lua'];
+const base=['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/TalentSnapshot.lua','addons/ForeverCoaching/Core/RoleWarnings.lua'];
 suite([...base,'tests/TankThreat.Tests.lua']);
 suite([...base,'tests/RoleWarnings.Tests.lua']);
 suite([...base,'addons/ForeverCoaching/UI/RoleWarnings.lua'],`

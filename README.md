@@ -1,23 +1,17 @@
 # Forever-Coaching
 
-Forever Coaching combines talent builds, class guides, fight reviews and a live
-combat rotation strip for World of Warcraft: Forever. The strip stays faintly
-visible outside combat and brightens during fights, suggesting abilities based
-on your learned spells, current specialization and readable combat conditions.
-Enhancement Shaman advice includes a Lightning Bolt ranged opener, melee
-abilities and AUTO icons timed to Blizzard's native swing events.
+Forever Coaching combines talent builds, class guides, combat recording and fight
+reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
+swing prompts and `/fcrotation` settings have been removed.
 
-Use `/fcrotation` to choose single-target or area advice and configure cooldowns
-and items. Suggestions guide your decisions; you perform every action yourself.
-See [live rotation instructions](docs/live-rotation.md).
+Combat Review and fight timelines remain available. They report accessible local
+observations; full external combat-log analysis and report imports are not yet implemented.
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
 specialization and role. Practical summaries are checked against current tuning;
 see [the guide source review](docs/research/wowhead-guides.md).
 
-**Gear → Professions** explains profession choices by class/spec and goal. Verified
-crafted consumables in your bags can appear in live advice when usable and ready;
-use **Crafted items: On/Off** to control this. See [profession guidance](docs/professions.md).
+**Gear → Professions** explains profession choices by class/spec and goal. Profession item references remain available; live consumable prompts have been removed. See [profession guidance](docs/professions.md).
 **Talent Builds → Custom Builds** also supports importing and sharing current
 Wowhead Forever talent links.
 
@@ -32,7 +26,3 @@ Choose **Language** at the right of the dashboard's tab row for English (default
 In-game animation research preview: type `/fcpreview` to browse all current talent designs without leveling or spending points. Use `/fcpreview assassination` to open a specific design and `/fcpreview off` to close it. The preview supports 32, 48, and 64 pixel icons and uses the addon's actual animation renderer.
 
 After each recorded fight, a reminder offers **Review fight** to see what went well and what needs improving. Dismiss it for that fight, or choose **Silence reminders** to save your preference. Recording continues while reminders are silenced. Toggle **Analysis reminders** in Combat Review, or use `/fcreminders on` and `/fcreminders off`. Reminders disappear after 20 seconds or when another fight starts.
-
-## Credits
-
-Tank rotation priorities follow the Forever tank APLs of [MythicSim](https://github.com/sage3648/mythicsim-forever-engine-go) (MIT), as used by SimGear Forever. See `docs/live-rotation.md` and `docs/role-warnings.md`.

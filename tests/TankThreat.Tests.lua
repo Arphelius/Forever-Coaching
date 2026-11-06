@@ -29,7 +29,6 @@ IsSpellKnown=IsPlayerSpell
 C_UnitAuras={GetAuraDataByIndex=function()end}
 FC.EncounterCoach={currentOffers={}}
 FC.FightRecorder={Record=function()end}
-FC.LiveRotation={ProfileRecommendation=function()return {spellName='Shield Slam'}end}
 local W=FC.RoleWarnings
 local function threat()W:Sample();for _,a in ipairs(W.alerts)do if a.kind=='threat' then return a.message end end end
 
@@ -40,11 +39,11 @@ local m=threat();assert(W.threat.state=='warning' and m==nil and W.threatAction=
 reset();state.threat.player={false,1,40};state.threat.party2={true,3,100};state.targettarget='party2'
 assert(threat()==nil and W.threat.state=='other-tank','Another tank holding it is information only (the bar shows it)')
 reset();state.threat.player={false,1,85};state.threat.party1={true,3,100}
-m=threat();assert(W.threat.state=='lost-close' and m:find('Lost aggro on',1,true) and W.threatAction.spell=='Shield Slam' and W.threatAction.color=='red','Close loss: red border on the threat spell, no taunt: '..tostring(m))
+m=threat();assert(W.threat.state=='lost-close' and m:find('Lost aggro on',1,true) and W.threatAction.spell==nil and W.threatAction.color=='red','Close loss: red border on the threat spell, no taunt: '..tostring(m))
 state.threat.player={false,1,30}
 m=threat();assert(W.threat.state=='lost-far' and m:find('— Taunt',1,true) and W.threatAction.spell=='Taunt' and W.threatAction.color=='red' and not m:find('%u%u%u'),'Far loss: red border on the taunt, no capitals: '..tostring(m))
 state.class='PALADIN';state.known={}
-m=threat();assert(m:find('Shield Slam',1,true) and not m:find('Taunt',1,true) and not m:find('Hand of Reckoning',1,true),'No known taunt: never name one: '..tostring(m))
+m=threat();assert(W.threatAction.spell==nil and not m:find('Taunt',1,true) and not m:find('Hand of Reckoning',1,true),'No known taunt: never name one: '..tostring(m))
 reset()
 local back;W:Sample();for _,a in ipairs(W.alerts)do if a.message=='Aggro back' then back=true end end
 assert(not back and W.threatAction==nil,'Recovered aggro clears the warning without an informational toast')

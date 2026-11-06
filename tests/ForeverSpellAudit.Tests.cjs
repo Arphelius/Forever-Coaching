@@ -44,8 +44,3 @@ for _,entry in ipairs({{'Fire','Accelerant','Fireball'},{'Frost','Improved Frost
  assert(lesson.buildBenefit:find(entry[3],1,true),'Build benefit must identify the affected spell')
 end
 print('PASS: actual spell descriptions, resolved rank effects and Fireball/Frostbolt-specific talent benefits.')`);
-// The live profile must never contain spells outside the audited toolkit.
-const live=fs.readFileSync('addons/ForeverCoaching/Core/LiveRotation.lua','utf8');
-for(const retired of ['Living Bomb','Chimera Shot','Explosive Shot','Steady Shot','Envenom','Fan of Knives','Vampiric Touch','Mind Sear','Haunt','Chaos Bolt','Devastate','Shockwave','Crusader Strike','Divine Storm','Mangle (Cat)','Mangle (Bear)'])if(live.includes("spell('"+retired+"'")||live.includes("dot('"+retired+"'"))throw Error('Retired live action: '+retired);
-run("CreateFrame=function()return {RegisterEvent=function()end,SetScript=function()end}end\nGetTime=function()return 10 end\n"+live);
-run(fs.readFileSync('tests/LiveRotation.Tests.lua','utf8'));

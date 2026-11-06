@@ -233,19 +233,6 @@ local function recordCast(spellID, shownRecommendation, hasSentSnapshot, decisio
     session.damage[spellID] = session.damage[spellID] or { spellID = spellID, name = name, casts = 0, damage = 0 }
     session.damage[spellID].casts = session.damage[spellID].casts + 1
 
-    if decision and GetTime()-decision.at<=15 and #session.decisions<200 then
-        local actual=spellName(spellID)
-        local engine=FC.LiveRotation
-        if actual and engine and engine.IsReviewableAttack and engine:IsReviewableAttack(session.class,actual) then
-            session.decisions[#session.decisions+1]={
-                at=math.max(0,decision.at-session.started),spellID=spellID,name=actual,
-                suggestedID=decision.spellID,suggestedName=decision.spellName,
-                reason=decision.reason,situation=decision.situation,targetGUID=decision.targetGUID,
-                matched=actual==decision.spellName or spellID==decision.spellID,
-            }
-        end
-    end
-
     local rec = shownRecommendation
     if not hasSentSnapshot then
         local current = Review.latestRecommendation
@@ -448,35 +435,9 @@ local function buildReport(reviewSession)
 end
 
 function Review:SummarizeDecisions(report)
-    local good,wrong,improve={},{},{}
-    local groups,ordered={},{}
-    local matched,compared=0,0
-    for _,decision in ipairs(report.decisions or {}) do
-        if decision.matched==true or decision.matched==false then
-        compared=compared+1
-        if decision.matched then
-            matched=matched+1
-            if #good<3 then good[#good+1]=string.format('%.1fs: %s followed the ready attack priority. %s',decision.at,decision.name,decision.reason or '') end
-        else
-            local key=decision.name..'|'..decision.suggestedName..'|'..(decision.reason or '')
-            local group=groups[key]
-            if not group then group={first=decision,count=0};groups[key]=group;ordered[#ordered+1]=group end
-            group.count=group.count+1
-        end
-        end
-    end
-    table.sort(ordered,function(a,b)if a.count~=b.count then return a.count>b.count end;return a.first.at<b.first.at end)
-    for index=1,math.min(3,#ordered) do
-        local group=ordered[index];local d=group.first
-        wrong[#wrong+1]=string.format('%.1fs: Used %s while %s was the higher-priority ready attack.%s',d.at,d.name,d.suggestedName,group.count>1 and (' '..group.count..' similar choices this fight.') or '')
-        improve[#improve+1]=string.format('At %.1fs, use %s before %s. %s',d.at,d.suggestedName,d.name,d.reason or 'It was the first ready attack in the current priority.')
-    end
-    if compared>0 then
-        table.insert(good,1,string.format('%d/%d assessed attacks followed the live priority in this fight.',matched,compared))
-    else
-        good[1]=tostring(report.casts or 0)..' successful casts recorded in this fight.'
-    end
-    return table.concat(good,'\n\n'),table.concat(wrong,'\n\n'),table.concat(improve,'\n\n')
+    if not report then return '', '', '' end
+    -- Saved rotation comparisons are historical data, not current assessments.
+    return tostring(report.casts or 0)..' successful casts recorded in this fight.', '', ''
 end
 
 function Review:GetLatestText()
@@ -568,8 +529,8 @@ function Review:GetLatestSummary(filter)
             takeaway='',nextStep=''}
     end
     local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
-    if rotationWrong=='' then rotationWrong='No mistakes recorded this fight.' end
-    if rotationImprove=='' then rotationImprove='everything worked perfectly fine this fight' end
+    if rotationWrong=='' then rotationWrong='No verified mistakes identified from the available observations.' end
+    if rotationImprove=='' then rotationImprove='Review the timeline; missing combat information prevents a complete assessment.' end
     if latest.encounterCoaching and FC.EncounterCoach then
         local good=FC.EncounterCoach:Summarize(latest.encounterCoaching)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
@@ -593,7 +554,7 @@ function Review:GetLatestSummary(filter)
     return {goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
             latest.damageSource and "damage available" or "cast observations only"),
         observation=rotationGood,takeaway=rotationWrong,nextStep=rotationImprove,
-        coverage='Assesses fresh, same-target pre-cast attack priorities. Healing, utility and unreadable decisions are excluded. Priority comparisons do not measure damage lost.'}
+        coverage='Local cast observations only. Live rotation assessment has been removed. Restricted combat information is unavailable.'}
 end
 
 function Review:GetSource()

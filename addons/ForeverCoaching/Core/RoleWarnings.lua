@@ -96,27 +96,16 @@ function W:TankThreat()
  else result.state='lost-far' end
  return result
 end
--- The ready spell with the most threat per cast (SimGear's sims), else the priority's first ready spell.
-local function quickThreatSpell()
- local okBest,best=pcall(function()return FC.LiveRotation and FC.LiveRotation.BestThreatSpell and FC.LiveRotation:BestThreatSpell()end)
- if okBest and type(best)=='table' and best.name then return best.name end
- local ok,rec=pcall(function()return FC.LiveRotation and FC.LiveRotation.ProfileRecommendation and FC.LiveRotation:ProfileRecommendation()end)
- return ok and type(rec)=='table' and rec.spellName or nil
-end
--- What a tank should press for a threat state: a yellow border on the best threat spell while
--- threat slips, a red one when aggro is lost (taunt when far behind, else the threat spell).
--- Returns nil while threat is held or unreadable.
+-- Threat warnings retain observed state and known taunts without rotation advice.
 function W:ThreatAction(t)
  local state=t and t.state
  if state~='warning' and state~='lost-close' and state~='lost-far' and state~='lost' then return nil end
  local enemy=read(UnitName,'target') or 'your target'
  if state=='warning' then
-  local q=quickThreatSpell()
-  return {state=state,color='yellow',spell=q,message='Threat slipping'..(q and (' — '..q) or '')}
+  return {state=state,color='yellow',message='Threat slipping'}
  end
  local spell
  if state~='lost-close' then local _,class=read(UnitClass,'player');spell=TAUNT[class] and knownSpell(TAUNT[class]) end
- spell=spell or quickThreatSpell()
  return {state=state,color='red',spell=spell,message='Lost aggro on '..enemy..(spell and (' — '..spell) or '')}
 end
 function W:Sample()
@@ -129,8 +118,7 @@ function W:Sample()
  if combat then
   local health,max=read(UnitHealth,'player'),read(UnitHealthMax,'player')
   if type(health)=='number' and type(max)=='number' and max>0 and health>0 and health/max<.2 then
-   local message=read(function()return FC.LiveRotation and FC.LiveRotation.SurvivalWarning and FC.LiveRotation:SurvivalWarning()end)
-   message=message or 'Low health — move out of danger and seek healing.'
+   local message= 'Low health — move out of danger and seek healing.'
    add('self-health','health',message,2,false,message)
   end
   local threatRelevant=self:GroupThreatRelevant(role) and read(UnitCanAttack,'player','target')==true

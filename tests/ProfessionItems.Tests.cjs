@@ -41,16 +41,3 @@ s.combat=false;assert(not item());s.combat=true;s.health=100;s.owned={[13446]=1}
 ForeverCoachingDB.liveRotation.excludedCraftedItems={[13446]=true};assert(not item(),'Explicitly removed items stay suppressed')
 for _,class in ipairs({'WARRIOR','PALADIN','HUNTER','ROGUE','PRIEST','SHAMAN','MAGE','WARLOCK','DRUID'})do for _,goal in ipairs(fc.ProfessionGuide.goals)do local g=fc.ProfessionGuide:ForBuild(class,{role='damage'},goal.value);assert(g.available and g.pair and g.use and #g.sources>=3)end end
 print('PASS: owned/usable/ready/level requirements, same shared cooldown, correct class/spec power, healer separation, Cat Tea, skill-gated grenades, burst/AoE opt-ins, actual identity, disable and nine-class guides.')`);
-run(fs.readFileSync('addons/ForeverCoaching/Core/LiveRotation.lua','utf8'));
-run(`local fc=ForeverCoaching;local s=ProfessionState
-ForeverCoachingDB.liveRotation.excludedCraftedItems={};s.owned={[13446]=1};s.health=100;s.class='ROGUE';s.role='damage';s.tree=2
-fc.CraftedItems:Invalidate()
-fc.EncounterCoach.GetRecommendation=function()return nil end
-assert(fc.LiveRotation:GetRecommendation().itemID==13446,'The actual live rotation must include the owned profession consumable')
-s.owned[250937]=1;SlashCmdList.FOREVERCOACHINGROTATION('item 250937 burst');SlashCmdList.FOREVERCOACHINGROTATION('burst on')
-assert(fc.LiveRotation:GetRecommendation().itemID==13446,'Automatic emergency recovery must precede a manually configured offensive potion')
-fc.EncounterCoach.GetRecommendation=function()return {spellID=999,spellName='Kick'}end
-assert(fc.LiveRotation:GetRecommendation().spellID==999,'Assigned urgent actions remain ahead of optional crafted items')
-SlashCmdList.FOREVERCOACHINGROTATION('crafted off');assert(not fc.CraftedItems:IsEnabled())
-SlashCmdList.FOREVERCOACHINGROTATION('crafted on');assert(fc.CraftedItems:IsEnabled())
-print('PASS: live-engine integration, urgent override and saved crafted-item controls.')`);

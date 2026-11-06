@@ -34,7 +34,7 @@ for _,heading in ipairs({'WHAT YOU DID WELL','WHAT WENT WRONG','WHAT TO IMPROVE'
 end
 local resourcesButton
 for _,f in ipairs(TestFrames) do
-    if f.text=='Resources' then resourcesButton=f.parent end
+    if f.navigationIndex==6 then resourcesButton=f end
 end
 assert(resourcesButton,'Resources navigation missing')
 resourcesButton.scripts.OnClick(resourcesButton)
@@ -55,11 +55,11 @@ assert(ForeverCoachingDB.combatAnalysisReady,'Opening another page discarded unr
 FC:RefreshCombatReview()
 assert(ForeverCoachingDB.combatAnalysisReady,'Hidden review refresh discarded unread state')
 FC:OpenCombatReview()
-ForeverCoachingDB.reviews[1].recommendations[1].shortReason='Updated review fixture.'
+ForeverCoachingDB.reviews[1].casts=2
 FC:RefreshCombatReview()
 local refreshed=false
 for _,f in ipairs(TestFrames) do
-    if type(f.text)=='string' and f.text:find('Updated review fixture.',1,true) and f:IsShown() then refreshed=true end
+    if type(f.text)=='string' and f.text:find('2 successful casts',1,true) and f:IsShown() then refreshed=true end
 end
 assert(refreshed,'Open review failed to refresh its text')
 review:SetSource('foreverlogs');ForeverCoachingDB.combatAnalysisReady=true

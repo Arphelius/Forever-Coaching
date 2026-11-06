@@ -81,8 +81,8 @@ function Coach:GetBuildContext()
  local build
  if FC.BuildPlanner and class then for _,candidate in ipairs(FC.BuildPlanner:GetBuilds(class)) do if candidate.id==id then build=candidate;break end end end
  local context={id=id,title=build and build.title or "No build selected",role=build and build.role or "unknown",class=class,source=build and build.source,selected=true,talentMatch="Actual allocation unavailable"}
- if FC.RotationCoach and FC.RotationCoach.GetActiveTalentSnapshot then
-  local ok,talents=pcall(FC.RotationCoach.GetActiveTalentSnapshot,FC.RotationCoach)
+ if FC.TalentSnapshot and FC.TalentSnapshot.GetActiveTalentSnapshot then
+  local ok,talents=pcall(FC.TalentSnapshot.GetActiveTalentSnapshot,FC.TalentSnapshot)
   if ok and talents then
    context.activeTalents={};local actual={}
    for spellID,talent in pairs(talents) do

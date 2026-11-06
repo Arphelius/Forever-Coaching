@@ -50,6 +50,6 @@ checks for learning, resources, cooldowns, range, procs and assignments. Combat
 Review must still use observed fight evidence; a guide recommendation alone
 does not prove a mistake.
 
-Validation: `tests/GuideSources.Tests.cjs`, `tests/RunLiveRotationTests.cjs`,
+Validation: `tests/GuideSources.Tests.cjs`, `tests/RotationRemoval.Tests.cjs`,
 `tests/ForeverSpellAudit.Tests.cjs`, `tests/ReadingPages.Tests.cjs` and
 `tests/ForeverSpellPreview.Tests.cjs`.
