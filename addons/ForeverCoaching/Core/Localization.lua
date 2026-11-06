@@ -103,7 +103,7 @@ function FC:OpenLanguageSettings()
   button:SetText(language.name);button:SetScript('OnClick',function()L:SetLanguage(language.code);frame:Hide()end)
  end
 end
-SlashCmdList=SlashCmdList or {};SLASH_FOREVERCOACHINGLANGUAGE1='/fclanguage'
+if not SlashCmdList then SlashCmdList={} end;SLASH_FOREVERCOACHINGLANGUAGE1='/fclanguage'
 SlashCmdList.FOREVERCOACHINGLANGUAGE=function(message)
  local code=(message or ''):lower():match('^%s*(%S*)')
  if code=='' then FC:OpenLanguageSettings()elseif not L:SetLanguage(code)then print('/fclanguage en | ro | es | fr | de | pt')end

@@ -657,7 +657,7 @@ function Live:GetBuffDiagnosticLines()
  return lines
 end
 SLASH_FOREVERCOACHINGBUFFS1='/fcbuffs'
-SlashCmdList=SlashCmdList or {}
+if not SlashCmdList then SlashCmdList={} end
 SlashCmdList.FOREVERCOACHINGBUFFS=function()
  for _,line in ipairs(Live:GetBuffDiagnosticLines()) do print('Forever Coaching: '..line) end
 end
@@ -843,7 +843,7 @@ function Live:GetRecommendation()
  if urgent and not rec.spellID then return urgent end
  return rec
 end
-SlashCmdList=SlashCmdList or {};SLASH_FOREVERCOACHINGROTATION1='/fcrotation'
+if not SlashCmdList then SlashCmdList={} end;SLASH_FOREVERCOACHINGROTATION1='/fcrotation'
 SlashCmdList.FOREVERCOACHINGROTATION=function(text)
  if text:match('^%s*$') and FC.OpenRotationSettings then FC:OpenRotationSettings();return end
  local s=settings();local command,a,b=text:match('^(%S+)%s*(%S*)%s*(%S*)')
