@@ -185,6 +185,24 @@ if localization and localization.languages then
     end
 end
 
+-- Spell prompts: turns the icon strip and button glows on and off, from any tab.
+local promptButton = NewButton(header, "Spell prompts: On", 110)
+if languageButton then promptButton:SetPoint("RIGHT", languageButton, "LEFT", -6, 0)
+else promptButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -10, TAB_TOP) end
+local function UpdatePromptButton()
+    if not FC.RecommendationsShown then return end
+    promptButton:SetText("Spell prompts: " .. (FC:RecommendationsShown() and "On" or "Off"))
+    FitButton(promptButton, 110)
+end
+promptButton:SetScript("OnClick", function()
+    if FC.SetRecommendationsShown then
+        FC:SetRecommendationsShown(not FC:RecommendationsShown())
+        UpdatePromptButton()
+    end
+end)
+-- Saved settings load after this file, so the label is set when the window opens.
+frame:HookScript("OnShow", UpdatePromptButton)
+
 -- Content panel: its background stays in place when tabs change. Translucent, so the
 -- background art shows; reading panels and text groups keep darker strips behind text.
 local content = CreateFrame("Frame", nil, frame, "BackdropTemplate")

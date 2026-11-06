@@ -75,6 +75,12 @@ UnitExists=function(unit)return unit=='player'end;tick();assert(strip:IsShown() 
 RotationState.combat=false;tick();assert(strip:IsShown() and strip.alpha==.12,'After combat the strip returns to its idle brightness')
 fc.LiveRotation.GetIdleRecommendation=function()error('unavailable preview state')end
 tick();assert(strip:IsShown(),'An unavailable preview cannot remove the persistent strip')
+fc.LiveRotation.GetIdleRecommendation=nil
+fc:SetRecommendationsShown(false);RotationState.combat=true;tick()
+assert(not strip:IsShown(),'Spell prompts off hides the strip in combat')
+RotationState.combat=false;tick();assert(not strip:IsShown(),'Spell prompts off hides the idle strip')
+assert(ForeverCoachingDB.settings.showRecommendations==false,'The choice is saved')
+fc:SetRecommendationsShown(true);tick();assert(strip:IsShown(),'Spell prompts on brings the strip back')
 print('PASS: immediate idle/no-target preview, combat brightness, return to dim, AUTO labels, melee shock weaving, active autoattack handling, range gates and proc/interrupt/caster preservation.')
 `);
 lua.lua_close(L);

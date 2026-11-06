@@ -356,7 +356,27 @@ local function renderStrip(rec)
     strip:Show()
 end
 
+-- Spell prompts: the icon strip and the glows that say what to press. Off hides them only: the
+-- recommendation still reaches Combat Review, and the threat bar stays. Saved per account.
+function FC:RecommendationsShown()
+    local settings=ForeverCoachingDB and ForeverCoachingDB.settings
+    return not settings or settings.showRecommendations~=false
+end
+function FC:SetRecommendationsShown(shown)
+    ForeverCoachingDB=ForeverCoachingDB or {};ForeverCoachingDB.settings=ForeverCoachingDB.settings or {}
+    ForeverCoachingDB.settings.showRecommendations=shown==true
+    elapsed=1
+end
+
 local function clearDisplay()
+    if not FC:RecommendationsShown() then
+        ghost.fade:Stop()
+        ghost:Hide()
+        strip:Hide()
+        currentID=nil
+        updateGlows(nil)
+        return
+    end
     local engine=FC.LiveRotation
     local ok,idle
     if engine and engine.GetIdleRecommendation then ok,idle=pcall(engine.GetIdleRecommendation,engine) end
@@ -423,7 +443,7 @@ local function updateThreatBar()
     elseif t.state == "other-tank" then text = who .. " (tank) has it"
     else text = "On " .. who .. (t.mine and (" — you " .. math.floor(t.mine) .. "%") or "") end
     threatBar.label:SetText(text)
-    local action = FC.RoleWarnings.threatAction
+    local action = FC:RecommendationsShown() and FC.RoleWarnings.threatAction
     local pressColor = action and action.spell and TANK_COLORS[action.color]
     if pressColor then
         threatBar.press.icon:SetTexture(spellTexture(action.spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -484,7 +504,7 @@ controller:SetScript("OnUpdate", function(_, dt)
     elapsed = 0
     updateSwingLabels()
     if not pcall(updateThreatBar) then threatBar:Hide() end
-    pcall(updateTankGlows, FC.RoleWarnings and FC.RoleWarnings.threatAction)
+    pcall(updateTankGlows, FC:RecommendationsShown() and FC.RoleWarnings and FC.RoleWarnings.threatAction or nil)
     local engine=FC.LiveRotation or FC.RotationCoach
     if not engine or not engine.GetRecommendation then
         encounterText:Hide()
@@ -505,6 +525,10 @@ controller:SetScript("OnUpdate", function(_, dt)
     if FC.CombatReview then pcall(FC.CombatReview.SetLatestRecommendation, FC.CombatReview, rec) end
     -- Prose stays in learning/review pages; warnings use one fading toast.
     encounterText:Hide()
+    if not FC:RecommendationsShown() then
+        pcall(clearDisplay)
+        return
+    end
     if rec.targetHostile == false and not rec.encounterPrompt and not rec.selfBuff then
         pcall(clearDisplay)
         return
