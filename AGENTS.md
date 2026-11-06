@@ -5,6 +5,9 @@
   this workflow; do not ask for confirmation again for routine commits and pushes.
 - Report the pushed branch and commit. If a push fails, say so clearly and retain
   the local commit for retrying. Never force-push or overwrite unrelated changes.
+- Never assign to a Blizzard global, even `X = X or {}`: it taints it, and a tainted
+  `SlashCmdList` blocks macro commands such as `/startattack`. Use
+  `if not X then X={} end`. `tests/BlizzardGlobals.Tests.cjs` enforces this.
 - Keep local backups and generated scratch artifacts out of commits.
 - Treat shared addon changes as class-wide. For changes to rotations, buff
   upkeep, build recommendations or talent effects, run
