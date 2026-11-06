@@ -8,7 +8,7 @@ local FC = ForeverCoaching
 
 -- Register before dashboard setup so preview load failures remain diagnosable.
 SLASH_FOREVERCOACHINGARTPREVIEW1 = "/fcpreview"
-SlashCmdList = SlashCmdList or {}
+if not SlashCmdList then SlashCmdList={} end
 if not SlashCmdList.FOREVERCOACHINGARTPREVIEW then
 SlashCmdList.FOREVERCOACHINGARTPREVIEW = function(query)
     if type(FC.OpenTalentArtPreview) == "function" then
@@ -92,7 +92,7 @@ frame:SetScript("OnDragStart", frame.StartMoving)
 frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 frame:SetClampedToScreen(true)
 -- Let Blizzard's standard Escape handling close the dashboard.
-UISpecialFrames = UISpecialFrames or {}
+if not UISpecialFrames then UISpecialFrames={} end
 local registeredForEscape = false
 for _, name in ipairs(UISpecialFrames) do
     if name == "ForeverCoachingFrame" then registeredForEscape = true; break end

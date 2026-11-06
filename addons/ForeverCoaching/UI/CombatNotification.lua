@@ -87,7 +87,7 @@ end
 -- Never leave a post-fight popup covering the next combat.
 notice:RegisterEvent("PLAYER_REGEN_DISABLED")
 notice:SetScript("OnEvent",function() FC:HideCombatAnalysisNotice() end)
-SlashCmdList=SlashCmdList or {}
+if not SlashCmdList then SlashCmdList={} end
 SLASH_FOREVERCOACHINGREMINDERS1="/fcreminders"
 SlashCmdList.FOREVERCOACHINGREMINDERS=function(message)
     local command=(message or ""):lower():match("^%s*(%S*)")
