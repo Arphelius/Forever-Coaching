@@ -1,5 +1,5 @@
 ## Interface: 16001
-## Version: 0.1.0
+## Version: 0.1.1
 ## X-Website: https://github.com/Arphelius/Forever-Coaching
 ## Title: Forever Coaching
 ## IconTexture: Interface\AddOns\ForeverCoaching\Media\ForeverCoachingIcon.tga
