@@ -12,6 +12,13 @@ if (-not $Version) { $Version=$manifestVersion }
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$') { throw 'Invalid release version.' }
 if ($Version -ne $manifestVersion) { throw "Package version must match ForeverCoaching.toc ($manifestVersion)." }
 if ($manifest -notmatch '(?m)^## Interface: 16001\s*$') { throw 'Expected Forever Interface 16001.' }
+$manifestNames=@('ForeverCoaching.toc','ForeverCoaching_Forever.toc','ForeverCoaching_Camelot.toc')
+foreach ($name in $manifestNames) {
+ $candidate=Join-Path $source $name
+ if (-not (Test-Path -LiteralPath $candidate)) { throw "Missing client discovery manifest: $name" }
+ $text=Get-Content -LiteralPath $candidate -Raw
+ if (($text -replace '\r\n',"`n").TrimEnd() -ne ($manifest -replace '\r\n',"`n").TrimEnd()) { throw "Client manifest differs from the main load list: $name" }
+}
 foreach ($line in $manifest -split '\r?\n') {
  if ($line.Trim() -and -not $line.StartsWith('#') -and -not (Test-Path -LiteralPath (Join-Path $source $line.Trim()))) { throw "Missing addon file: $line" }
 }
@@ -23,7 +30,7 @@ $zip=[IO.Compression.ZipFile]::Open($path,[IO.Compression.ZipArchiveMode]::Creat
 try {
  foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
   $relative=$file.FullName.Substring($source.Length+1).Replace('\','/')
-  if ($file.Name -match ' - Copy\.|\.backup\.|\.log$' -or ($file.Extension -eq '.toc' -and $file.Name -ne 'ForeverCoaching.toc')) { continue }
+  if ($file.Name -match ' - Copy\.|\.backup\.|\.log$' -or ($file.Extension -eq '.toc' -and $manifestNames -notcontains $file.Name)) { continue }
   if ($relative -eq 'Data/ForeverLogsReview.lua') {
    $entry=$zip.CreateEntry('ForeverCoaching/'+$relative)
    $writer=New-Object IO.StreamWriter($entry.Open())
