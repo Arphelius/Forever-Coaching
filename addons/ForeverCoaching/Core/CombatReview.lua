@@ -143,7 +143,7 @@ function Review:SetReadyNoticeEnabled(enabled)
 end
 
 function Review:MarkLatestViewed()
-    if self:GetSource()=="foreverlogs" then return end
+    if self:GetSource()~="local" then return end
     ensureSavedData()
     ForeverCoachingDB.combatAnalysisReady = false
     if FC.HideCombatAnalysisNotice then FC:HideCombatAnalysisNotice() end
@@ -470,6 +470,7 @@ function Review:MatchesFilter(report,filter)
     return true
 end
 function Review:GetLatestSummary(filter)
+    if self:GetSource()=="warcraftlogs" and FC.WarcraftLogs then return FC.WarcraftLogs:GetSummary() end
     ensureSavedData()
     if self:GetSource()=="foreverlogs" then
         local statistics=FC.ForeverLogsStatistics
@@ -559,11 +560,12 @@ end
 
 function Review:GetSource()
     ensureSavedData()
-    return ForeverCoachingDB.settings.combatReviewSource=="foreverlogs" and "foreverlogs" or "local"
+    local source=ForeverCoachingDB.settings.combatReviewSource
+    return (source=="foreverlogs" or source=="warcraftlogs") and source or "local"
 end
 function Review:SetSource(value)
     ensureSavedData()
-    ForeverCoachingDB.settings.combatReviewSource=value=="foreverlogs" and "foreverlogs" or "local"
+    ForeverCoachingDB.settings.combatReviewSource=(value=="foreverlogs" or value=="warcraftlogs") and value or "local"
 end
 
 -- Recent per-cast results let the live coach account for this character's
@@ -708,6 +710,8 @@ events:SetScript("OnEvent", function(_, event, ...)
                 table.insert(ForeverCoachingDB.reviews, 1, report)
                 while #ForeverCoachingDB.reviews > 10 do table.remove(ForeverCoachingDB.reviews) end
                 ForeverCoachingDB.combatAnalysisReady = true
+                -- A newly finished local fight must never display an older imported report.
+                if Review:GetSource()=="warcraftlogs" then Review:SetSource('local') end
                 if FC.RefreshCombatReview then FC:RefreshCombatReview() end
                 if Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
                     FC:NotifyCombatAnalysisReady(report)

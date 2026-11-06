@@ -462,6 +462,11 @@ local function ShowTab(tabName)
         toolbar:Add(specButton,8);toolbar:Add(detailButton,6)
 
         local rowTop=M.toolbarTop-M.buttonHeight-6
+        if FC.OpenWarcraftLogs then
+            local logsButton=NewButton(currentPage,'Warcraft Logs',104)
+            logsButton:SetPoint('TOPLEFT',currentPage,'TOPLEFT',M.pagePadding,rowTop)
+            logsButton:SetScript('OnClick',function()FC:OpenWarcraftLogs()end)
+        end
         local rightEdge=-M.pagePadding
         if FC.OpenFightTimeline then
             local timelineButton=NewButton(currentPage,'View fight timeline',120)
@@ -490,7 +495,7 @@ local function ShowTab(tabName)
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
-        reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+2,rowTop-5)
+        reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+(FC.OpenWarcraftLogs and 112 or 2),rowTop-5)
         reviewWidgets.metrics:SetPoint("RIGHT",noticeButton,"LEFT",-10,0)
         reviewWidgets.metrics:SetJustifyH("LEFT");reviewWidgets.metrics:SetWordWrap(false)
         local scrollTop=rowTop-M.buttonHeight-8
@@ -522,7 +527,7 @@ local function ShowTab(tabName)
         end
         FC:BuildGuideSelectors(currentPage,updateGuideSource);updateGuideSource()
         local resources={
-            {"WARCRAFT LOGS - PARSES & RANKINGS","Check your parses and rankings for supported games. Inspiration for log analysis; Forever integration is deferred.","https://www.warcraftlogs.com/"},
+            {"WARCRAFT LOGS - FOREVER","Record combat, upload outside WoW, then import an analyzed report through Combat Review > Warcraft Logs.","https://forever.warcraftlogs.com/"},
             {"FOREVER LOGS - STATISTICS SOURCE","Source of recorded class/spec aggregate statistics. Explore the original data and website.","https://foreverlogs.gg/"},
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},

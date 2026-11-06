@@ -1,0 +1,101 @@
+// Public-report API access. Credentials stay outside the addon and exported reviews.
+const HOST='https://forever.warcraftlogs.com';
+function reportCode(value){
+ if(/^[A-Za-z0-9]{16}$/.test(value||''))return value;
+ let url;try{url=new URL(value);}catch{throw Error('Use a Forever Warcraft Logs report URL.');}
+ const match=url.pathname.match(/^\/reports\/([A-Za-z0-9]{16})\/?$/);
+ if(url.origin!==HOST||!match)throw Error('Use a report from '+HOST+'.');
+ return match[1];
+}
+async function jsonRequest(url,options,fetcher=fetch){
+ const response=await fetcher(url,{...options,redirect:'error',signal:AbortSignal.timeout(30000)});
+ if(!response.ok)throw Error(response.status===429?'Warcraft Logs rate limit reached; retry later.':`Warcraft Logs request failed (${response.status}). Check report permissions and API access.`);
+ const raw=await response.text();if(raw.length>32*1024*1024)throw Error('Warcraft Logs response too large.');
+ try{return JSON.parse(raw);}catch{throw Error('Warcraft Logs returned invalid JSON.');}
+}
+function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.env.WCL_CLIENT_SECRET,accessToken=process.env.WCL_ACCESS_TOKEN,fetcher=fetch}={}){
+ let token=accessToken,expires=accessToken?Infinity:0;
+ async function query(query,variables={}){
+  if(!token||Date.now()>=expires){
+   if(!clientId||!clientSecret)throw Error('Set WCL_CLIENT_ID and WCL_CLIENT_SECRET, or WCL_ACCESS_TOKEN, outside the addon.');
+   const auth=await jsonRequest('https://www.warcraftlogs.com/oauth/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(clientId+':'+clientSecret).toString('base64'),'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials'},fetcher);
+   if(typeof auth.access_token!=='string')throw Error('Warcraft Logs token was not returned.');
+   token=auth.access_token;expires=Date.now()+Math.max(1,Number(auth.expires_in||3600)-60)*1000;
+  }
+  const result=await jsonRequest(HOST+'/api/v2/client',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
+  if(result.errors?.length||!result.data)throw Error('Warcraft Logs API rejected this query. Verify the Forever schema and report permissions.');
+  return result.data;
+ }
+ const reports=new Map();
+ async function report(value){const code=reportCode(value);if(reports.has(code))return reports.get(code);
+  const data=await query(`query($code:String!){reportData{report(code:$code){code title startTime zone{id} masterData{gameVersion actors{id name server type subType} abilities{gameID name}} fights{id name encounterID difficulty startTime endTime kill inProgress friendlyPlayers friendlySpecs}}}}`,{code});
+  const result=data.reportData?.report;
+  if(!result||result.code!==code||!Array.isArray(result.fights)||!Array.isArray(result.masterData?.actors))throw Error('Report metadata unavailable.');
+  reports.set(code,result);return result;
+ }
+ async function events(code,fight,maxPages=100){
+  let cursor=fight.startTime;const result=[];
+  for(let page=0;page<maxPages;page++){
+   const data=await query(`query($code:String!,$fight:Int!,$start:Float!,$end:Float!){reportData{report(code:$code){events(fightIDs:[$fight],startTime:$start,endTime:$end,dataType:All,includeResources:true,limit:10000,useAbilityIDs:true){data nextPageTimestamp}}}}`,{code:reportCode(code),fight:fight.id,start:cursor,end:fight.endTime});
+   const batch=data.reportData?.report?.events;
+   if(!Array.isArray(batch?.data))throw Error('Event page unavailable.');
+   result.push(...batch.data);const next=batch.nextPageTimestamp;
+   if(next==null)return {events:result,complete:true};
+   if(!Number.isFinite(next)||next<=cursor)throw Error('Event pagination did not advance.');
+   cursor=next;
+  }
+  return {events:result,complete:false};
+ }
+ async function topRanks(fight,actor,spec,metric,partition){
+  const data=await query(`query($encounter:Int!,$difficulty:Int!,$class:String!,$spec:String!,$partition:Int,$metric:CharacterRankingMetricType!){worldData{encounter(id:$encounter){characterRankings(difficulty:$difficulty,className:$class,specName:$spec,partition:$partition,metric:$metric,page:1)}}}`,{encounter:fight.encounterID,difficulty:fight.difficulty,class:actor.subType,spec,partition,metric});
+  const ranks=data.worldData?.encounter?.characterRankings;
+  if(!Array.isArray(ranks?.rankings))throw Error('Leaderboard unavailable; no reference parses were assumed.');
+  return ranks.rankings;
+ }
+ async function percentile(code,fight,actor,metric){
+  const data=await query(`query($code:String!,$fight:Int!,$metric:ReportRankingMetricType!){reportData{report(code:$code){rankings(fightIDs:[$fight],playerMetric:$metric,compare:Parses,timeframe:Historical)}}}`,{code,fight:fight.id,metric});
+  const ranks=data.reportData?.report?.rankings;
+  const entry=ranks?.data?.find(row=>row.fightID===fight.id);
+  const rows=Object.values(entry?.roles||{}).flatMap(role=>role.characters||[]);
+  const player=rows.find(row=>row.id===actor.id);
+  return typeof player?.rankPercent==='number'?player.rankPercent:null;
+ }
+ return {report,events,topRanks,percentile};
+}
+function specFor(report,fight,actor){const index=fight.friendlyPlayers?.indexOf(actor.id);return index>=0?fight.friendlySpecs?.[index]:null;}
+function profile(report,fight,actor,stream){
+ const abilities=new Map((report.masterData.abilities||[]).map(a=>[a.gameID,a.name]));
+ const events=stream.events.filter(e=>Number.isFinite(e.timestamp)&&e.timestamp>=fight.startTime&&e.timestamp<=fight.endTime);
+ const own=events.filter(e=>e.sourceID===actor.id);const casts=own.filter(e=>e.type==='cast');
+ const counts=new Map();for(const e of casts){const id=e.abilityGameID;if(!Number.isSafeInteger(id))continue;const row=counts.get(id)||{id,name:abilities.get(id)||'Spell #'+id,count:0,first:(e.timestamp-fight.startTime)/1000};row.count++;counts.set(id,row);}
+ const deaths=events.filter(e=>e.type==='death'&&e.targetID===actor.id);
+ const timeline=events.filter(e=>(e.sourceID===actor.id||e.targetID===actor.id)&&['cast','death','interrupt','dispel','applybuff','removebuff','applydebuff','removedebuff','resurrect'].includes(e.type));
+ return {report,fight,actor,spec:specFor(report,fight,actor),complete:stream.complete,duration:(fight.endTime-fight.startTime)/1000,casts,counts,deaths,timeline,events,abilities};
+}
+function compare(target,references){
+ const good=[],observations=[],improve=[];
+ const stamp=e=>((e.timestamp-target.fight.startTime)/1000).toFixed(1)+'s';
+ good.push(`${target.casts.length} successful cast events; ${target.deaths.length} recorded deaths. ${target.fight.kill?'Boss defeated.':'Attempt ended without a kill.'}`);
+ for(const type of ['interrupt','dispel']){const list=target.events.filter(e=>e.sourceID===target.actor.id&&e.type===type);if(list.length)good.push(`${list.length} recorded ${type} events.`);}
+ for(const death of target.deaths.slice(0,3)){
+  const hits=target.events.filter(e=>e.type==='damage'&&e.targetID===target.actor.id&&e.timestamp<=death.timestamp&&e.timestamp>=death.timestamp-10000).slice(-5);
+  observations.push(`Death at ${stamp(death)}. Final recorded hits: ${hits.map(e=>`${target.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID} at ${stamp(e)} (${Number(e.amount)||0})`).join('; ')||'unavailable'}. This does not establish blame.`);
+  improve.push(`Review the 10 seconds before ${stamp(death)} for encounter damage, positioning and available help. The log alone does not prove a defensive was ready.`);
+ }
+ const compatible=references.filter(r=>r.complete&&r.percentile===100&&r.fight.kill&&r.fight.encounterID===target.fight.encounterID&&target.fight.difficulty!=null&&r.fight.difficulty===target.fight.difficulty&&r.actor.subType===target.actor.subType&&r.spec===target.spec&&target.report.zone?.id!=null&&r.report.zone?.id===target.report.zone?.id&&Number.isFinite(target.report.masterData.gameVersion)&&r.report.masterData.gameVersion===target.report.masterData.gameVersion&&Math.abs(r.duration-target.duration)/target.duration<=.2);
+ if(target.complete&&target.fight.kill&&target.spec&&compatible.length>=3){
+  const ids=new Set(compatible.flatMap(r=>[...r.counts.keys()]));
+  for(const id of ids){const rates=compatible.map(r=>(r.counts.get(id)?.count||0)*60/r.duration).sort((a,b)=>a-b);const median=rates[Math.floor(rates.length/2)];const actual=(target.counts.get(id)?.count||0)*60/target.duration;
+   if(median>0&&actual<median*.65&&compatible.filter(r=>r.counts.has(id)).length>=3){const name=compatible.find(r=>r.counts.has(id)).counts.get(id).name;improve.push(`${name}: ${actual.toFixed(1)} casts/min versus ${median.toFixed(1)} reference median. Check build, assignment, encounter phases and availability; this difference is not a verified mistake.`);}
+  }
+ }
+ if(!observations.length)observations.push('No specific mistake established by these checks. Absence of findings does not establish flawless play.');
+ if(!improve.length)improve.push('Inspect the recorded timeline and encounter assignments. At least three compatible verified 100-percentile kills are required for cast-rate comparisons.');
+ const timeline=target.timeline.slice(0,150).map(e=>`${stamp(e)} / ${e.type} / ${target.abilities.get(e.abilityGameID)|| (e.abilityGameID?'Spell #'+e.abilityGameID:target.actor.name)}`);
+ return {good:good.join('\n'),observations:observations.join('\n\n'),improve:improve.slice(0,12).join('\n\n'),timeline:timeline.join('\n'),references:compatible.map(r=>`${HOST}/reports/${r.report.code}#fight=${r.fight.id}&source=${r.actor.id} / 100 percentile`).join('\n'),coverage:`${target.complete?'Complete retrieved':'Partial'} event stream. ${compatible.length} compatible verified 100-percentile references. Same encounter, difficulty, class, spec, game version and zone; duration within 20%. Talent/gear/assignment equivalence is not verified. Comparisons are review prompts, not error verdicts. Timeline shows ${Math.min(150,target.timeline.length)}/${target.timeline.length} selected events. No claim to scan all site reports.`};
+}
+function encodeReview(target,analysis){
+ const fields=['FCWCL1',target.report.code,target.fight.id,target.actor.name,target.actor.server||'',target.actor.subType?.toUpperCase(),target.spec||'Unknown',target.fight.encounterID,target.fight.name,Math.round(target.report.startTime+target.fight.startTime),Math.round(target.duration*1000),analysis.good,analysis.observations,analysis.improve,analysis.timeline,analysis.references,analysis.coverage];
+ const result=fields.map(v=>encodeURIComponent(String(v??''))).join('|');if(result.length>60000)throw Error('Review too large for import.');return result;
+}
+module.exports={HOST,reportCode,createClient,specFor,profile,compare,encodeReview};

@@ -78,6 +78,7 @@ assert(ForeverCoachingDB.activeTalentBuilds.player=='keep-active','Guide browsin
 print('PASS: interactive class/spec/scenario menus, direct scenario selection, refreshed content and isolated live build state.')`);
 run(`unpack=unpack or table.unpack;ForeverCoaching.IsTalentVFXEnabled=function()return false end`);
 for(const file of ['Data/LocaleMessages.lua','Core/Localization.lua','Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Core/GuideSources.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Data/WowheadGuideNotes.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/ProfessionGuide.lua','Data/ProfessionItems.lua','Core/ProfessionItems.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+for(const file of ['Core/WarcraftLogs.lua','UI/WarcraftLogs.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
 for index=1,6 do

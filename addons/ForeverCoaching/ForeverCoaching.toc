@@ -42,6 +42,7 @@ Core\EncounterCoach.lua
 Core\RoleWarnings.lua
 Core\ScenarioTracker.lua
 Core\CombatReview.lua
+Core\WarcraftLogs.lua
 UI\ClassicTheme.lua
 UI\BuildsWindow.lua
 UI\CustomBuilds.lua
@@ -49,6 +50,7 @@ UI\GuideSelectors.lua
 UI\EncounterLearning.lua
 UI\GearGuide.lua
 UI\FightTimeline.lua
+UI\WarcraftLogs.lua
 UI\BlizzardTalentGuide.lua
 UI\TalentArtPreview.lua
 ForeverCoaching.lua

@@ -1,6 +1,6 @@
 const {spawnSync}=require('child_process');
 const suites=[
- 'RotationRemoval.Tests.cjs','BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
+ 'RotationRemoval.Tests.cjs','WarcraftLogs.Tests.cjs','BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
  'RunTalentArtPreviewTests.cjs',
  'ProfessionItems.Tests.cjs',
  'GroupThreatWarnings.Tests.cjs','WarningToast.Tests.cjs','GuideSources.Tests.cjs',

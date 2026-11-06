@@ -5,7 +5,11 @@ reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
 Combat Review and fight timelines remain available. They report accessible local
-observations; full external combat-log analysis and report imports are not yet implemented.
+observations. Combat Review > Warcraft Logs adds file-logging controls and imports
+of externally analyzed Forever Warcraft Logs fights, with timestamped evidence
+and conservative comparisons against verified 100-percentile references.
+See [Warcraft Logs setup and limitations](docs/warcraftlogs.md). Upload and analysis
+are external steps; the addon does not automatically fetch website results.
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
 specialization and role. Practical summaries are checked against current tuning;
