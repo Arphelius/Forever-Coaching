@@ -359,6 +359,10 @@ local function UpdateReviewText()
             if reviewWidgets.coverage then reviewWidgets.coverage:SetText(result.coverage or "Local cast observations; no full encounter event stream is loaded.") end
             if reviewWidgets.cards then
                 local offset=0
+                if reviewWidgets.warcraftLogs then
+                    reviewWidgets.warcraftLogs.refresh()
+                    offset=reviewWidgets.warcraftLogs.height+14
+                end
                 for i,body in ipairs({reviewWidgets.observation,reviewWidgets.takeaway,reviewWidgets.nextStep}) do
                     local card=reviewWidgets.cards[i]
                     card:Show()
@@ -462,11 +466,6 @@ local function ShowTab(tabName)
         toolbar:Add(specButton,8);toolbar:Add(detailButton,6)
 
         local rowTop=M.toolbarTop-M.buttonHeight-6
-        if FC.OpenWarcraftLogs then
-            local logsButton=NewButton(currentPage,'Warcraft Logs',104)
-            logsButton:SetPoint('TOPLEFT',currentPage,'TOPLEFT',M.pagePadding,rowTop)
-            logsButton:SetScript('OnClick',function()FC:OpenWarcraftLogs()end)
-        end
         local rightEdge=-M.pagePadding
         if FC.OpenFightTimeline then
             local timelineButton=NewButton(currentPage,'View fight timeline',120)
@@ -495,13 +494,14 @@ local function ShowTab(tabName)
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
-        reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+(FC.OpenWarcraftLogs and 112 or 2),rowTop-5)
+        reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+2,rowTop-5)
         reviewWidgets.metrics:SetPoint("RIGHT",noticeButton,"LEFT",-10,0)
         reviewWidgets.metrics:SetJustifyH("LEFT");reviewWidgets.metrics:SetWordWrap(false)
         local scrollTop=rowTop-M.buttonHeight-8
         local reviewScroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
         reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,scrollTop);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,12)
         local reviewContent=CreateFrame("Frame",nil,reviewScroll);reviewContent:SetSize(CARD_W+36,1040);reviewScroll:SetScrollChild(reviewContent)
+        if FC.BuildWarcraftLogsPanel then reviewWidgets.warcraftLogs=FC:BuildWarcraftLogsPanel(reviewContent,CARD_W) end
         local goodCard,observation=AddCard(reviewContent,"WHAT YOU DID WELL","",0,300)
         local wrongCard,takeaway=AddCard(reviewContent,"WHAT WENT WRONG","",-312,300)
         local improveCard,nextStep=AddCard(reviewContent,"WHAT TO IMPROVE","",-624,300)

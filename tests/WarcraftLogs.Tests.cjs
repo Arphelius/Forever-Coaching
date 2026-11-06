@@ -52,7 +52,12 @@ listener.scripts.OnEvent(listener,'PLAYER_REGEN_DISABLED');listener.scripts.OnEv
 for _,callback in ipairs(TestTimers)do callback()end
 assert(ForeverCoaching.CombatReview:GetSource()=='local','New local fight must not display a stale external report')`);
 run(fs.readFileSync('addons/ForeverCoaching/UI/WarcraftLogs.lua','utf8'));
-run(`ForeverCoaching:OpenWarcraftLogs();assert(ForeverCoachingWarcraftLogs:IsShown());ForeverCoachingWarcraftLogs:Hide();ForeverCoaching:OpenWarcraftLogs()`);
+run(`local parent=CreateFrame('Frame');local panel=ForeverCoaching:BuildWarcraftLogsPanel(parent,728)
+assert(panel.frame.parent==parent and panel.height==340,'Warcraft Logs is embedded in review content')
+assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No separate popup remains')
+panel.input:SetText('invalid import');panel.importButton.scripts.OnClick(panel.importButton)
+assert(panel.status:GetText():find('Paste a Forever Coaching',1,true),'Inline validation is visible')
+assert(parent:IsShown(),'Importing must leave the review page visible')`);
 lua.lua_close(L);
 async function main(){
  let calls=[];

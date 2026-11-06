@@ -67,7 +67,7 @@ end
 function W:GetSummary()
  local list=self:GetReviews();local db=saved();local selected=list[1]
  for _,r in ipairs(list) do if db.selected==r.code..':'..r.fight then selected=r end end
- if not selected then return {metrics='Warcraft Logs / No imported fight',goodText='Record a fight, upload it to Warcraft Logs, then import its analyzed review.',wrongText='No external report is loaded for this character.',improveText='Open Warcraft Logs in Combat Review for recording controls and import instructions.',coverage='The addon cannot upload files or query the website. Local recording continues independently.'} end
+ if not selected then return {metrics='Warcraft Logs / No imported fight',goodText='Record a fight, upload it to Warcraft Logs, then import its analyzed review.',wrongText='No external report is loaded for this character.',improveText='Use the Warcraft Logs section at the top of Combat Review for recording and imports.',coverage='The addon cannot upload files or query the website. Local recording continues independently.'} end
  local r=selected
  return {metrics='Warcraft Logs / '..r.name..' / '..r.spec..' / fight '..r.fight..' / '..math.floor(r.duration/1000)..'s',headings={'WHAT HAPPENED','OUTCOMES TO INVESTIGATE','REFERENCE COMPARISON'},goodText=r.good..'\n\nTimeline:\n'..r.timeline,wrongText=r.observations,improveText=r.improve..'\n\nReference reports:\n'..(r.references~='' and r.references or 'No compatible verified 100-percentile reference retrieved.'),coverage=r.coverage..'\nUploaded fight started (Unix ms): '..r.started..'\nSource: '..self.url..'reports/'..r.code..'#fight='..r.fight,sourceUrl=self.url..'reports/'..r.code..'#fight='..r.fight}
 end

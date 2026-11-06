@@ -2,8 +2,11 @@
 
 Source: https://forever.warcraftlogs.com/ (separate from foreverlogs.gg).
 
-Combat Review > Warcraft Logs provides file-logging controls, a copyable website
-address and review import. Start file logging before combat. The addon attempts
+The prominent Warcraft Logs section at the top of Combat Review provides
+file-logging controls, a copyable website address and review import directly in
+the page. There is no separate popup. The dashboard remains movable by dragging
+its header. Scroll below this section to read fight findings. Start file logging
+before combat. The addon attempts
 to enable Advanced Combat Logging and confirms the logging state when possible.
 This API behavior still requires verification in the actual Forever client.
 Do not stop logging that another raid tool still needs.
