@@ -113,7 +113,7 @@ schema. Findings produced by our comparison utility are therefore labeled
 This command is for integration/development, not the normal player workflow:
 
 ```powershell
-node tools/Review-WarcraftLogs.cjs --report "REPORT_URL" --player "NAME" --realm "REALM" --metric dps --partition auto
+node tools/Review-WarcraftLogs.cjs --report "REPORT_URL" --player "NAME" --source 2 --metric dps --partition auto
 ```
 
 Configure authorized API access in the process environment (`WCL_CLIENT_ID` and
@@ -122,6 +122,11 @@ review codes or analysis exports. Client credentials access public reports;
 user-authorized developer tools can access permitted reports through the user
 endpoint. The previous OAuth companion is retained as a developer utility and
 excluded from player packages.
+
+Forever does not require players to supply a realm. The collector uses a unique
+character name, optionally restricted by `--source` (the player source ID from
+that report). `--realm` remains an optional metadata filter for integrations.
+Source IDs apply only within a report. Ambiguous names are rejected.
 
 The collector checks completed boss attempts for the selected player in the
 supplied report; it does not crawl all reports. It considers up to 20 leaderboard

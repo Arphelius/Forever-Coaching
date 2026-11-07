@@ -1,16 +1,18 @@
 const fs=require('fs'),path=require('path');
 const {HOST,reportCode,createClient,specFor,profile,compare,encodeReview}=require('./warcraftlogs-client.cjs');
 const {compatible}=require('./peer-coaching.cjs');
-async function collect({report:input,player,realm,metric='dps',partition,minPercentile=100,output='.local/warcraftlogs',client=createClient(),fightID}){
- if(!player||!realm)throw Error('Specify --player and --realm to identify the character.');
+async function collect({report:input,player,realm,sourceID,metric='dps',partition,minPercentile=100,output='.local/warcraftlogs',client=createClient(),fightID}){
+ if(!player)throw Error('Specify --player to identify the character.');
+ if(sourceID!==undefined&&(!Number.isSafeInteger(sourceID)||sourceID<1))throw Error('Choose a valid report source ID.');
  if(!['dps','hps'].includes(metric))throw Error('Metric must be dps or hps.');
  if(minPercentile!==100)throw Error('Only verified 100-percentile reference parses are supported.');
  if(partition!==undefined&&partition!=='auto'&&(!Number.isSafeInteger(partition)||partition<1))throw Error('Partition must be auto or a positive integer from the matching leaderboard.');
  if(fightID!==undefined&&(!Number.isSafeInteger(fightID)||fightID<1))throw Error('Choose a valid fight.');
  const report=await client.report(reportCode(input));
  const norm=s=>String(s).toLowerCase().replace(/[\s'-]/g,'');
- const actors=report.masterData.actors.filter(a=>a.type==='Player'&&norm(a.name)===norm(player)&&norm(a.server)===norm(realm));
- if(actors.length!==1)throw Error('Player/realm did not identify exactly one report actor.');
+ const actors=report.masterData.actors.filter(a=>a.type==='Player'&&norm(a.name)===norm(player)&&
+  (realm===undefined||norm(a.server)===norm(realm))&&(sourceID===undefined||a.id===sourceID));
+ if(actors.length!==1)throw Error('Character did not identify exactly one report actor. Use --source with the report player source ID if names are ambiguous.');
  const actor=actors[0],results=[],referenceCache=new Map();
  for(const fight of report.fights.filter(f=>f.encounterID>0&&!f.inProgress&&f.endTime>f.startTime&&f.friendlyPlayers?.includes(actor.id)&&(fightID===undefined||f.id===fightID))){
   const target=profile(report,fight,actor,await client.events(report.code,fight));
@@ -62,8 +64,8 @@ async function collect({report:input,player,realm,metric='dps',partition,minPerc
 }
 if(require.main===module){
  const args=process.argv.slice(2),options={};
- if(args.includes('--help')){console.log('Developer utility: node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME --realm REALM [--metric dps|hps] [--partition ID|auto] [--output .local/warcraftlogs]\nSet WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. Requires at least three independent compatible verified 100-percentile parses. This utility is not the normal addon workflow.');}
- else{try{for(let i=0;i<args.length;i+=2){const name=args[i].replace(/^--/,'');if(!['report','player','realm','metric','partition','min-percentile','output'].includes(name)||args[i+1]===undefined)throw Error('Unknown option or missing value. Use --help.');options[name==='min-percentile'?'minPercentile':name]=name==='partition'&&args[i+1]==='auto'?'auto':['partition','min-percentile'].includes(name)?Number(args[i+1]):args[i+1];}
- collect(options).then(rows=>console.log(`Prepared ${rows.length} fight reviews. Paste a .fcwcl.txt file into Combat Review > Warcraft Logs > Import.`)).catch(e=>{console.error(e.message);process.exitCode=1;});}catch(e){console.error(e.message);process.exitCode=1;}}
+ if(args.includes('--help')){console.log('Developer utility: node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME [--source ID] [--realm REALM] [--metric dps|hps] [--partition ID|auto] [--output .local/warcraftlogs]\nRealm is optional for Forever. Source IDs identify players within this report only. Set WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. Requires at least three independent compatible verified 100-percentile parses. This utility analyzes boss attempts, not whole-dungeon trash.');}
+ else{try{for(let i=0;i<args.length;i+=2){const name=args[i].replace(/^--/,'');if(!['report','player','realm','source','metric','partition','min-percentile','output'].includes(name)||args[i+1]===undefined)throw Error('Unknown option or missing value. Use --help.');options[name==='source'?'sourceID':name==='min-percentile'?'minPercentile':name]=name==='partition'&&args[i+1]==='auto'?'auto':['source','partition','min-percentile'].includes(name)?Number(args[i+1]):args[i+1];}
+ collect(options).then(rows=>console.log(`Prepared ${rows.length} boss-attempt reviews in ${options.output||'.local/warcraftlogs'}. Data collection only; addon delivery is a separate step.`)).catch(e=>{console.error(e.message);process.exitCode=1;});}catch(e){console.error(e.message);process.exitCode=1;}}
 }
 module.exports={collect};

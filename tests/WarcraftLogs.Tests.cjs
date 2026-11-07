@@ -106,6 +106,11 @@ async function main(){
  try{const rows=await collect({report:report.code,player:'Tester',realm:'Test Realm',output,client:{report:async()=>({...report,fights:[fight,{...fight,id:2,kill:false},{...fight,id:3,inProgress:true}]}),events:async()=>stream}});
  assert.equal(rows.length,2);assert(fs.existsSync(path.join(output,report.code+'-2.fcwcl.txt')));
  assert(!fs.readFileSync(path.join(output,'reviews.json'),'utf8').includes('fixture-only'));
+ const singleRealmClient={report:async()=>({...report,masterData:{...report.masterData,actors:report.masterData.actors.map(a=>({...a,server:undefined}))}}),events:async()=>stream};
+ assert.equal((await collect({report:report.code,player:'Tester',sourceID:1,output:null,client:singleRealmClient})).length,1,'Forever characters need no realm input or exposed realm metadata');
+ await assert.rejects(()=>collect({report:report.code,player:'Tester',sourceID:2,output:null,client:singleRealmClient}),/exactly one/,'Never silently choose another source');
+ const ambiguousClient={...singleRealmClient,report:async()=>({...report,masterData:{...report.masterData,actors:[...report.masterData.actors,{...report.masterData.actors.find(a=>a.type==='Player'),id:99}]}})};
+ await assert.rejects(()=>collect({report:report.code,player:'Tester',output:null,client:ambiguousClient}),/exactly one/,'Duplicate names require a report source');
  const ranked=await collect({report:report.code,player:'Tester',realm:'Test Realm',partition:1,output,client:{
   report:async code=>code===report.code?report:references.find(r=>r.report.code===code).report,
   events:async code=>code===report.code?aliveStream:{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))},
