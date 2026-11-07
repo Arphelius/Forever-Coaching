@@ -14,16 +14,19 @@ async function jsonRequest(url,options,fetcher=fetch){
  const raw=await response.text();if(raw.length>32*1024*1024)throw Error('Warcraft Logs response too large.');
  try{return JSON.parse(raw);}catch{throw Error('Warcraft Logs returned invalid JSON.');}
 }
-function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.env.WCL_CLIENT_SECRET,accessToken=process.env.WCL_ACCESS_TOKEN,fetcher=fetch}={}){
+function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.env.WCL_CLIENT_SECRET,accessToken=process.env.WCL_ACCESS_TOKEN,getAccessToken,api='client',fetcher=fetch}={}){
+ if(!['client','user'].includes(api))throw Error('Unsupported Warcraft Logs connection.');
  let token=accessToken,expires=accessToken?Infinity:0;
  async function query(query,variables={}){
-  if(!token||Date.now()>=expires){
+  if(getAccessToken)token=await getAccessToken();
+  if(!getAccessToken&&(!token||Date.now()>=expires)){
    if(!clientId||!clientSecret)throw Error('Set WCL_CLIENT_ID and WCL_CLIENT_SECRET, or WCL_ACCESS_TOKEN, outside the addon.');
    const auth=await jsonRequest('https://www.warcraftlogs.com/oauth/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(clientId+':'+clientSecret).toString('base64'),'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials'},fetcher);
    if(typeof auth.access_token!=='string')throw Error('Warcraft Logs token was not returned.');
    token=auth.access_token;expires=Date.now()+Math.max(1,Number(auth.expires_in||3600)-60)*1000;
   }
-  const result=await jsonRequest(HOST+'/api/v2/client',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
+  if(typeof token!=='string'||!token)throw Error('Sign in to Warcraft Logs again.');
+  const result=await jsonRequest(HOST+'/api/v2/'+api,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
   if(result.errors?.length||!result.data)throw Error('Warcraft Logs API rejected this query. Verify the Forever schema and report permissions.');
   return result.data;
  }
@@ -61,7 +64,33 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   const player=rows.find(row=>row.id===actor.id);
   return typeof player?.rankPercent==='number'?player.rankPercent:null;
  }
- return {report,events,topRanks,percentile};
+ async function currentUser(){
+  const data=await query('query{userData{currentUser{id name}}}');const user=data.userData?.currentUser;
+  if(!Number.isSafeInteger(user?.id)||typeof user.name!=='string')throw Error('Warcraft Logs did not return your profile. Sign in with profile access.');
+  return {id:user.id,name:user.name};
+ }
+ async function recentReports(userID,page=1){
+  const data=await query('query($user:Int!,$page:Int!){reportData{reports(userID:$user,page:$page,limit:20){data{code title startTime endTime}}}}',{user:userID,page});
+  const rows=data.reportData?.reports?.data;if(!Array.isArray(rows))throw Error('Your recent runs could not be loaded.');
+  return rows.map(r=>({code:reportCode(r.code),title:String(r.title||'Uploaded run'),startTime:r.startTime,endTime:r.endTime}));
+ }
+ async function partitionFor(meta,fight,metric='dps'){
+  const data=await query('query($code:String!,$fight:Int!,$metric:ReportRankingMetricType!){reportData{report(code:$code){rankings(fightIDs:[$fight],playerMetric:$metric,compare:Parses,timeframe:Historical)}}}',{code:meta.code,fight:fight.id,metric});
+  const ranks=data.reportData?.report?.rankings,entry=ranks?.data?.find(r=>r.fightID===fight.id);
+  const partition=entry?.partition??ranks?.partition;
+  if(Number.isSafeInteger(partition)&&partition>0)return partition;
+  // A current default is appropriate only for a recent report. Never apply
+  // today's tuning period silently to an old run.
+  const at=meta.startTime+fight.startTime,age=Date.now()-at;
+  if(Number.isFinite(at)&&age>=0&&age<=7*86400000&&Number.isSafeInteger(meta.zone?.id)){
+   const zones=await query('query($zone:Int!){worldData{zone(id:$zone){partitions{id name default}}}}',{zone:meta.zone.id});
+   const partitions=zones.worldData?.zone?.partitions||[];
+   const defaults=partitions.filter(p=>p.default===true&&Number.isSafeInteger(p.id)&&p.id>0);
+   if(partitions.length===1&&defaults.length===1)return defaults[0].id;
+  }
+  throw Error('The matching rules period could not be identified for this run. Try a recent uploaded run.');
+ }
+ return {report,events,topRanks,percentile,currentUser,recentReports,partitionFor};
 }
 function specFor(report,fight,actor){const index=fight.friendlyPlayers?.indexOf(actor.id);return index>=0?fight.friendlySpecs?.[index]:null;}
 function profile(report,fight,actor,stream){

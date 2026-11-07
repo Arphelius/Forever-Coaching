@@ -3,6 +3,7 @@ param([string]$Version)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
+. (Join-Path $PSScriptRoot 'Add-CoachingCompanionToPackage.ps1')
 $root=Split-Path $PSScriptRoot -Parent
 $source=Join-Path $root 'addons/ForeverCoaching'
 $manifest=Get-Content (Join-Path $source 'ForeverCoaching.toc') -Raw
@@ -30,8 +31,13 @@ $zip=[IO.Compression.ZipFile]::Open($path,[IO.Compression.ZipArchiveMode]::Creat
 try {
  foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
   $relative=$file.FullName.Substring($source.Length+1).Replace('\','/')
+  if($relative.StartsWith('Companion/')){continue}
   if ($file.Name -match ' - Copy\.|\.backup\.|\.log$' -or ($file.Extension -eq '.toc' -and $manifestNames -notcontains $file.Name)) { continue }
-  if ($relative -eq 'Data/ForeverLogsReview.lua') {
+  if ($relative -eq 'Data/CompanionReviews.lua') {
+   $entry=$zip.CreateEntry('ForeverCoaching/'+$relative)
+   $writer=New-Object IO.StreamWriter($entry.Open())
+   try { $writer.Write("-- Personal companion reviews are not distributed.`nForeverCoaching=ForeverCoaching or {}`nForeverCoaching.CompanionReviews={}`n") } finally { $writer.Dispose() }
+  } elseif ($relative -eq 'Data/ForeverLogsReview.lua') {
    $entry=$zip.CreateEntry('ForeverCoaching/'+$relative)
    $writer=New-Object IO.StreamWriter($entry.Open())
    try { $writer.Write("-- Personal imported reviews are not distributed.`nForeverCoaching=ForeverCoaching or {}`nForeverCoaching.ForeverLogsReview=nil`n") } finally { $writer.Dispose() }
@@ -39,6 +45,7 @@ try {
    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,'ForeverCoaching/'+$relative,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
   }
  }
+ Add-CoachingCompanionToPackage $zip $root
 } finally { $zip.Dispose() }
 Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
 Write-Output $path

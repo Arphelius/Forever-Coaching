@@ -621,7 +621,7 @@ local function localRecordingSummary(summary)
     summary.diagnosticText=table.concat({summary.goodText or '',summary.wrongText or '',summary.improveText or ''},'\n\n')
     summary.headings={'LOCAL RECORDING','PEER ROTATION COMPARISON','GET SPEC-SPECIFIC COACHING'}
     summary.wrongText='No comparison with other players has been performed for this local recording. Cast failures and spell counts do not establish rotation quality.'
-    summary.improveText='Analyze this uploaded encounter with matching same-spec reference fights, then import its review in the Warcraft Logs panel above. The comparison will show peer-aligned habits, rotation differences and a next-pull practice goal.'
+    summary.improveText='Open Review-My-Run.cmd, sign in and choose your uploaded run and character. Click Review my run, then type /reload in WoW. The companion finds matching same-spec reference fights and sends the coaching review to your addon.'
     summary.peerCoachingReady=false
     return summary
 end

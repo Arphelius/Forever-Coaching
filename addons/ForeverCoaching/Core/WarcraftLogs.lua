@@ -10,6 +10,33 @@ local function saved()
  ForeverCoachingDB=ForeverCoachingDB or {};ForeverCoachingDB.warcraftLogs=ForeverCoachingDB.warcraftLogs or {reviews={}}
  local db=ForeverCoachingDB.warcraftLogs;db.reviews=db.reviews or {};return db
 end
+function W:LoadCompanionReviews()
+ if safe(UnitAffectingCombat,'player')==true then return end
+ local db=saved();db.companionReceipts=db.companionReceipts or {ids={},order={}}
+ local receipts=db.companionReceipts
+ local imported=0
+ -- Files are written oldest to newest; the last successful import is selected.
+ for _,entry in ipairs(FC.CompanionReviews or {}) do
+  if type(entry)=='table' and type(entry.id)=='string' and #entry.id<=100 and type(entry.code)=='string' and not receipts.ids[entry.id] then
+   local ok=self:Import(entry.code)
+   if ok then
+    receipts.ids[entry.id]=true;receipts.order[#receipts.order+1]=entry.id;imported=imported+1
+    while #receipts.order>100 do receipts.ids[table.remove(receipts.order,1)]=nil end
+   end
+  end
+ end
+ if imported>0 then print('Forever Coaching: '..imported..' coaching review loaded from your companion. Open Combat Review.') end
+ return imported
+end
+local companionEvents=CreateFrame('Frame')
+for _,event in ipairs({'PLAYER_ENTERING_WORLD','PLAYER_REGEN_ENABLED'})do pcall(companionEvents.RegisterEvent,companionEvents,event)end
+companionEvents:SetScript('OnEvent',function()
+ local function load()
+  local ok,err=pcall(W.LoadCompanionReviews,W)
+  if not ok then ForeverCoachingDB=ForeverCoachingDB or {};ForeverCoachingDB.lastCompanionError=tostring(err)end
+ end
+ if C_Timer and C_Timer.After then C_Timer.After(1,load) else load()end
+end)
 local function normalize(value)return tostring(value or ''):lower():gsub('[%s%-%\']','')end
 local function decode(value)
  if value:find('%%[^%x]') or value:find('%%$') or value:find('%%%x$') or value:find('%%%x[^%x]') then return nil end
@@ -67,7 +94,7 @@ end
 function W:GetSummary()
  local list=self:GetReviews();local db=saved();local selected=list[1]
  for _,r in ipairs(list) do if db.selected==r.code..':'..r.fight then selected=r end end
- if not selected then return {metrics='Warcraft Logs / No imported fight',goodText='Record a fight, upload it to Warcraft Logs, then import its analyzed review.',wrongText='No external report is loaded for this character.',improveText='Use the Warcraft Logs section at the top of Combat Review for recording and imports.',coverage='The addon cannot upload files or query the website. Local recording continues independently.'} end
+ if not selected then return {metrics='Warcraft Logs / No coaching review yet',goodText='Record and upload your run using your usual logging tools.',wrongText='No peer coaching review is loaded for this character.',improveText='Open Review-My-Run.cmd, sign in, choose your run and character, then click Review my run. Type /reload in WoW to receive the review.',coverage='The companion handles analysis and review delivery. Uploading combat logs remains separate. Local recording continues independently.'} end
  local r=selected
  return {metrics='Warcraft Logs / '..r.name..' / '..r.spec..' / fight '..r.fight..' / '..math.floor(r.duration/1000)..'s',headings={'WHAT YOU DID WELL','ROTATION DIFFERENCES TO REVIEW','NEXT PULL: PRACTICE'},goodText=r.good..'\n\nTimeline:\n'..r.timeline,wrongText=r.observations,improveText=r.improve..'\n\nReference players:\n'..(r.references~='' and r.references or 'No compatible verified reference players retrieved.'),coverage=r.coverage..'\nUploaded fight started (Unix ms): '..r.started..'\nSource: '..self.url..'reports/'..r.code..'#fight='..r.fight,sourceUrl=self.url..'reports/'..r.code..'#fight='..r.fight}
 end

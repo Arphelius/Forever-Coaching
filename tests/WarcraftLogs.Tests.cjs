@@ -57,7 +57,10 @@ for _,callback in ipairs(TestTimers)do callback()end
 assert(ForeverCoaching.CombatReview:GetSource()=='local','New local fight must not display a stale external report')`);
 run(fs.readFileSync('addons/ForeverCoaching/UI/WarcraftLogs.lua','utf8'));
 run(`local parent=CreateFrame('Frame');local panel=ForeverCoaching:BuildWarcraftLogsPanel(parent,728)
-assert(panel.frame.parent==parent and panel.height==340,'Warcraft Logs is embedded in review content')
+assert(panel.frame.parent==parent and panel.height==240,'Companion instructions stay compact in review content')
+assert(not panel.input:IsShown(),'Manual import must be hidden from the normal player flow')
+panel.advancedButton.scripts.OnClick(panel.advancedButton)
+assert(panel.input:IsShown() and panel.height==384,'Advanced manual import remains available')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No separate popup remains')
 panel.input:SetText('invalid import');panel.importButton.scripts.OnClick(panel.importButton)
 assert(panel.status:GetText():find('Paste a Forever Coaching',1,true),'Inline validation is visible')

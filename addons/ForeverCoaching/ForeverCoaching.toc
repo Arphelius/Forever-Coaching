@@ -15,6 +15,7 @@ Data\Level60Builds.lua
 Data\TankThreat.lua
 Data\TalentBorderStyles.lua
 Data\ForeverLogsReview.lua
+Data\CompanionReviews.lua
 Data\ForeverLogsStatistics.lua
 Core\BuildPlanner.lua
 Core\GuideSources.lua
