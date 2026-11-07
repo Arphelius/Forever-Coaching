@@ -13,7 +13,7 @@ async function install(name,version){
  await Promise.all([['fengari','0.1.4'],['sprintf-js','1.1.3'],['readline-sync','1.4.10'],['tmp','0.0.33'],['os-tmpdir','1.0.2']].map(p=>install(...p)));
  const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require(path.join(root,'fengari'));
  const suites=[
-  ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/TalentSnapshot.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','addons/ForeverCoaching/Core/EncounterCoach.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/CombatReviewFlow.Tests.lua'],
+  ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/TalentSnapshot.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','addons/ForeverCoaching/Core/EncounterCoach.lua','addons/ForeverCoaching/Core/FightRecorder.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/CombatReviewFlow.Tests.lua'],
   ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','tests/BuildPlanner.Tests.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/BuildsWindow.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/UI/BlizzardTalentGuide.lua','addons/ForeverCoaching/ForeverCoaching.lua','tests/BuildsWindow.Tests.lua'],
  ];
  for(const files of (process.argv.includes('--combat-only')?suites.slice(0,1):suites)){

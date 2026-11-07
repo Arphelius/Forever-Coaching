@@ -437,7 +437,16 @@ end
 function Review:SummarizeDecisions(report)
     if not report then return '', '', '' end
     -- Saved rotation comparisons are historical data, not current assessments.
-    return tostring(report.casts or 0)..' successful casts recorded in this fight.', '', ''
+    local failures = report.failedAttempts or {}
+    local observations = {}
+    for _, attempt in ipairs(failures) do
+        observations[#observations + 1] = (attempt.name or 'Spell') ..
+            (attempt.interrupted and ': interrupted' or ': failed') ..
+            (attempt.clientMessage and ' / ' .. attempt.clientMessage or '')
+    end
+    return tostring(report.casts or 0)..' successful casts recorded in this fight.',
+        #observations > 0 and ('Recorded cast attempts to investigate (not confirmed mistakes):\n' .. table.concat(observations, '\n')) or '',
+        #observations > 0 and 'Check these attempts in the fight timeline alongside movement and client messages before deciding what to change.' or ''
 end
 
 function Review:GetLatestText()
@@ -711,7 +720,7 @@ events:SetScript("OnEvent", function(_, event, ...)
                 while #ForeverCoachingDB.reviews > 10 do table.remove(ForeverCoachingDB.reviews) end
                 ForeverCoachingDB.combatAnalysisReady = true
                 -- A newly finished local fight must never display an older imported report.
-                if Review:GetSource()=="warcraftlogs" then Review:SetSource('local') end
+                Review:SetSource('local')
                 if FC.RefreshCombatReview then FC:RefreshCombatReview() end
                 if Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
                     FC:NotifyCombatAnalysisReady(report)

@@ -66,3 +66,30 @@ review:SetSource('foreverlogs');ForeverCoachingDB.combatAnalysisReady=true
 review:MarkLatestViewed()
 assert(ForeverCoachingDB.combatAnalysisReady,'Viewing an imported snapshot must not mark a live fight read')
 review:SetSource('local')
+-- Exercise the recorder and review together, including a previously imported source.
+local recorderEvents
+for _, frame in ipairs(TestFrames) do
+ if frame.events.PLAYER_STARTED_MOVING then recorderEvents=frame end
+end
+assert(recorderEvents,'Fight recorder listener missing')
+local function combatEvent(event,...)
+ recorderEvents.scripts.OnEvent(recorderEvents,event,...)
+ fire(event,...)
+end
+review:SetSource('foreverlogs')
+TestTimers={};TestNow=30
+combatEvent('PLAYER_REGEN_DISABLED')
+combatEvent('UNIT_SPELLCAST_SENT','player','target','linked-cast',403)
+combatEvent('UNIT_SPELLCAST_SUCCEEDED','player','linked-cast',403)
+combatEvent('UNIT_SPELLCAST_FAILED','player','failed-cast',403)
+combatEvent('UI_ERROR_MESSAGE',1,'Out of range')
+TestNow=35
+combatEvent('PLAYER_REGEN_ENABLED')
+for _,fn in ipairs(TestTimers) do fn() end
+local latest=ForeverCoachingDB.reviews[1]
+assert(latest.casts==1 and latest.duration==5,'Linked fight metrics missing')
+assert(FC.FightRecorder:Find(latest.fightTimelineId),'Review must link to its saved timeline')
+assert(review:GetSource()=='local','Finished fight hidden behind imported source')
+local _,attempts,nextStep=review:SummarizeDecisions(latest)
+assert(attempts:find('Out of range',1,true),'Recorded client failure missing from review')
+assert(nextStep:find('timeline',1,true),'Recorded failures need investigation guidance')
