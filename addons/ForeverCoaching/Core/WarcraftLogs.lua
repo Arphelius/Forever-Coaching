@@ -182,10 +182,34 @@ function W:PrepareComparison(payload,review)
   end
  end
  if #rows==0 then return nil,'No side-by-side observations are available.' end
+ local scenario
+ if payload.scenario~=nil then
+  local raw=payload.scenario;local source
+  if type(raw)~='table' or not finite(raw.duration) or raw.duration<=0 or raw.duration>86400 then return nil,'Invalid reference scenario.' end
+  for _,peer in ipairs(peers)do if peer.url==raw.sourceURL then source=peer end end
+  if not source then return nil,'Scenario must come from a matching 100-percentile reference.' end
+  scenario={player=source.player,url=source.url,duration=raw.duration}
+  for _,kind in ipairs({'casts','items','buffs'})do
+   local limit=kind=='casts' and 100 or 50
+   local countKey=kind=='casts' and 'castCount' or kind=='items' and 'itemCount' or 'buffCount'
+   local count=raw[countKey];local list=raw[kind]
+   if type(list)~='table' or #list>limit or not finite(count) or count%1~=0 or count<#list then return nil,'Invalid reference action count.' end
+   scenario[kind]={};scenario[countKey]=count
+   local last=-1
+   for _,event in ipairs(list)do
+    if type(event)~='table' or not finite(event.at) or event.at<last or event.at<0 or event.at>raw.duration then return nil,'Invalid reference action time.' end
+    local spell=finite(event.spellID) and event.spellID>0 and event.spellID%1==0 and event.spellID or nil
+    local item=finite(event.itemID) and event.itemID>0 and event.itemID%1==0 and event.itemID or nil
+    local name=displayText(event.name,180)
+    if not name or name=='' or (kind=='items' and not item) or (kind~='items' and not spell) then return nil,'Reference action identity is missing.' end
+    last=event.at;scenario[kind][#scenario[kind]+1]={at=event.at,name=name,spellID=spell,itemID=item}
+   end
+  end
+ end
  return {specKey=comparisonKey(context.class,context.spec),class=context.class,spec=displayText(context.spec,100),
   instanceId=context.instanceId,instance=displayText(context.instance,120) or 'Instance',encounterId=context.encounterId,difficultyName=displayText(context.difficultyName,80),
   encounter=displayText(context.encounter,160) or review.name,difficulty=context.difficulty,
-  started=review.started,rows=rows,nextFight=nextFight or rows[1].practice,peerCount=#peers,references=peers}
+  started=review.started,rows=rows,nextFight=nextFight or rows[1].practice,peerCount=#peers,references=peers,scenario=scenario}
 end
 function W:ComparisonSpecs()
  local options,seen={},{}
@@ -292,6 +316,7 @@ function W:GetComparisonModel()
   local entry=match.entry;model.ready=true;model.rows={}
   for _,row in ipairs(entry.rows)do model.rows[#model.rows+1]={action=row.action,you=match.mine and row.you or 'No matching fight',reference=row.reference,kind=match.mine and row.kind or 'reference'}end
   model.nextFight=match.mine and entry.nextFight or nil
+  model.scenario=entry.scenario
   model.status='Typical values from '..entry.peerCount..' matching 100 parses / saved comparison'
   model.metrics=entry.spec..' / '..entry.instance..' / '..entry.encounter
  end

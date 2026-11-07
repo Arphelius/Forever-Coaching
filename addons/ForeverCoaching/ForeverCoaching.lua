@@ -309,8 +309,8 @@ local pages = {
         cards = {},
     },
     Scenarios = {
-        heading = "Combat Scenarios",
-        description = "Browse a class, specialization and combat situation.",
+        heading = "100-Parse Scenarios",
+        description = "Recorded spells, timing and item uses for your chosen spec and encounter.",
         cards = {},
     },
     Learn = {
@@ -398,6 +398,7 @@ end
 
 function FC:RefreshCombatReview()
     UpdateReviewText()
+    if self.RefreshParserScenarios then self:RefreshParserScenarios() end
 end
 
 local function ShowTab(tabName)

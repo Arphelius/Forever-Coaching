@@ -214,15 +214,18 @@ local crafted=assert(find('Crafted items: On'));crafted.scripts.OnClick(crafted)
 print('PASS: native Professions mode, class-specific cards, selectable goal and saved item toggle.')`);
 run(`local reviewButton;for _,f in ipairs(TestFrames)do if f.navigationIndex==3 then reviewButton=f end end
 assert(reviewButton);reviewButton.scripts.OnClick(reviewButton)
-local title,card
+local selector,status
 for _,f in ipairs(TestFrames)do if f:IsShown() then
- if f.text=='WARCRAFT LOGS' then title=f end
- if f.title and f.title.text=='WHAT YOU DID WELL' then card=f end
+ if f.text=='Instance / encounter' then selector=f end
+ if f.text=='No Warcraft Logs comparison data is connected for this selection.' then status=f end
+ assert(not (f.title and f.title.text=='WHAT YOU DID WELL'),'Normal review no longer uses generic finding cards')
 end end
-assert(title and card,'Embedded Warcraft Logs and review findings must both exist')
-assert(card.anchor and card.anchor[5]==-354,'Review findings must start below the embedded controls')
-local ancestor=title.parent;while ancestor and ancestor~=ForeverCoachingFrame do ancestor=ancestor.parent end
-assert(ancestor==ForeverCoachingFrame,'Logging controls belong to the main dashboard')
+assert(selector and status,'Comparison selectors and honest missing-data status must exist')
+local ancestor=selector.parent;while ancestor and ancestor~=ForeverCoachingFrame do ancestor=ancestor.parent end
+assert(ancestor==ForeverCoachingFrame,'Comparison controls belong to the main dashboard')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No standalone Warcraft Logs window remains')
 assert(ForeverCoachingFrame.scripts.OnDragStart and ForeverCoachingFrame.scripts.OnDragStop,'Main dashboard remains draggable')
-print('PASS: prominent inline Warcraft Logs controls, findings below the panel, one dashboard and retained dragging.')`);
+local scenario;for _,f in ipairs(TestFrames)do if f.navigationIndex==4 then scenario=f end end
+assert(scenario);scenario.scripts.OnClick(scenario)
+assert(ForeverCoaching.parserScenarioView,'Normal Scenarios uses the reference replay builder')
+print('PASS: inline reference selectors, missing-data status, reference Scenarios, one dashboard and retained dragging.')`);

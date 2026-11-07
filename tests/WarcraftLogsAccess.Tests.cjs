@@ -6,6 +6,7 @@ const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
 function run(code){if(lauxlib.luaL_dostring(L,to_luastring(code))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
 run('unpack=unpack or table.unpack');
 for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/TalentSnapshot.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','addons/ForeverCoaching/Core/EncounterCoach.lua','addons/ForeverCoaching/Core/FightRecorder.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/ForeverCoaching.lua'])run(fs.readFileSync(file,'utf8'));
+run(fs.readFileSync('addons/ForeverCoaching/UI/EncounterLearning.lua','utf8'));
 function fixture(number){
  const actor={id:1,name:'Fixture',server:'TestRealm',subType:'Shaman',type:'Player'};
  const fight={id:number,name:'Fixture Boss '+number,encounterID:70+number,difficulty:3,gameZone:{id:30+number,name:'Fixture Dungeon '+number},startTime:0,endTime:60000,kill:true,friendlyPlayers:[1],friendlySpecs:['Enhancement']};
@@ -90,6 +91,37 @@ for _,row in ipairs(catalog.rows)do assert(row.you=='No matching fight')end
 assert(catalog.nextFight==nil,'Reference-only browsing must not invent a personal correction')
 ForeverCoaching.WarcraftLogsCatalog={schema=1,source='Warcraft Logs',entries={}}
 assert(not w:GetComparisonModel().ready,'Replacing the catalog clears stale instance rows')
+`);
+run(`
+local fc=ForeverCoaching;local w=fc.WarcraftLogs
+fc.WarcraftLogsCatalog={schema=1,source='Warcraft Logs',entries={FirstComparison,SecondComparison}}
+local parent=CreateFrame('Frame');parent:SetSize(800,440);parent:Show()
+fc:BuildEncounterLearningPage(parent,'Scenarios')
+local view=fc.parserScenarioView
+assert(view and view.specPicker and view.encounterPicker,'Scenarios uses the same two reference selectors')
+assert(VisibleText('Recorded rotation (6 / 6 recorded)'))
+assert(VisibleText('1.  1.0s — Stormstrike') and VisibleText('2.  9.0s — Earth Shock'),'Render the reference spell order and fight-relative times')
+assert(VisibleText('Item-use details were not exposed in this reference.'))
+assert(not VisibleText('Your next fight'),'Reference-only browsing cannot supply a personal verdict')
+assert(w:SetComparisonEncounter('32:72:3'))
+assert(VisibleText('Enhancement / Fixture Dungeon 2 / Fixture Boss 2'),'Encounter changes refresh Scenarios')
+assert(w:SetComparisonSpec('MAGE:fire'))
+assert(VisibleText('No matching 100-parse scenario data is connected for this selection.'))
+assert(not VisibleText('1.  1.0s — Stormstrike'),'Switching specs hides the previous rotation')
+assert(w:SetComparisonSpec('SHAMAN:enhancement'))
+FirstComparison.scenario.sourceURL='https://forever.warcraftlogs.com/reports/Other00000000001#fight=1&source=1'
+assert(not w:Import(FirstCode,FirstComparison),'Reject a scenario from an unverified reference')
+FirstComparison.scenario.sourceURL=FirstComparison.context.referencePlayers[1].url
+FirstComparison.scenario.casts[1].at=-1
+assert(not w:Import(FirstCode,FirstComparison),'Reject actions outside the fight')
+FirstComparison.scenario.casts[1].at=1
+FirstComparison.scenario.items={{at=3,name='Unidentified potion',spellID=101}}
+FirstComparison.scenario.itemCount=1
+assert(not w:Import(FirstCode,FirstComparison),'Item uses require explicit item identity')
+FirstComparison.scenario.items={{at=3,name='Fixture potion',itemID=900}}
+assert(w:Import(FirstCode,FirstComparison))
+assert(w:SetComparisonEncounter('31:71:3'))
+assert(VisibleText('1.  3.0s — Fixture potion / item #900'),'Show recorded explicit item evidence')
 `);
 lua.lua_close(L);
 console.log('PASS: two controls, no instruction cards, 27 specs/current-spec default, actual side-by-side values, next-fight goal, multi-instance filtering, stale-row clearing, exact-100/context validation and character isolation. Synthetic data only; no live rankings implied.');

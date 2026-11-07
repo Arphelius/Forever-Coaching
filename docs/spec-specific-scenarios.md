@@ -1,5 +1,10 @@
 # Specialization-specific scenarios
 
+Normal in-game Scenarios now follows the selected Warcraft Logs 100-percentile
+reference's recorded actions. See [the current reference-data contract](warcraftlogs.md).
+The curriculum below remains available internally and in the older browser
+preview; it is not presented as observed 100-parse data.
+
 Scenarios now uses a shared Lua curriculum for all nine classes' three primary
 talent specializations. Each profile describes its contribution, actions,
 resources and utility. Eleven slides now cover ST, two-target cleave, AoE/group

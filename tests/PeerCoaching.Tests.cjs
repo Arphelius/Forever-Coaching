@@ -26,6 +26,9 @@ for(const className of Object.keys(classes)){
  const matched=mentor(sample({className,target:true,matching:true}),refs);
  for(const topic of ['ability-use','opener','aura-coverage'])assert(matched.findings.some(f=>f.kind==='good'&&f.topic===topic),className+': positive '+topic);
  const analysis=compare(target,refs);
+ assert.deepEqual(analysis.comparison.scenario.casts.map(e=>e.spellID),refs[0].casts.map(e=>e.abilityGameID),className+': replay the actual reference order');
+ assert.equal(analysis.comparison.scenario.sourceURL,analysis.comparison.context.referencePlayers[0].url);
+ assert.equal(analysis.comparison.scenario.casts[0].at,1);
  assert.equal(analysis.comparison.context.class,className.toUpperCase());
  assert(analysis.comparison.findings.filter(f=>f.kind==='change').every(f=>f.comparison&&f.comparison.you!==undefined&&f.comparison.reference!==undefined),className+': preserve side-by-side metrics for the addon');
  assert(analysis.observations.includes('Your first casts:'));
@@ -34,6 +37,19 @@ for(const className of Object.keys(classes)){
  assert(encodeReview(target,analysis).length<60000);
 }
 const target=sample({target:true}),refs=[1,2,3].map(peer=>sample({peer}));
+const itemPeers=[1,2,3].map(peer=>sample({peer}));
+itemPeers[0].events.push(
+ {timestamp:4000,type:'useitem',sourceID:1,itemID:900,itemName:'Fixture Potion'},
+ {timestamp:5000,type:'useitem',sourceID:8,itemID:901,itemName:'Other player potion'},
+ {timestamp:6000,type:'applybuff',sourceID:1,targetID:1,abilityGameID:101},
+ {timestamp:7000,type:'applybuff',sourceID:8,targetID:1,abilityGameID:102});
+itemPeers[0].events.find(e=>e.type==='combatantinfo').gear=[{id:902,name:'Equipped trinket'}];
+const replay=compare(target,itemPeers).comparison.scenario;
+assert.deepEqual(replay.items,[{at:3,spellID:undefined,name:'Fixture Potion',itemID:900}],'Explicit item use only, never teammates or equipment');
+assert.equal(replay.buffs.length,1,'Only self-applied buffs belong to this reference');
+assert.equal(replay.buffs[0].at,5);
+assert.equal(compare(target,refs).comparison.scenario.items.length,0,'Do not guess item uses from spell names');
+assert.equal(compare(target,refs.slice(0,2)).comparison.scenario,undefined,'No unqualified reference replay');
 for(const mutate of [
  r=>{r.spec='Restoration';},r=>{r.actor.subType='Mage';},r=>{r.fight.encounterID=78;},r=>{r.fight.difficulty=4;},
  r=>{r.report.zone.id=51;},r=>{r.report.masterData.gameVersion=17;},r=>{r.complete=false;},r=>{r.percentile=94;},r=>{r.percentile=99.99;},

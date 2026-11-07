@@ -118,6 +118,25 @@ function compare(target,references,options={}){
  const comparison={schema:1,source:'Warcraft Logs',ready:coaching.ready,context:coaching.context,
   report:{code:target.report.code,fightID:target.fight.id,player:target.actor.name,realm:target.actor.server,started:target.report.startTime+target.fight.startTime},
   findings:coaching.findings};
+ // Replay one actual qualifying player, never a synthetic rotation assembled
+ // from several players' cast frequencies. Equipment alone is not item use.
+ if(coaching.ready&&compatible.length){
+  const peer=compatible[0],source=coaching.context.referencePlayers[0];
+  const own=peer.events.filter(e=>e.sourceID===peer.actor.id).sort((a,b)=>a.timestamp-b.timestamp);
+  const action=e=>{const itemID=e.itemID??e.itemId;return {
+   at:(e.timestamp-peer.fight.startTime)/1000,
+   spellID:Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0?e.abilityGameID:undefined,
+   name:peer.abilities.get(e.abilityGameID)||(Number.isSafeInteger(itemID)&&itemID>0?e.itemName||'Item #'+itemID:'Spell #'+e.abilityGameID),
+   ...(Number.isSafeInteger(itemID)&&itemID>0?{itemID}:{}),
+  };};
+  const casts=own.filter(e=>e.type==='cast'&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
+  const items=own.filter(e=>['cast','useitem'].includes(e.type)&&Number.isSafeInteger(e.itemID??e.itemId)&&(e.itemID??e.itemId)>0);
+  const buffs=own.filter(e=>e.type==='applybuff'&&e.targetID===peer.actor.id&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
+  comparison.scenario={sourceURL:source.url,duration:peer.duration,
+   casts:casts.slice(0,100).map(action),castCount:casts.length,
+   items:items.slice(0,50).map(action),itemCount:items.length,
+   buffs:buffs.slice(0,50).map(action),buffCount:buffs.length};
+ }
  // Keep multiple decision areas visible rather than filling all cards with
  // frequency checks for the first few abilities in a spell list.
  function selected(kinds){const topics=new Map();return coaching.findings.filter(f=>kinds.includes(f.kind)).filter(f=>{const count=topics.get(f.topic)||0;topics.set(f.topic,count+1);return count<2;}).slice(0,6);}

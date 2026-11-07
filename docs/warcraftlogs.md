@@ -43,6 +43,24 @@ existing integrations, but the normal review uses the structured comparison mode
 
 ## Structured comparison data
 
+Scenarios shares the same saved spec and encounter selection. It displays one
+qualifying reference player's actual spell sequence and fight-relative times,
+explicitly identified item uses, and self-applied buffs. The source player is
+identified as a 100-percentile reference. This is an observed run, not a universal
+priority list. The player's existing comparison supplies the next-fight goal;
+reference-only browsing does not invent a personal correction.
+
+The optional `analysis.comparison.scenario` contains `sourceURL`, `duration`,
+`casts`, `items`, `buffs`, and their total `castCount`, `itemCount`, `buffCount`.
+Each action has `at` (seconds), `name`, and an exposed `spellID` and/or `itemID`.
+The source must match a validated reference. The addon checks timestamps,
+ordering, action identities and counts. Displays are bounded to the first 100
+casts, 50 item uses and 50 self-applied buffs, with displayed/total counts.
+Equipment alone does not prove item use, and unknown item details stay unknown.
+Old comparisons without this data show a short unavailable message in Scenarios.
+The authored class curriculum remains an internal fallback for integrations
+without Warcraft Logs; normal Scenarios does not substitute it for missing data.
+
 The external analysis result now includes `analysis.comparison` alongside legacy
 text. It contains source/schema, class/spec, actual instance and encounter IDs,
 difficulty, game version, identified report/player, independent 100-parse
