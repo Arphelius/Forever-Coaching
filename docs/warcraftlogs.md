@@ -34,9 +34,17 @@ The old exact-100 path remains separately validated for when rankings exist.
 node tools/Optimize-WarcraftLogs.cjs --report bcVxQRyHF6qjXhLk --player "Argo Rax" --source 2
 ```
 
-This attempts the first public report-discovery page for each supplied game
-instance and scans at most ten reports and thirty candidate player profiles.
-Coverage notes disclose limits and unavailable discovery. Additional public
+This follows public report-discovery pagination for each supplied game instance,
+using the source report's ranking zone and a seven-day date window. Defaults are
+five pages, fifty reports and thirty candidate player profiles per encounter.
+`--max-pages`, `--max-reports` and `--max-profiles` permit bounded adjustments
+(maximum ten pages, one hundred reports and one hundred profiles). Discovery is
+cached for repeated instances; repeated pages stop instead of looping. Already
+found reports remain usable if a later discovery page fails.
+Coverage counts show discovery pages, report sample size, examined profiles and
+the first failed matching condition for rejected segments/players. A zero-profile
+scan is not presented as proof that no matching players exist. Limits and API
+failures remain explicit. Additional public
 report codes can be supplied with `--reference-reports CODE,CODE`; they remain
 developer inputs, not player-page controls. No full-site crawler is claimed.
 Events are cached per report segment. A report may represent a whole dungeon

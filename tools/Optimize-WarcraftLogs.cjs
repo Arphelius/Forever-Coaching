@@ -4,15 +4,33 @@ const {createClient,reportCode,specFor,profile,compare,encodeReview}=require('./
 const {compatible}=require('./peer-coaching.cjs');
 const {toLua}=require('./foreverlogs-review.cjs');
 const {addonDirectory}=require('./coaching-delivery.cjs');
-async function collectObserved({report:input,player,sourceID,referenceReports=[],output='.local/optimization',client=createClient(),maxReports=10,maxProfiles=30,discover=true}){
+async function collectObserved({report:input,player,sourceID,referenceReports=[],output='.local/optimization',client=createClient(),maxReports=50,maxProfiles=30,maxPages=5,discover=true}){
  if(typeof player!=='string'||!player.trim())throw Error('Specify --player.');
  if(sourceID!==undefined&&(!Number.isSafeInteger(sourceID)||sourceID<=0))throw Error('Invalid source ID.');
- if(!Number.isSafeInteger(maxReports)||maxReports<1||maxReports>50||!Number.isSafeInteger(maxProfiles)||maxProfiles<1||maxProfiles>100)throw Error('Invalid scan limits.');
+ if(!Number.isSafeInteger(maxReports)||maxReports<1||maxReports>100||!Number.isSafeInteger(maxProfiles)||maxProfiles<1||maxProfiles>100||!Number.isSafeInteger(maxPages)||maxPages<1||maxPages>10)throw Error('Invalid scan limits.');
  const targetReport=await client.report(reportCode(input));
  const normalize=s=>String(s||'').toLowerCase().replace(/[\s'-]/g,'');
  const actors=targetReport.masterData.actors.filter(a=>a.type==='Player'&&normalize(a.name)===normalize(player)&&(sourceID===undefined||a.id===sourceID));
  if(actors.length!==1)throw Error('Choose one report player with --player and --source.');
- const actor=actors[0],results=[],cache=new Map(),tables=new Map(),streams=new Map();let examined=0;
+ const actor=actors[0],results=[],cache=new Map(),tables=new Map(),streams=new Map(),discovery=new Map();
+ const scope={zoneID:targetReport.zone?.id,startTime:Math.max(0,targetReport.startTime-7*86400000),
+  endTime:targetReport.startTime+Math.max(...targetReport.fights.map(f=>Number.isFinite(f.endTime)?f.endTime:0))+7*86400000};
+ async function discoverReports(instance){
+  if(discovery.has(instance))return discovery.get(instance);
+  const codes=new Set(),notes=[];let pages=0,more=false;
+  try{
+   for(let page=1;page<=maxPages;page++){
+    const batch=await client.instanceReports(instance,page,scope);pages++;
+    let added=0;for(const code of batch.codes){if(!codes.has(code)){codes.add(code);added++;}}
+    more=batch.hasMore;
+    if(!more)break;
+    if(added===0){notes.push('Discovery stopped because pagination returned no new reports.');break;}
+    if(codes.size>=maxReports)break;
+   }
+   if(more)notes.push('Public report discovery has more pages; the bounded sample is incomplete.');
+  }catch(error){notes.push(error.message+(pages?' Discovery stopped after earlier successful pages.':' Only supplied reports were scanned.'));}
+  const result={codes:[...codes],pages,notes};discovery.set(instance,result);return result;
+ }
  async function table(report,fight,metric){const key=report.code+':'+fight.id+':'+metric;if(!tables.has(key))tables.set(key,await client.observedPlayers(report.code,fight,metric));return tables.get(key);}
  async function load(report,fight,who,metric,row){
   const key=report.code+':'+fight.id+':'+who.id+':'+metric;
@@ -35,29 +53,41 @@ async function collectObserved({report:input,player,sourceID,referenceReports=[]
   if(metric==='hps')own=(await table(targetReport,fight,metric)).find(p=>p.id===actor.id);
   if(!own){results.push({fightID:fight.id,encounter:fight.name,unavailable:['Healing output was not exposed for this player.']});continue;}
   const target=await load(targetReport,fight,actor,metric,own),peers=[];
+  let examined=0,pages=0;const rejected={};const reject=reason=>{rejected[reason]=(rejected[reason]||0)+1;};
   const codes=new Set([targetReport.code,...referenceReports.map(reportCode)]);
-  if(discover){try{const page=await client.instanceReports(fight.gameZone.id);for(const code of page.codes)codes.add(code);if(page.hasMore)notes.push('Only the first discovery page was scanned.');}catch(error){notes.push(error.message+' Only supplied reports were scanned.');}}
+  if(discover){const found=await discoverReports(fight.gameZone.id);for(const code of found.codes)codes.add(code);notes.push(...found.notes);pages=found.pages;}
   const selected=[...codes].slice(0,maxReports);if(codes.size>selected.length)notes.push('Report scan limit reached.');
   for(const code of selected){
    try{
     const report=code===targetReport.code?targetReport:await client.report(code);
-    for(const other of report.fights.filter(f=>f.encounterID===fight.encounterID&&f.difficulty===fight.difficulty&&f.kill&&!f.inProgress&&f.gameZone?.id===fight.gameZone?.id&&
-     f.endTime>f.startTime&&Math.abs((f.endTime-f.startTime)/1000-target.duration)/target.duration<=.2&&
-     report.masterData.gameVersion===targetReport.masterData.gameVersion&&report.zone?.id===targetReport.zone?.id&&
-     Math.abs((report.startTime+f.startTime)-(targetReport.startTime+fight.startTime))<=7*86400000)){
+    for(const other of report.fights){
+     // Count the first failed condition at each stage. Never silently relax
+     // encounter/level/role boundaries just to manufacture a reference.
+     const reason=other.encounterID!==fight.encounterID?'different encounter':
+      other.difficulty!==fight.difficulty?'different difficulty':
+      !other.kill||other.inProgress?'unfinished or unsuccessful segment':
+      other.gameZone?.id!==fight.gameZone?.id?'different instance':
+      !(other.endTime>other.startTime)||Math.abs((other.endTime-other.startTime)/1000-target.duration)/target.duration>.2?'fight length outside 20%':
+      report.masterData.gameVersion!==targetReport.masterData.gameVersion?'different game version':
+      report.zone?.id!==targetReport.zone?.id?'different ranking zone':
+      !Number.isFinite(report.startTime)||Math.abs((report.startTime+other.startTime)-(targetReport.startTime+fight.startTime))>7*86400000?'date outside seven days':null;
+     if(reason){reject(reason);continue;}
+     const players=report.masterData.actors.filter(a=>a.type==='Player'&&a.subType===actor.subType&&other.friendlyPlayers?.includes(a.id)&&specFor(report,other,a)===target.spec);
+     if(!players.length){reject('no matching class/spec');continue;}
      const rows=await table(report,other,metric);
-     for(const who of report.masterData.actors.filter(a=>a.type==='Player'&&a.subType===actor.subType&&other.friendlyPlayers?.includes(a.id)&&specFor(report,other,a)===target.spec)){
-      if(normalize(who.name)===normalize(actor.name)&&normalize(who.server)===normalize(actor.server))continue;
-      const row=rows.find(p=>p.id===who.id&&p.role===target.role);if(!row)continue;
-      if(examined>=maxProfiles){notes.push('Player-event scan limit reached.');break;}examined++;
+     for(const who of players){
+      if(normalize(who.name)===normalize(actor.name)&&normalize(who.server)===normalize(actor.server)){reject('same player');continue;}
+      const row=rows.find(p=>p.id===who.id&&p.role===target.role);if(!row){reject('different role or missing output');continue;}
+      if(examined>=maxProfiles){notes.push('Player-event scan limit reached for this encounter.');reject('player scan limit');break;}examined++;
       const ref=await load(report,other,who,metric,row);
       if(compatible(target,ref,100,'observed'))peers.push(ref);
+      else reject(ref.level!=null&&target.level!=null&&ref.level!==target.level?'different player level':!ref.complete?'partial events':ref.deaths.length?'reference player died':'other incompatible context');
      }
     }
-   }catch(error){notes.push('A candidate report was unavailable: '+error.message);}
+   }catch(error){reject('candidate fetch failed');notes.push('A candidate report was unavailable: '+error.message);}
   }
   const analysis=compare(target,peers,{mode:'observed'});
-  analysis.comparison.context.scan={reports:selected.length,profiles:examined,notes:[...new Set(notes)]};
+  analysis.comparison.context.scan={reports:selected.length,pages,profiles:examined,rejected,notes:[...new Set(notes)]};
   analysis.coverage+=' '+[...new Set(notes)].join(' ');
   results.push({fightID:fight.id,encounter:fight.name,analysis,importCode:encodeReview(target,analysis)});
  }
@@ -80,12 +110,13 @@ function deliverObserved(gameRoot,results){
 if(require.main===module){
  const args=process.argv.slice(2),options={};let gameRoot;
  try{
-  if(args.includes('--help')){console.log('Developer utility: node tools/Optimize-WarcraftLogs.cjs --report CODE --player NAME [--source ID] [--reference-reports CODE,CODE] [--game-root PATH]\nUses logged roles and output tables; no percentile required. Scans a bounded instance report sample. Never claims global best or inferred tank threat. Credentials use WCL_CLIENT_ID/WCL_CLIENT_SECRET.');}
+  if(args.includes('--help')){console.log('Developer utility: node tools/Optimize-WarcraftLogs.cjs --report CODE --player NAME [--source ID] [--reference-reports CODE,CODE] [--game-root PATH] [--max-pages 5] [--max-reports 50] [--max-profiles 30]\nUses logged roles and output tables; no percentile required. Scans a bounded instance report sample. Never claims global best or inferred tank threat. Credentials use WCL_CLIENT_ID/WCL_CLIENT_SECRET.');}
   else{
    for(let i=0;i<args.length;i+=2){const key=args[i],value=args[i+1];if(value===undefined)throw Error('Missing option value.');
     if(key==='--game-root')gameRoot=value;
     else if(key==='--source')options.sourceID=Number(value);
     else if(key==='--reference-reports')options.referenceReports=value.split(',');
+    else if(['--max-pages','--max-reports','--max-profiles'].includes(key))options[{'--max-pages':'maxPages','--max-reports':'maxReports','--max-profiles':'maxProfiles'}[key]]=Number(value);
     else if(['--report','--player','--output'].includes(key))options[key.slice(2)]=value;
     else throw Error('Unknown option. Use --help.');
    }
@@ -93,6 +124,7 @@ if(require.main===module){
     for(const r of results){
      const context=r.analysis?.mentoring?.context,peer=context?.referencePlayers?.[0];
      console.log(`${r.encounter} / fight ${r.fightID}: ${r.analysis?.mentoring?.ready?`${context.role} reference ready / ${peer.player} / ${peer.performance.toFixed(1)} ${context.metric.toUpperCase()}`:'no compatible reference'}`);
+     if(context?.scan){console.log(`  Checked ${context.scan.reports} reports from ${context.scan.pages} discovery pages; examined ${context.scan.profiles} candidate player profiles.`);for(const [reason,count]of Object.entries(context.scan.rejected))console.log(`  Excluded ${count}: ${reason}.`);}
      for(const note of context?.scan?.notes||r.unavailable||[])console.log('  '+note);
     }
     console.log('Results saved to '+(options.output||'.local/optimization')+'/reviews.json. Highest observed means this scanned sample, not a global ranking.');

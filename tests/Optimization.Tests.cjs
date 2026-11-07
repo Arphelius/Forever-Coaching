@@ -42,10 +42,46 @@ async function main(){
  };
  const results=await collectObserved({report:target.report.code,player:'Learner',sourceID:1,client:fake,output:null});
  assert.equal(results[0].analysis.comparison.context.referencePlayers[0].performance,50);
+ const pageCalls=[];
+ const paged=await collectObserved({report:target.report.code,player:'Learner',client:{...fake,
+  instanceReports:async(zone,page,scope)=>{pageCalls.push(page);assert.equal(scope.zoneID,3000);assert(scope.startTime<target.report.startTime&&scope.endTime>target.report.startTime);return {codes:[page===1?target.report.code:peer.report.code],hasMore:page===1};},
+ },output:null});
+ assert.deepEqual(pageCalls,[1,2],'Follow discovery pagination to references beyond the first page');
+ let repeatedInstanceCalls=0;
+ const multiple=await collectObserved({report:target.report.code,player:'Learner',maxProfiles:1,client:{...fake,
+  report:async code=>code===target.report.code?{...target.report,fights:[target.fight,{...target.fight,id:2}]}:peer.report,
+  instanceReports:async()=>{repeatedInstanceCalls++;return {codes:[peer.report.code],hasMore:false};},
+ },output:null});
+ assert.equal(repeatedInstanceCalls,1,'Reuse discovery pages for the same instance');
+ assert(multiple.length===2&&multiple.every(r=>r.analysis.mentoring.ready&&r.analysis.comparison.context.scan.profiles===1),'Profile budgets are per encounter, not exhausted by earlier attempts');
+ assert.equal(paged[0].analysis.mentoring.ready,true);
+ assert.equal(paged[0].analysis.comparison.context.scan.pages,2);
+ const limited=await collectObserved({report:target.report.code,player:'Learner',maxPages:1,client:{...fake,
+  instanceReports:async()=>({codes:[target.report.code],hasMore:true}),
+ },output:null});
+ assert.equal(limited[0].analysis.mentoring.ready,false);
+ assert(limited[0].analysis.comparison.context.scan.notes.some(n=>n.includes('bounded sample')));
+ assert.equal(limited[0].analysis.comparison.context.scan.rejected['same player'],1);
+ const rejection=await collectObserved({report:target.report.code,player:'Learner',client:{...fake,
+  report:async code=>code===target.report.code?target.report:{...peer.report,fights:[{...peer.fight,endTime:120000}]},
+ },output:null});
+ assert.equal(rejection[0].analysis.comparison.context.scan.profiles,0);
+ assert.equal(rejection[0].analysis.comparison.context.scan.rejected['fight length outside 20%'],1,'Expose why no profiles reached event analysis');
+ const repeated=[];
+ const stalled=await collectObserved({report:target.report.code,player:'Learner',client:{...fake,instanceReports:async(zone,page)=>{repeated.push(page);return {codes:[target.report.code],hasMore:true};}},output:null});
+ assert.deepEqual(repeated,[1,2]);
+ assert(stalled[0].analysis.comparison.context.scan.notes.some(n=>n.includes('no new reports')),'Do not loop on repeated discovery pages');
+ const partial=await collectObserved({report:target.report.code,player:'Learner',client:{...fake,instanceReports:async(zone,page)=>{if(page===2)throw Error('fixture page unavailable');return {codes:[peer.report.code],hasMore:true};}},output:null});
+ assert(partial[0].analysis.mentoring.ready&&partial[0].analysis.comparison.context.scan.notes.some(n=>n.includes('earlier successful pages')),'Keep already-discovered references when a later page fails');
  const calls=[];
  const client=createClient({accessToken:'fixture',fetcher:async(url,options)=>{calls.push(JSON.parse(options.body));return {ok:true,text:async()=>JSON.stringify({data:{reportData:{report:{playerDetails:{data:{playerDetails:{tanks:[{id:1}],healers:[{id:2}],dps:[{id:3}]}}},table:{data:{entries:[{id:1,total:50},{id:2,total:60},{id:3,total:70}]}}}}}})};}});
  assert.deepEqual((await client.observedPlayers(target.report.code,target.fight,'hps')).map(p=>p.role),['dps','healer','tank']);
  assert(calls[0].query.includes('includeCombatantInfo:false')&&calls[0].query.includes('dataType:Healing'),'No gear or talents requested in role/output tables');
+ const discoveryRequests=[];
+ const discoveryClient=createClient({accessToken:'fixture',fetcher:async(url,options)=>{discoveryRequests.push(JSON.parse(options.body));return {ok:true,text:async()=>JSON.stringify({data:{reportData:{reports:{data:[{code:peer.report.code}],has_more_pages:true}}}})};}});
+ assert((await discoveryClient.instanceReports(2999,2,{zoneID:3000,startTime:100,endTime:200})).hasMore);
+ assert.deepEqual(discoveryRequests[0].variables,{zone:2999,page:2,rankingZone:3000,start:100,end:200});
+ assert(discoveryRequests[0].query.includes('zoneID:$rankingZone')&&discoveryRequests[0].query.includes('startTime:$start'),'Send documented source zone and date filters to discovery');
  const fallback=await collectObserved({report:target.report.code,player:'Learner',referenceReports:[peer.report.code],client:{...fake,instanceReports:async()=>{throw Error('Discovery unavailable');}},output:null});
  assert(fallback[0].analysis.mentoring.ready&&fallback[0].analysis.coverage.includes('Only supplied reports were scanned'));
  const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
