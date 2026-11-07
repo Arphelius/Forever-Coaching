@@ -92,7 +92,17 @@ assert(FC.FightRecorder:Find(latest.fightTimelineId),'Review must link to its sa
 assert(review:GetSource()=='local','Finished fight hidden behind imported source')
 local _,attempts,nextStep=review:SummarizeDecisions(latest)
 assert(attempts:find('Out of range',1,true),'Recorded client failure missing from review')
-assert(nextStep:find('timeline',1,true),'Recorded failures need investigation guidance')
+assert(nextStep:find('range',1,true),'Range failure needs specific range guidance')
+FC:OpenCombatReview()
+local visibleFailure,visibleCasts,visibleAdvice=false,false,false
+for _,frame in ipairs(TestFrames) do
+ if frame:IsShown() and type(frame.text)=='string' then
+  if frame.text:find('Lightning Bolt failed',1,true) and frame.text:find('Out of range',1,true) then visibleFailure=true end
+  if frame.text:find('Casts: Lightning Bolt x1',1,true) then visibleCasts=true end
+  if frame.text:find('Move within Lightning Bolt range',1,true) then visibleAdvice=true end
+ end
+end
+assert(visibleFailure and visibleCasts and visibleAdvice,'Default review must show actual casts, error details and actionable guidance without Show details')
 -- Forever can rename its realm display label. Recover legacy reviews by the
 -- GUID in the linked timeline, without mixing same-name characters on realms.
 latest.characterGUID=nil

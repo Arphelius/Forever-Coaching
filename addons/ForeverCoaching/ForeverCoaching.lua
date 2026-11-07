@@ -336,15 +336,7 @@ local reviewText
 local reviewWidgets
 local reviewExpanded=false
 local function reviewDisplay(value)
-    if reviewExpanded then return value or '' end
-    local first=(value or ''):match('[^\n]+') or ''
-    local sentence=first:match('^(.-[.!?])%s') or first
-    local words={}
-    for word in sentence:gmatch('%S+') do
-        if #words==22 then return table.concat(words,' ')..'…' end
-        words[#words+1]=word
-    end
-    return sentence
+    return value or ''
 end
 
 local function UpdateReviewText()

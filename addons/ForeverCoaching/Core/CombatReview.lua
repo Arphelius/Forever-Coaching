@@ -292,6 +292,7 @@ local function recordFailedAttempt(spellID, interrupted)
         name = name,
         spellID = spellID,
         at = now,
+        time = math.max(0, now - session.started),
         clientMessage = session.lastUIError and now - session.lastUIError.at <= 0.4
             and session.lastUIError.message or nil,
         interrupted = interrupted,
@@ -497,6 +498,7 @@ local function buildReport(reviewSession)
         combatContext = session.combatContext,
         playerLevel = session.playerLevel,
         duration = duration,
+        started = session.started,
         casts = session.casts,
         recommendationMatchPercent = matchPercent,
         comparedCasts=session.compared,
@@ -508,19 +510,82 @@ local function buildReport(reviewSession)
     }
 end
 
+local failureGuidance = {
+    {keys={'SPELL_FAILED_OUT_OF_RANGE', 'ERR_OUT_OF_RANGE'}, text={'out of range', 'too far away'}, advice='Move within %s range before retrying; avoid repeating the cast from the same distance.'},
+    {keys={'SPELL_FAILED_LINE_OF_SIGHT'}, text={'line of sight'}, advice='Reposition until you have a clear line of sight to the target, then retry %s.'},
+    {keys={'SPELL_FAILED_MOVING'}, text={'while moving', 'must be standing'}, advice='When mechanics allow, stop moving before starting %s and remain still until it finishes.'},
+    {keys={'SPELL_FAILED_NO_POWER', 'SPELL_FAILED_NO_MANA'}, text={'not enough mana', 'not enough energy', 'not enough rage', 'not enough power'}, advice='Check the resource cost of %s and wait for enough resource before retrying.'},
+    {keys={'SPELL_FAILED_NOT_READY'}, text={'not ready yet', 'on cooldown'}, advice='Wait for %s to become ready before pressing it again.'},
+    {keys={'SPELL_FAILED_BAD_TARGETS', 'SPELL_FAILED_NO_VALID_TARGETS'}, text={'invalid target', 'no target', 'must first select'}, advice='Select a valid target for %s before retrying.'},
+    {keys={'SPELL_FAILED_SPELL_IN_PROGRESS'}, text={'another action is in progress', 'spell is already in progress'}, advice='Let the current cast finish before retrying %s.'},
+}
+
+local function failureAdvice(attempt, name)
+    local message = attempt.clientMessage
+    if type(message) == 'string' then
+        for _, rule in ipairs(failureGuidance) do
+            local matched = false
+            for _, key in ipairs(rule.keys) do
+                local localized = _G[key]
+                if type(localized) == 'string' and not isSecret(localized) and localized == message then matched = true end
+            end
+            for _, text in ipairs(rule.text) do if message:lower():find(text, 1, true) then matched = true end end
+            if matched then return string.format(rule.advice, name) end
+        end
+    end
+    return 'For ' .. name .. ', check whether the ' .. (attempt.interrupted and 'interruption was intentional' or 'target, range and resource were valid') ..
+        ' before retrying. The recorded failure does not establish its cause.'
+end
+
 function Review:SummarizeDecisions(report)
     if not report then return '', '', '' end
     -- Saved rotation comparisons are historical data, not current assessments.
-    local failures = report.failedAttempts or {}
-    local observations = {}
-    for _, attempt in ipairs(failures) do
-        observations[#observations + 1] = (attempt.name or 'Spell') ..
-            (attempt.interrupted and ': interrupted' or ': failed') ..
-            (attempt.clientMessage and ' / ' .. attempt.clientMessage or '')
+    local timeline
+    for _, fight in ipairs(ForeverCoachingDB and ForeverCoachingDB.fightTimelines or {}) do
+        if report.fightTimelineId and fight.id == report.fightTimelineId then timeline = fight;break end
     end
-    return tostring(report.casts or 0)..' successful casts recorded in this fight.',
-        #observations > 0 and ('Recorded cast attempts to investigate (not confirmed mistakes):\n' .. table.concat(observations, '\n')) or '',
-        #observations > 0 and 'Check these attempts in the fight timeline alongside movement and client messages before deciding what to change.' or ''
+    local started = report.started or (timeline and timeline.started) or (report.encounterCoaching and report.encounterCoaching.started)
+    local spells = {}
+    for _, row in pairs(report.damageByAbility or {}) do
+        if (row.casts or 0) > 0 then spells[#spells + 1] = {name=row.name or ('Spell ' .. tostring(row.spellID or '?')), casts=row.casts} end
+    end
+    table.sort(spells, function(a,b) if a.casts == b.casts then return a.name < b.name end;return a.casts > b.casts end)
+    local castText = {}
+    for _, row in ipairs(spells) do castText[#castText + 1] = row.name .. ' x' .. row.casts end
+    local good = tostring(report.casts or 0)..' successful casts recorded in this fight.' ..
+        (#castText > 0 and ('\nCasts: ' .. table.concat(castText, '; ') .. '.') or '')
+    local observations, improvements, grouped, adviceSeen = {}, {}, {}, {}
+    for _, attempt in ipairs(report.failedAttempts or {}) do
+        local name = attempt.name or ('Spell ' .. tostring(attempt.spellID or '?'))
+        local key = name .. ':' .. tostring(attempt.interrupted) .. ':' .. (attempt.clientMessage or '')
+        local group = grouped[key]
+        if group then
+            group.count = group.count + 1
+        else
+            group = {count=1, attempt=attempt, name=name}
+            grouped[key] = group;observations[#observations + 1] = group
+        end
+    end
+    local failures = {}
+    for _, group in ipairs(observations) do
+        local attempt, name = group.attempt, group.name
+        local elapsed = attempt.time or (started and attempt.at and math.max(0, attempt.at - started))
+        failures[#failures + 1] = (elapsed and string.format('%.1fs: ', elapsed) or '') .. name ..
+            (attempt.interrupted and ' was interrupted' or ' failed') ..
+            (group.count > 1 and (' (' .. group.count .. ' attempts)') or '') ..
+            (attempt.clientMessage and ('. Game message: ' .. attempt.clientMessage) or '. No cause was reported.')
+        local advice = failureAdvice(attempt, name)
+        if not adviceSeen[advice] then improvements[#improvements + 1] = advice;adviceSeen[advice] = true end
+    end
+    local deaths = 0
+    for _, event in ipairs(timeline and timeline.events or {}) do
+        if event.kind == 'death' and event.unit == 'player' then
+            deaths = deaths + 1
+            failures[#failures + 1] = string.format('%.1fs: Player death recorded. The cause is not available.', event.time or 0)
+        end
+    end
+    if deaths > 0 then improvements[#improvements + 1] = 'Inspect the health changes and auras immediately before your death in the timeline to identify what required a defensive or a mechanic response.' end
+    return good, table.concat(failures, '\n'), table.concat(improvements, '\n')
 end
 
 function Review:GetLatestText()
@@ -608,28 +673,35 @@ function Review:GetLatestSummary(filter)
             takeaway='',nextStep=''}
     end
     local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
-    if rotationWrong=='' then rotationWrong='No verified mistakes identified from the available observations.' end
-    if rotationImprove=='' then rotationImprove='Review the timeline; missing combat information prevents a complete assessment.' end
     if latest.encounterCoaching and FC.EncounterCoach then
-        local good=FC.EncounterCoach:Summarize(latest.encounterCoaching)
+        local good, attention, nextSteps=FC.EncounterCoach:Summarize(latest.encounterCoaching)
+        local function append(first, second)
+            return second and second~='' and (first~='' and first..'\n\n'..second or second) or first
+        end
+        rotationWrong=append(rotationWrong, attention)
+        rotationImprove=append(rotationImprove, nextSteps)
         local timeline=FC.FightRecorder and FC.FightRecorder:Find(latest.fightTimelineId)
         local recorded=timeline and FC.FightRecorder:Analyze(timeline)
         local scenarios=latest.scenarioCoaching or timeline and timeline.scenarios
         if scenarios and FC.ScenarioTracker then
             local identity=latest.combatContext or latest.encounterCoaching.build or {class=latest.class,role=latest.specRole}
-            local sg=FC.ScenarioTracker:Summarize(scenarios,identity)
+            local sg,sw,si=FC.ScenarioTracker:Summarize(scenarios,identity)
             if sg~='' then good=sg..'\n\n'..good end
+            rotationWrong=append(rotationWrong,sw)
+            rotationImprove=append(rotationImprove,si)
         end
         good=rotationGood..(good~='' and '\n\n'..good or '')
-        -- Unconfirmed responses and movement are observations, not established
-        -- mistakes. Only an assessed wrong attack supplies corrective advice.
+        -- Keep the recorded observer's qualifications: an unconfirmed response
+        -- is not proof of a missed assignment or an incorrect attack.
         local build=latest.encounterCoaching.build or {}
         return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
-            wrongText=rotationWrong,
-            improveText=rotationImprove,
+            wrongText=rotationWrong~='' and rotationWrong or 'No verified mistakes identified from the available observations.',
+            improveText=rotationImprove~='' and rotationImprove or 'No specific correction is supported by this recording. Record another fight to collect more evidence.',
             coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
     end
+    if rotationWrong=='' then rotationWrong='No verified mistakes identified from the available observations.' end
+    if rotationImprove=='' then rotationImprove='No specific correction is supported by this recording. Record another fight to collect more evidence.' end
     return {goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
             latest.damageSource and "damage available" or "cast observations only"),
         observation=rotationGood,takeaway=rotationWrong,nextStep=rotationImprove,
