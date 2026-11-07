@@ -49,6 +49,7 @@ function methods:GetFrameStrata() return 'MEDIUM' end
 function methods:GetFrameLevel() return 10 end
 function methods:SetText(text) self.text=text end
 function methods:GetText() return self.text end
+function methods:HighlightText() self.highlighted=true end
 function methods:SetHeight(height) self.height=height end
 function methods:SetSize(width,height) self.width=width;self.height=height end
 function methods:GetStringHeight() return 30 end

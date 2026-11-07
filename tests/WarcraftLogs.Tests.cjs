@@ -6,7 +6,7 @@ const fight={id:1,name:'Test Boss',encounterID:7,difficulty:3,gameZone:{id:33,na
 const report={code:'AbCdEfGh12345678',startTime:1793900000000,zone:{id:100},masterData:{gameVersion:16,actors:[actor],abilities:[{gameID:403,name:'Lightning Bolt'},{gameID:99,name:'Boss hit'}]},fights:[fight]};
 const stream={complete:true,events:[{timestamp:1000,type:'cast',sourceID:1,abilityGameID:403},{timestamp:29000,type:'damage',targetID:1,sourceID:2,abilityGameID:99,amount:100},{timestamp:30000,type:'death',targetID:1,sourceID:2},{timestamp:32000,type:'death',targetID:2,sourceID:1}]};
 const target=profile(report,fight,actor,stream);
-const references=Array.from({length:3},(_,i)=>{const peer={...actor,name:'Peer'+i};const r=profile({...report,code:'RefCode00000000'+String(i).padStart(2,'0'),masterData:{...report.masterData,actors:[peer]}},fight,peer,{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))});r.percentile=100;return r;});
+const references=Array.from({length:3},(_,i)=>{const peer={...actor,name:'Peer'+i};const r=profile({...report,code:'RefCode0000000'+String(i).padStart(2,'0'),masterData:{...report.masterData,actors:[peer]}},fight,peer,{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))});r.percentile=100;return r;});
 const aliveStream={complete:true,events:stream.events.filter(e=>e.type!=='death')};
 const alive=profile(report,fight,actor,aliveStream);
 const analysis=compare(alive,references),code=encodeReview(alive,analysis);
@@ -19,7 +19,8 @@ assert.match(analysis.coverage,/3 compatible verified/);
 assert.doesNotMatch(compare({...target,complete:false},references).improve,/casts\/min/);
 assert.doesNotMatch(compare({...target,fight:{...fight,kill:false}},references).improve,/casts\/min/);
 assert.doesNotMatch(compare(alive,references.map(r=>({...r,percentile:94.99}))).improve,/casts\/min/);
-assert.match(compare(alive,references.map(r=>({...r,percentile:95}))).improve,/casts\/min/);
+assert.doesNotMatch(compare(alive,references.map(r=>({...r,percentile:99.99}))).improve,/casts\/min/,'Do not round a non-100 parse into the reference set');
+assert.throws(()=>compare(alive,references,{minPercentile:95}),/100-percentile/);
 assert.doesNotMatch(compare(target,references.map(r=>({...r,spec:'Elemental'}))).improve,/casts\/min/);
 assert.doesNotMatch(compare(target,references.slice(0,2)).improve,/casts\/min/);
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require('../tools/preview-runtime/node_modules/fengari');
@@ -52,18 +53,38 @@ UnitAffectingCombat=function()return false end
 UnitGUID=function()return 'Player-other' end;assert(#w:GetReviews()==0,'Other characters do not see the import')
 UnitGUID=function()return 'Player-test' end
 local listener;for _,frame in ipairs(TestFrames)do if frame.events.PLAYER_REGEN_DISABLED then listener=frame end end
+ForeverCoachingDB.combatAnalysisReady=false
 listener.scripts.OnEvent(listener,'PLAYER_REGEN_DISABLED');listener.scripts.OnEvent(listener,'PLAYER_REGEN_ENABLED')
 for _,callback in ipairs(TestTimers)do callback()end
-assert(ForeverCoaching.CombatReview:GetSource()=='local','New local fight must not display a stale external report')`);
+assert(ForeverCoaching.CombatReview:GetSource()=='warcraftlogs','Local recording must not replace the Warcraft Logs access page')
+assert(not ForeverCoachingDB.combatAnalysisReady,'A local recording must not announce new Warcraft Logs analysis')`);
 run(fs.readFileSync('addons/ForeverCoaching/UI/WarcraftLogs.lua','utf8'));
 run(`local parent=CreateFrame('Frame');local panel=ForeverCoaching:BuildWarcraftLogsPanel(parent,728)
-assert(panel.frame.parent==parent and panel.height==240,'Companion instructions stay compact in review content')
-assert(not panel.input:IsShown(),'Manual import must be hidden from the normal player flow')
-panel.advancedButton.scripts.OnClick(panel.advancedButton)
-assert(panel.input:IsShown() and panel.height==384,'Advanced manual import remains available')
+assert(panel.frame.parent==parent and panel.height==240,'Warcraft Logs access stays compact in review content')
+assert(not panel.input and not panel.importButton and not panel.advancedButton,'The player page must not require scripts or review-code imports')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No separate popup remains')
-panel.input:SetText('invalid import');panel.importButton.scripts.OnClick(panel.importButton)
-assert(panel.status:GetText():find('Paste a Forever Coaching',1,true),'Inline validation is visible')
+panel.url:SetText('https://unrelated.test/reports/AbCdEfGh12345678');panel.saveButton.scripts.OnClick(panel.saveButton)
+assert(panel.status:GetText():find('forever.warcraftlogs.com',1,true),'Report links are restricted to the intended provider')
+local reportURL='https://forever.warcraftlogs.com/reports/AbCdEfGh12345678#fight=1'
+panel.url:SetText(reportURL);panel.saveButton.scripts.OnClick(panel.saveButton)
+assert(ForeverCoaching.WarcraftLogs:GetReportURL()==reportURL,'Save report access per character')
+UnitGUID=function()return 'Player-another'end
+assert(ForeverCoaching.WarcraftLogs:GetReportURL()==ForeverCoaching.WarcraftLogs.url,'Do not show another character report link')
+UnitGUID=function()return 'Player-test'end
+panel.reportButton.scripts.OnClick(panel.reportButton)
+assert(panel.url:GetText()==reportURL)
+assert(ForeverCoaching.WarcraftLogs:GetReferenceURL(),'Expose a supplied 100-parse reference link')
+local entry=ForeverCoachingDB.warcraftLogs.reviews[1];local references=entry.references
+entry.references=references:gsub('100 percentile','99.99 percentile')
+assert(not ForeverCoaching.WarcraftLogs:GetReferenceURL(),'Lower-percentile references must not be labeled 100 parses')
+assert(ForeverCoaching.WarcraftLogs:GetSummary().wrongText:find('withheld',1,true),'Do not render old 95/99 comparisons as 100-parse findings')
+entry.references=references
+assert(ForeverCoaching.WarcraftLogs:SaveReportURL('https://forever.warcraftlogs.com/reports/NewReport0000001#fight=2'))
+assert(ForeverCoaching.WarcraftLogs:GetSummary().metrics=='Warcraft Logs / Report access','A new bookmark must not display another report comparison')
+assert(not ForeverCoaching.WarcraftLogs:GetReferenceURL(),'A new report must not inherit old reference links')
+assert(ForeverCoaching.WarcraftLogs:SaveReportURL('https://forever.warcraftlogs.com/reports/AbCdEfGh12345678#fight=last'))
+assert(ForeverCoaching.WarcraftLogs:GetSummary().metrics=='Warcraft Logs / Report access','Do not guess which fight a dynamic website link currently resolves to')
+assert(ForeverCoaching.WarcraftLogs:SaveReportURL(reportURL))
 assert(parent:IsShown(),'Importing must leave the review page visible')`);
 lua.lua_close(L);
 async function main(){
@@ -91,11 +112,11 @@ async function main(){
   report:async code=>code===report.code?report:references.find(r=>r.report.code===code).report,
   events:async code=>code===report.code?aliveStream:{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))},
   topRanks:async()=>references.map(r=>({name:r.actor.name,report:{code:r.report.code,fightID:1}})),
-  percentile:async()=>97
+  percentile:async()=>100
  }});
  assert.match(ranked[0].analysis.coverage,/3 compatible verified/);
  assert.match(ranked[0].analysis.improve,/casts\/min/);
- assert.match(ranked[0].analysis.references,/97 percentile/,'Use the verified percentile, not a fabricated perfect parse');
+ assert.match(ranked[0].analysis.references,/100 percentile/,'Only verified exact 100 parses qualify');
  }finally{fs.rmSync(output,{recursive:true,force:true});}
  console.log('PASS: WCL API pagination/errors, independent high-percentile peer coaching, death opportunity limits, all report attempts, safe character-bound import, logging controls, UI and fresh local review selection. Simulated fixtures only.');
 }

@@ -3,7 +3,6 @@ param([string]$Version)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
-. (Join-Path $PSScriptRoot 'Add-CoachingCompanionToPackage.ps1')
 $root=Split-Path $PSScriptRoot -Parent
 $source=Join-Path $root 'addons/ForeverCoaching'
 $manifest=Get-Content (Join-Path $source 'ForeverCoaching.toc') -Raw
@@ -45,7 +44,6 @@ try {
    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,'ForeverCoaching/'+$relative,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
   }
  }
- Add-CoachingCompanionToPackage $zip $root
 } finally { $zip.Dispose() }
 Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
 Write-Output $path

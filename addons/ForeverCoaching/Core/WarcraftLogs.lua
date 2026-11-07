@@ -38,6 +38,46 @@ companionEvents:SetScript('OnEvent',function()
  if C_Timer and C_Timer.After then C_Timer.After(1,load) else load()end
 end)
 local function normalize(value)return tostring(value or ''):lower():gsub('[%s%-%\']','')end
+function W:SaveReportURL(value)
+ if type(value)~='string' or #value>2048 then return false,'Paste a Forever Warcraft Logs report link.' end
+ value=value:match('^%s*(.-)%s*$')
+ local code,suffix=value:match('^https://forever%.warcraftlogs%.com/reports/([%w]+)(.*)$')
+ if not code or #code~=16 or (suffix~='' and suffix~='/' and not suffix:match('^#') and not suffix:match('^/#')) or value:find('[%c%s|]') then return false,'Use a report link from https://forever.warcraftlogs.com/.' end
+ local guid=safe(UnitGUID,'player');if not guid then return false,'Character identity unavailable.' end
+ local db=saved();db.reportLinks=db.reportLinks or {};db.reportLinks[guid]=value
+ return true,'Report link saved for this character. Select the link and press Ctrl+C to view it in your browser.'
+end
+function W:GetReportURL()
+ local guid=safe(UnitGUID,'player');local db=saved()
+ return guid and db.reportLinks and db.reportLinks[guid] or self.url
+end
+local function selectedReview(self)
+ local db=saved();local list=self:GetReviews();local selected=list[1]
+ for _,review in ipairs(list)do if db.selected==review.code..':'..review.fight then selected=review;break end end
+ local url=self:GetReportURL();local code=url:match('/reports/([%w]+)')
+ if code then
+  local fight=url:match('[#&]fight=([^&]+)')
+  if fight and not fight:match('^%d+$')then return nil end
+  if selected and selected.code==code and (not fight or selected.fight==tonumber(fight))then return selected end
+  for _,review in ipairs(list)do if review.code==code and (not fight or review.fight==tonumber(fight))then return review end end
+  return nil
+ end
+ return selected
+end
+local function referenceLinks(review)
+ local links,seen={},{}
+ for line in (review.references or ''):gmatch('[^\n]+') do
+  if not line:match(' / 100 percentile$') then return {},false end
+  local link,code=line:match('^(https://forever%.warcraftlogs%.com/reports/([%w]+)#fight=%d+&source=%d+)%s')
+  if not link or #code~=16 then return {},false end
+  if not seen[link] then seen[link]=true;links[#links+1]=link end
+ end
+ return links,#links>=3
+end
+function W:GetReferenceURL()
+ local selected=selectedReview(self)
+ if selected then local links,qualified=referenceLinks(selected);if qualified then return links[1] end end
+end
 local function decode(value)
  if value:find('%%[^%x]') or value:find('%%$') or value:find('%%%x$') or value:find('%%%x[^%x]') then return nil end
  local text=value:gsub('%%(%x%x)',function(hex)return string.char(tonumber(hex,16))end)
@@ -74,6 +114,8 @@ function W:Import(text)
  local review={code=code,fight=fight,player=fields[4],realm=fields[5],class=fields[6],spec=fields[7],encounter=encounter,name=fields[9],started=started,duration=duration,good=fields[12],observations=fields[13],improve=fields[14],timeline=fields[15],references=fields[16],coverage=fields[17],character=guid}
  local db=saved();for i=#db.reviews,1,-1 do local old=db.reviews[i];if old.character==guid and old.code==code and old.fight==fight then table.remove(db.reviews,i) end end
  table.insert(db.reviews,1,review);while #db.reviews>30 do table.remove(db.reviews) end;db.selected=code..':'..fight
+ db.reportLinks=db.reportLinks or {};db.reportLinks[guid]=self.url..'reports/'..code..'#fight='..fight
+ ForeverCoachingDB.combatAnalysisReady=true
  if FC.CombatReview then FC.CombatReview:SetSource('warcraftlogs') end
  if FC.RefreshCombatReview then FC:RefreshCombatReview() end
  return true,'Review imported. This is the identified uploaded fight, not an automatic match to your latest local combat.'
@@ -88,13 +130,15 @@ function W:Select(offset)
  local db=saved();local index=1
  for i,r in ipairs(list) do if db.selected==r.code..':'..r.fight then index=i end end
  index=math.max(1,math.min(#list,index+offset));local r=list[index];db.selected=r.code..':'..r.fight
+ db.reportLinks=db.reportLinks or {};local guid=safe(UnitGUID,'player');if guid then db.reportLinks[guid]=self.url..'reports/'..r.code..'#fight='..r.fight end
  if FC.CombatReview then FC.CombatReview:SetSource('warcraftlogs') end
  if FC.RefreshCombatReview then FC:RefreshCombatReview() end
 end
 function W:GetSummary()
- local list=self:GetReviews();local db=saved();local selected=list[1]
- for _,r in ipairs(list) do if db.selected==r.code..':'..r.fight then selected=r end end
- if not selected then return {metrics='Warcraft Logs / No coaching review yet',goodText='Record and upload your run using your usual logging tools.',wrongText='No peer coaching review is loaded for this character.',improveText='Open Review-My-Run.cmd, sign in, choose your run and character, then click Review my run. Type /reload in WoW to receive the review.',coverage='The companion handles analysis and review delivery. Uploading combat logs remains separate. Local recording continues independently.'} end
+ local selected=selectedReview(self)
+ if not selected then return {metrics='Warcraft Logs / Report access',headings={'YOUR REPORT','100-PARSE REFERENCES','COMPARE ON WARCRAFT LOGS'},goodText=self:GetReportURL()~=self.url and 'Your report link is saved. Select Your report and copy the link to view this fight on Warcraft Logs.' or 'Save your Warcraft Logs report link above to keep it with this character.',wrongText='Choose verified 100-percentile players on the same class, spec, encounter and difficulty in other runs.',improveText='Open your report in a browser and compare casts, buffs and encounter timelines on Warcraft Logs. The addon does not retrieve website results automatically.',coverage='Warcraft Logs remains the source for uploaded reports and rankings. This addon provides links and displays supplied comparison snapshots. Local cast failures are not rotation verdicts.'} end
  local r=selected
- return {metrics='Warcraft Logs / '..r.name..' / '..r.spec..' / fight '..r.fight..' / '..math.floor(r.duration/1000)..'s',headings={'WHAT YOU DID WELL','ROTATION DIFFERENCES TO REVIEW','NEXT PULL: PRACTICE'},goodText=r.good..'\n\nTimeline:\n'..r.timeline,wrongText=r.observations,improveText=r.improve..'\n\nReference players:\n'..(r.references~='' and r.references or 'No compatible verified reference players retrieved.'),coverage=r.coverage..'\nUploaded fight started (Unix ms): '..r.started..'\nSource: '..self.url..'reports/'..r.code..'#fight='..r.fight,sourceUrl=self.url..'reports/'..r.code..'#fight='..r.fight}
+ local links,qualified=referenceLinks(r)
+ if not qualified then return {metrics='Warcraft Logs / '..r.name..' / 100-parse comparison unavailable',headings={'YOUR REPORT','100-PARSE REFERENCES','COMPARE ON WARCRAFT LOGS'},goodText='Your imported report identifies '..r.name..' / '..r.spec..' / fight '..r.fight..'.',wrongText='This saved snapshot does not identify three distinct 100-percentile reference parses. Lower-percentile comparisons are withheld.',improveText='Use your report link to compare with verified 100 parses on Warcraft Logs. Match the spec, encounter, difficulty and tuning period.',coverage='Reference labels in an imported snapshot cannot be independently verified by the in-game addon. The addon does not turn a percentile difference into a confirmed mistake.'} end
+ return {metrics='Imported Warcraft Logs comparison / '..r.name..' / '..r.spec..' / fight '..r.fight..' / '..math.floor(r.duration/1000)..'s',headings={'IMPORTED FIGHT SUMMARY','DIFFERENCES FROM 100 PARSES','POINTS TO REVIEW'},goodText=r.good,wrongText=r.observations,improveText=r.improve..'\n\n100-percentile reference parses:\n'..r.references,coverage='Imported comparison findings are supplied by the import tool; they are not official Warcraft Logs mistake verdicts.\n'..r.coverage..'\nUploaded fight started (Unix ms): '..r.started..'\nSource: '..self.url..'reports/'..r.code..'#fight='..r.fight,sourceUrl=self.url..'reports/'..r.code..'#fight='..r.fight}
 end

@@ -215,7 +215,7 @@ function Review:SetReadyNoticeEnabled(enabled)
 end
 
 function Review:MarkLatestViewed()
-    if self:GetSource()~="local" then return end
+    if not FC.WarcraftLogs and self:GetSource()~="local" then return end
     ensureSavedData()
     ForeverCoachingDB.combatAnalysisReady = false
     if FC.HideCombatAnalysisNotice then FC:HideCombatAnalysisNotice() end
@@ -621,12 +621,12 @@ local function localRecordingSummary(summary)
     summary.diagnosticText=table.concat({summary.goodText or '',summary.wrongText or '',summary.improveText or ''},'\n\n')
     summary.headings={'LOCAL RECORDING','PEER ROTATION COMPARISON','GET SPEC-SPECIFIC COACHING'}
     summary.wrongText='No comparison with other players has been performed for this local recording. Cast failures and spell counts do not establish rotation quality.'
-    summary.improveText='Open Review-My-Run.cmd, sign in and choose your uploaded run and character. Click Review my run, then type /reload in WoW. The companion finds matching same-spec reference fights and sends the coaching review to your addon.'
+    summary.improveText='Use Warcraft Logs to review your uploaded fight against verified 100-percentile players on the same spec and encounter. Local observations do not provide that comparison.'
     summary.peerCoachingReady=false
     return summary
 end
 function Review:GetLatestSummary(filter)
-    if self:GetSource()=="warcraftlogs" and FC.WarcraftLogs then return FC.WarcraftLogs:GetSummary() end
+    if FC.WarcraftLogs then return FC.WarcraftLogs:GetSummary() end
     ensureSavedData()
     if self:GetSource()=="foreverlogs" then
         local statistics=FC.ForeverLogsStatistics
@@ -719,12 +719,14 @@ function Review:GetLatestSummary(filter)
 end
 
 function Review:GetSource()
+    if FC.WarcraftLogs then return 'warcraftlogs' end
     ensureSavedData()
     local source=ForeverCoachingDB.settings.combatReviewSource
     return (source=="foreverlogs" or source=="warcraftlogs") and source or "local"
 end
 function Review:SetSource(value)
     ensureSavedData()
+    if FC.WarcraftLogs then value='warcraftlogs' end
     ForeverCoachingDB.settings.combatReviewSource=(value=="foreverlogs" or value=="warcraftlogs") and value or "local"
 end
 
@@ -867,11 +869,13 @@ events:SetScript("OnEvent", function(_, event, ...)
                 ForeverCoachingDB.lastReviewError = nil
                 table.insert(ForeverCoachingDB.reviews, 1, report)
                 while #ForeverCoachingDB.reviews > 10 do table.remove(ForeverCoachingDB.reviews) end
-                ForeverCoachingDB.combatAnalysisReady = true
-                -- A newly finished local fight must never display an older imported report.
-                Review:SetSource('local')
+                -- A local recording is not a newly retrieved Warcraft Logs analysis.
+                if not FC.WarcraftLogs then
+                    ForeverCoachingDB.combatAnalysisReady = true
+                    Review:SetSource('local')
+                end
                 if FC.RefreshCombatReview then FC:RefreshCombatReview() end
-                if Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
+                if not FC.WarcraftLogs and Review:GetReadyNoticeEnabled() and FC.NotifyCombatAnalysisReady then
                     FC:NotifyCombatAnalysisReady(report)
                 end
             end

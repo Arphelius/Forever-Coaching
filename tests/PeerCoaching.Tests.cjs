@@ -12,7 +12,7 @@ function sample({className='Shaman',peer=0,target=false,matching=false}={}){
  events.push({timestamp:1000,type:'combatantinfo',sourceID:1,talents:[{id:9,rank:1}]},
   {timestamp:2000,type:'applydebuff',sourceID:1,targetID:2,abilityGameID:101},
   {timestamp:target&&!matching?15000:60000,type:'removedebuff',sourceID:1,targetID:2,abilityGameID:101});
- const result=profile(report,fight,actor,{complete:true,events});result.percentile=97;result.partition=2;result.metric='dps';return result;
+ const result=profile(report,fight,actor,{complete:true,events});result.percentile=100;result.partition=2;result.metric='dps';return result;
 }
 for(const className of Object.keys(classes)){
  const target=sample({className,target:true}),refs=[1,2,3].map(peer=>sample({className,peer}));
@@ -28,13 +28,13 @@ for(const className of Object.keys(classes)){
  const analysis=compare(target,refs);
  assert(analysis.observations.includes('Your first casts:'));
  assert(analysis.improve.includes('Next pull:'));
- assert(analysis.references.includes('97 percentile'));
+ assert(analysis.references.includes('100 percentile'));
  assert(encodeReview(target,analysis).length<60000);
 }
 const target=sample({target:true}),refs=[1,2,3].map(peer=>sample({peer}));
 for(const mutate of [
  r=>{r.spec='Restoration';},r=>{r.actor.subType='Mage';},r=>{r.fight.encounterID=78;},r=>{r.fight.difficulty=4;},
- r=>{r.report.zone.id=51;},r=>{r.report.masterData.gameVersion=17;},r=>{r.complete=false;},r=>{r.percentile=94;},
+ r=>{r.report.zone.id=51;},r=>{r.report.masterData.gameVersion=17;},r=>{r.complete=false;},r=>{r.percentile=94;},r=>{r.percentile=99.99;},
  r=>{r.report.startTime+=8*86400000;},r=>{r.duration=120;},r=>{r.partition=3;},r=>{r.metric='hps';},
  r=>{r.deaths=[{timestamp:20000}];},r=>{r.events=r.events.map(e=>e.type==='combatantinfo'?{...e,talents:[{id:99,rank:1}]}:e);},
  r=>{r.fight.gameZone.id=34;},r=>{r.fight.gameZone=null;},r=>{r.fight.keystoneLevel=15;},r=>{r.fight.keystoneAffixes=[1];},r=>{r.fight.hardModeLevel=1;},

@@ -24,12 +24,9 @@ try {
   }
  }
  foreach ($entry in $zip.Entries) {
-  if (-not $entry.FullName.StartsWith('ForeverCoaching/') -or $entry.FullName -match '\.local/|\.backup\.|LiveRotation\.lua|RotationCoach\.lua|CombatHUD\.lua|RotationSettings\.lua') { throw "Unexpected release entry: $($entry.FullName)" }
+  if (-not $entry.FullName.StartsWith('ForeverCoaching/') -or $entry.FullName -match '\.local/|\.backup\.|/Companion/|LiveRotation\.lua|RotationCoach\.lua|CombatHUD\.lua|RotationSettings\.lua') { throw "Unexpected release entry: $($entry.FullName)" }
  }
  if ((Read-Entry 'Data/ForeverLogsReview.lua') -notmatch 'ForeverLogsReview=nil') { throw 'Personal review was not excluded.' }
  if ((Read-Entry 'Data/CompanionReviews.lua') -notmatch 'CompanionReviews=\{\}') { throw 'Personal companion reviews were not excluded.' }
- foreach($companionFile in @('Review-My-Run.cmd','tools/Start-CoachingCompanion.ps1','tools/coaching-companion.cjs','tools/coaching-oauth.cjs','tools/coaching-delivery.cjs','tools/warcraftlogs-client.cjs','tools/peer-coaching.cjs','tools/Review-WarcraftLogs.cjs','tools/coaching-companion/index.html','tools/coaching-companion/companion.js','tools/coaching-companion/companion.css','tools/coaching-companion/config.json')) {
-  $null=Read-Entry ('Companion/'+$companionFile)
- }
  Write-Output 'PASS: release ZIP layout, three synchronized discovery manifests, every loaded file and private/retired-file exclusions.'
 } finally { $zip.Dispose() }

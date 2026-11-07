@@ -99,7 +99,7 @@ for _,frame in ipairs(TestFrames) do
  if frame:IsShown() and type(frame.text)=='string' then
   if frame.text:find('No comparison with other players',1,true) then visibleCoachingStatus=true end
   if frame.text:find('Casts: Lightning Bolt x1',1,true) then visibleCasts=true end
-  if frame.text:find('matching same-spec reference fights',1,true) then visibleImportStep=true end
+  if frame.text:find('Use Warcraft Logs',1,true) then visibleImportStep=true end
  end
 end
 assert(visibleCoachingStatus and visibleCasts and visibleImportStep,'Local diagnostics must not masquerade as peer coaching; show the path to a matched review')

@@ -20,7 +20,7 @@ async function upstream(url,options){
  else if(query.includes('reports(userID'))data={reportData:{reports:{data:[{code:targetCode,title:'Fixture Run',startTime:Date.now(),endTime:Date.now()}]}}};
  else if(query.includes('masterData'))data={reportData:{report:metadata(v.code)}};
  else if(query.includes('characterRankings'))data={worldData:{encounter:{characterRankings:{rankings:peerCodes.map((code,i)=>({name:'Peer'+(i+1),report:{code,fightID:1}}))}}}};
- else if(query.includes('rankings('))data={reportData:{report:{rankings:{data:[{fightID:1,partition:2,roles:{dps:{characters:[{id:1,rankPercent:97}]}}}]}}}};
+ else if(query.includes('rankings('))data={reportData:{report:{rankings:{data:[{fightID:1,partition:2,roles:{dps:{characters:[{id:1,rankPercent:100}]}}}]}}}};
  else if(query.includes('events('))data={reportData:{report:{events:{nextPageTimestamp:null,data:(v.code===targetCode?[101,103,103]:[101,102,103,102,102,102]).map((abilityGameID,i)=>({timestamp:1000+i*8000,type:'cast',sourceID:1,abilityGameID}))}}}};
  else throw Error('Unexpected fixture query');
  return {ok:true,text:async()=>JSON.stringify({data})};
@@ -42,8 +42,8 @@ function checkImported(luaText){
  assert(w:GetSummary().improveText:find('reference median',1,true),'Peer coaching must reach the in-game review')
  assert(ForeverCoaching.CombatReview:GetSource()=='warcraftlogs')
  assert(w:LoadCompanionReviews()==0 and #w:GetReviews()==1,'A reload must not duplicate deliveries')
- ForeverCoaching.CombatReview:SetSource('local');w:LoadCompanionReviews()
- assert(ForeverCoaching.CombatReview:GetSource()=='local','An old consumed delivery must not replace a fresh local fight')`);
+ local selected=ForeverCoachingDB.warcraftLogs.selected;w:LoadCompanionReviews()
+ assert(ForeverCoachingDB.warcraftLogs.selected==selected and #w:GetReviews()==1,'An old consumed delivery must not duplicate or reselect a review')`);
  lua.lua_close(L);
 }
 async function main(){

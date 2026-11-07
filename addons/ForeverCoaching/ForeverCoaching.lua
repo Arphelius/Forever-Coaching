@@ -441,53 +441,18 @@ local function ShowTab(tabName)
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
 
     if tabName == "Rotation" then
-        -- Toolbar: class, spec, Use this spec, Show details. Second row: the fight's metrics,
-        -- then reminders and the timeline on the right.
-        local _,toolbar=FC:BuildGuideSelectors(currentPage,function()
-            FC.CombatReview:SetSource('local');UpdateReviewText()
-        end)
-        local specButton=NewButton(currentPage,'Use this spec',96)
-        specButton:SetScript('OnClick',function()
-            local class,build=FC.GuideBrowser:GetContext()
-            local ok,message=FC.EncounterCoach:SetCombatSpecFallback(class,build)
-            print('Forever Coaching: '..message)
-        end)
+        local toolbar=Theme:Toolbar(currentPage,M.toolbarTop)
         local detailButton=NewButton(currentPage,'Show details',96)
         local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details');FitButton(detailButton,96);toolbar:Layout()end
         detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
-        toolbar:Add(specButton,8);toolbar:Add(detailButton,6)
+        toolbar:Add(detailButton,6)
 
         local rowTop=M.toolbarTop-M.buttonHeight-6
-        local rightEdge=-M.pagePadding
-        if FC.OpenFightTimeline then
-            local timelineButton=NewButton(currentPage,'View fight timeline',120)
-            timelineButton:SetPoint('TOPRIGHT',currentPage,'TOPRIGHT',rightEdge,rowTop)
-            timelineButton:SetScript('OnClick',function()
-                FC:OpenFightTimeline()
-                if ForeverCoachingFightTimeline and ForeverCoachingFightTimeline:IsShown() then frame:Hide() end
-            end)
-            rightEdge=rightEdge-timelineButton:GetWidth()-6
-        end
-        local noticeButton = NewButton(currentPage, "Analysis reminders: On", 140)
-        noticeButton:SetPoint("TOPRIGHT", currentPage, "TOPRIGHT", rightEdge, rowTop)
-        local function UpdateNoticeButton()
-            local enabled = not FC.CombatReview or FC.CombatReview:GetReadyNoticeEnabled()
-            noticeButton:SetText("Analysis reminders: " .. (enabled and "On" or "Off"))
-            FitButton(noticeButton, 140)
-        end
-        UpdateNoticeButton()
-        noticeButton:SetScript("OnClick", function()
-            if FC.CombatReview then
-                FC.CombatReview:SetReadyNoticeEnabled(not FC.CombatReview:GetReadyNoticeEnabled())
-                UpdateNoticeButton()
-            end
-        end)
-
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
         reviewWidgets.metrics:SetPoint("TOPLEFT",M.pagePadding+2,rowTop-5)
-        reviewWidgets.metrics:SetPoint("RIGHT",noticeButton,"LEFT",-10,0)
+        reviewWidgets.metrics:SetPoint("RIGHT",currentPage,"RIGHT",-M.pagePadding,0)
         reviewWidgets.metrics:SetJustifyH("LEFT");reviewWidgets.metrics:SetWordWrap(false)
         local scrollTop=rowTop-M.buttonHeight-8
         local reviewScroll=CreateFrame("ScrollFrame",nil,currentPage,"UIPanelScrollFrameTemplate")
@@ -499,7 +464,7 @@ local function ShowTab(tabName)
         local improveCard,nextStep=AddCard(reviewContent,"WHAT TO IMPROVE","",-624,300)
         reviewWidgets.cards={goodCard,wrongCard,improveCard};reviewWidgets.content=reviewContent
         reviewWidgets.coverage=AddText(reviewContent,"",10,MUTED);reviewWidgets.coverage:SetPoint("TOPLEFT",20,-940);reviewWidgets.coverage:SetWidth(CARD_W-20)
-        reviewWidgets.attribution=AddText(reviewContent,"Forever Logs: https://foreverlogs.gg/  |  Imported reports are snapshots, not live fights.",10,MUTED)
+        reviewWidgets.attribution=AddText(reviewContent,"Warcraft Logs: https://forever.warcraftlogs.com/  |  Supplied comparisons are snapshots, not live website access.",10,MUTED)
         reviewWidgets.attribution:SetPoint("TOPLEFT",20,-996);reviewWidgets.attribution:SetWidth(CARD_W-20)
         reviewWidgets.observation=observation;reviewWidgets.takeaway=takeaway;reviewWidgets.nextStep=nextStep
         UpdateReviewText()

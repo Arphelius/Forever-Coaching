@@ -6,9 +6,9 @@ const median=values=>{const sorted=[...values].sort((a,b)=>a-b),middle=Math.floo
 const playerKey=p=>normal(p.actor.name).replace(/[\s'-]/g,'')+'@'+normal(p.actor.server).replace(/[\s'-]/g,'');
 const link=p=>`${HOST}/reports/${p.report.code}#fight=${p.fight.id}&source=${p.actor.id}`;
 const stamp=(p,event)=>((event.timestamp-p.fight.startTime)/1000).toFixed(1)+'s';
-function compatible(target,ref,minPercentile){
+function compatible(target,ref,minPercentile=100){
  const targetTalents=talentKey(target),referenceTalents=talentKey(ref);
- return ref.complete&&!ref.deaths.length&&Number.isFinite(ref.percentile)&&ref.percentile>=minPercentile&&ref.percentile<=100&&ref.fight.kill&&
+ return minPercentile===100&&ref.complete&&!ref.deaths.length&&ref.percentile===100&&ref.fight.kill&&
   typeof target.spec==='string'&&!['unknown','none',''].includes(normal(target.spec))&&ref.spec===target.spec&&
   typeof target.actor.subType==='string'&&ref.actor.subType===target.actor.subType&&
   ref.fight.encounterID===target.fight.encounterID&&target.fight.difficulty!=null&&ref.fight.difficulty===target.fight.difficulty&&
@@ -88,8 +88,8 @@ function auraRows(p){
  }
  return rows;
 }
-function mentor(target,references,{minPercentile=95,minPeers=3}={}){
- if(!Number.isFinite(minPercentile)||minPercentile<90||minPercentile>100)throw Error('Reference percentile must be between 90 and 100.');
+function mentor(target,references,{minPercentile=100,minPeers=3}={}){
+ if(minPercentile!==100)throw Error('Only verified 100-percentile reference parses are supported.');
  if(!Number.isSafeInteger(minPeers)||minPeers<3)throw Error('At least three independent reference players are required.');
  const seen=new Set([playerKey(target)]),peers=[];
  for(const ref of references){if(!compatible(target,ref,minPercentile)||seen.has(playerKey(ref)))continue;seen.add(playerKey(ref));peers.push(ref);}

@@ -1,10 +1,10 @@
 const fs=require('fs'),path=require('path');
 const {HOST,reportCode,createClient,specFor,profile,compare,encodeReview}=require('./warcraftlogs-client.cjs');
 const {compatible}=require('./peer-coaching.cjs');
-async function collect({report:input,player,realm,metric='dps',partition,minPercentile=95,output='.local/warcraftlogs',client=createClient(),fightID}){
+async function collect({report:input,player,realm,metric='dps',partition,minPercentile=100,output='.local/warcraftlogs',client=createClient(),fightID}){
  if(!player||!realm)throw Error('Specify --player and --realm to identify the character.');
  if(!['dps','hps'].includes(metric))throw Error('Metric must be dps or hps.');
- if(!Number.isFinite(minPercentile)||minPercentile<90||minPercentile>100)throw Error('Reference percentile must be between 90 and 100.');
+ if(minPercentile!==100)throw Error('Only verified 100-percentile reference parses are supported.');
  if(partition!==undefined&&partition!=='auto'&&(!Number.isSafeInteger(partition)||partition<1))throw Error('Partition must be auto or a positive integer from the matching leaderboard.');
  if(fightID!==undefined&&(!Number.isSafeInteger(fightID)||fightID<1))throw Error('Choose a valid fight.');
  const report=await client.report(reportCode(input));
@@ -62,7 +62,7 @@ async function collect({report:input,player,realm,metric='dps',partition,minPerc
 }
 if(require.main===module){
  const args=process.argv.slice(2),options={};
- if(args.includes('--help')){console.log('node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME --realm REALM [--metric dps|hps] [--partition ID] [--min-percentile 95] [--output .local/warcraftlogs]\nSet WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. Compares rotation habits with at least three independent matching reference players. All completed boss attempts in this report are reviewed.');}
+ if(args.includes('--help')){console.log('Developer utility: node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME --realm REALM [--metric dps|hps] [--partition ID|auto] [--output .local/warcraftlogs]\nSet WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. Requires at least three independent compatible verified 100-percentile parses. This utility is not the normal addon workflow.');}
  else{try{for(let i=0;i<args.length;i+=2){const name=args[i].replace(/^--/,'');if(!['report','player','realm','metric','partition','min-percentile','output'].includes(name)||args[i+1]===undefined)throw Error('Unknown option or missing value. Use --help.');options[name==='min-percentile'?'minPercentile':name]=name==='partition'&&args[i+1]==='auto'?'auto':['partition','min-percentile'].includes(name)?Number(args[i+1]):args[i+1];}
  collect(options).then(rows=>console.log(`Prepared ${rows.length} fight reviews. Paste a .fcwcl.txt file into Combat Review > Warcraft Logs > Import.`)).catch(e=>{console.error(e.message);process.exitCode=1;});}catch(e){console.error(e.message);process.exitCode=1;}}
 }
