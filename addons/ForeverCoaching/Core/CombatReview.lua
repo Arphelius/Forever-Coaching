@@ -156,6 +156,51 @@ local function ensureSavedData()
     ForeverCoachingDB.settings = ForeverCoachingDB.settings or {}
 end
 
+-- Keep the operation reported by the client; the default blocked-action popup
+-- names the addon but does not identify the call that failed.
+local blockedActions = CreateFrame('Frame')
+for _, event in ipairs({'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN'}) do
+    pcall(blockedActions.RegisterEvent, blockedActions, event)
+end
+blockedActions:SetScript('OnEvent', function(_, event, addon, operation)
+    if isSecret(addon) or isSecret(operation) or addon ~= 'ForeverCoaching' then return end
+    ensureSavedData()
+    local action = type(operation) == 'string' and operation or 'Unknown operation'
+    ForeverCoachingDB.lastCombatReviewBlockedAction = {event=event, operation=action}
+    print('Forever Coaching: client blocked ' .. action .. '. Use /fcreviewstatus for recording status.')
+end)
+
+function Review:GetRecordingStatusText()
+    ensureSavedData()
+    local matching = 0
+    for _, report in ipairs(ForeverCoachingDB.reviews) do
+        if belongsToPlayer(report) then matching = matching + 1 end
+    end
+    local recorder = FC.FightRecorder
+    local active = recorder and recorder.active
+    local lines = {
+        'Forever Coaching review status',
+        'Character: ' .. (characterKey() or 'unavailable') .. ' / ' .. (playerGUID() or 'GUID unavailable'),
+        'Review listener: ' .. (self.listenerReady and 'ready' or 'not initialized'),
+        'Saved reviews: ' .. #ForeverCoachingDB.reviews .. ' total / ' .. matching .. ' for this character',
+        'Recording: ' .. (active and (#(active.events or {}) .. ' timeline events') or 'no active timeline') ..
+            ' / ' .. (session and (session.casts .. ' review casts') or 'no active review'),
+        'Last save error: ' .. tostring(ForeverCoachingDB.lastReviewError or 'none'),
+    }
+    if self.unavailableEvents and #self.unavailableEvents > 0 then
+        lines[#lines + 1] = 'Unavailable events: ' .. table.concat(self.unavailableEvents, ', ')
+    end
+    local blocked = ForeverCoachingDB.lastCombatReviewBlockedAction
+    lines[#lines + 1] = 'Last blocked action: ' .. (blocked and (blocked.event .. ' / ' .. blocked.operation) or 'none captured')
+    return table.concat(lines, '\n')
+end
+
+SlashCmdList = SlashCmdList or {}
+SLASH_FOREVERCOACHINGREVIEWSTATUS1 = '/fcreviewstatus'
+SlashCmdList.FOREVERCOACHINGREVIEWSTATUS = function()
+    for line in Review:GetRecordingStatusText():gmatch('[^\n]+') do print(line) end
+end
+
 function Review:GetReadyNoticeEnabled()
     ensureSavedData()
     return ForeverCoachingDB.settings.showCombatAnalysisNotice ~= false
@@ -649,16 +694,13 @@ function Review:GetObservedDamage(spellID, activeTalents, currentLevel)
 end
 
 local events = CreateFrame("Frame")
-events:RegisterEvent("PLAYER_REGEN_DISABLED")
-events:RegisterEvent("PLAYER_REGEN_ENABLED")
-events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-events:RegisterEvent("UNIT_SPELLCAST_SENT")
-events:RegisterEvent("UNIT_SPELLCAST_FAILED")
-events:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET")
-events:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
--- Read the game's own failure messages without accessing raw combat logs.
-pcall(events.RegisterEvent, events, "UI_ERROR_MESSAGE")
+Review.unavailableEvents = {}
+for _, event in ipairs({'PLAYER_REGEN_DISABLED', 'PLAYER_REGEN_ENABLED', 'PLAYER_ENTERING_WORLD',
+    'UNIT_SPELLCAST_SUCCEEDED', 'UNIT_SPELLCAST_SENT', 'UNIT_SPELLCAST_FAILED',
+    'UNIT_SPELLCAST_FAILED_QUIET', 'UNIT_SPELLCAST_INTERRUPTED', 'UI_ERROR_MESSAGE'}) do
+    local ok, registered = pcall(events.RegisterEvent, events, event)
+    if not ok or registered == false then Review.unavailableEvents[#Review.unavailableEvents + 1] = event end
+end
 events:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         characterKey()
@@ -760,3 +802,4 @@ events:SetScript("OnEvent", function(_, event, ...)
         end
     end
 end)
+Review.listenerReady = true
