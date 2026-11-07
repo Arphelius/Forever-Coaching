@@ -23,8 +23,11 @@ function FC:BuildWarcraftLogsPanel(parent,width)
   spec:SetOptions(model.specs,model.selectedSpec,'Choose spec')
   encounter:SetOptions(model.encounters,model.selectedEncounter,'No encounter data')
   status:SetText(model.status)
+  headers[3]:SetText(model.referenceHeading or 'REFERENCE')
   for _,header in ipairs(headers)do header:SetShown(model.ready)end
-  local offset=142
+  local headerTop=92+math.max(20,status:GetStringHeight())
+  for column,header in ipairs(headers)do header:ClearAllPoints();header:SetPoint('TOPLEFT',column==1 and 0 or column==2 and math.floor(width*.36) or math.floor(width*.67),-headerTop)end
+  local offset=headerTop+30
   for index,row in ipairs(model.rows)do
    local labels=result.rows[index]
    if not labels then labels={text('',0,0,math.floor(width*.34)),text('',math.floor(width*.36),0,math.floor(width*.28)),text('',math.floor(width*.67),0,math.floor(width*.33))};result.rows[index]=labels end

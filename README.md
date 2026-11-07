@@ -4,10 +4,13 @@ Forever Coaching combines talent builds, class guides, combat recording and figh
 reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
-Combat Review shows player actions beside matching 100-percentile references.
-Scenarios uses their recorded spell order, timing and explicitly logged item uses.
-Both pages share spec and encounter selectors. A live project data connection is
-still required; no real rankings are bundled or automatically fetched by the addon.
+Optimization shows player actions beside matching observed DPS, healer or tank
+damage references. It can work without percentiles, using the highest observed
+output in the scanned report sample; verified 100-parse data remains a separate
+supported source. Scenarios uses recorded spell order, timing and logged item uses.
+Both pages share spec and encounter selectors. The developer API connection has
+retrieved a real report; observed-reference discovery still needs live validation.
+No real rankings are bundled or automatically fetched by the addon.
 See [Warcraft Logs data and limitations](docs/warcraftlogs.md).
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
@@ -20,7 +23,7 @@ Wowhead Forever talent links.
 
 Class data is reviewed against the November 3 launch tuning. Run **Check-ForeverTuning.cmd** to check for newer spells, talents or official notes. A daily GitHub Actions check is included; current build adaptations are planning starting points, with old simulation rankings withheld. See [tuning maintenance](docs/forever-spell-audit.md).
 
-Learn and Gear include class/spec menus for browsing guides. Learn also offers a direct lesson picker. Browsing does not activate a talent build. Combat Review and Scenarios use the separate Warcraft Logs spec/encounter selection. See [guide browsing](docs/guide-browsing.md).
+Learn and Gear include class/spec menus for browsing guides. Learn also offers a direct lesson picker. Browsing does not activate a talent build. Optimization and Scenarios use the separate Warcraft Logs spec/encounter selection. See [guide browsing](docs/guide-browsing.md).
 
 Choose **Language** at the right of the dashboard's tab row for English (default), Romana (shown without diacritics, which the game font lacks), Español, Français, Deutsch or Português. `/fclanguage` opens the selector. Class, spell and talent names stay unchanged. The browser preview has a separate saved language selector.
 

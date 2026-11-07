@@ -139,7 +139,7 @@ for index=1,6 do
  else assert(menus>=2,'Every dashboard section needs class/spec selection')end
 end
 assert(talentChecked,'The Talent Builds tab must be found by its label')
-assert(navigation[1].text=='Talent Builds' and navigation[2].text=='Learn' and navigation[3].text=='Combat Review','Tab order: Talent Builds, Learn, Combat Review, Scenarios, Gear, Resources')
+assert(navigation[1].text=='Talent Builds' and navigation[2].text=='Learn' and navigation[3].text=='Optimization','Tab order: Talent Builds, Learn, Optimization, Scenarios, Gear, Resources')
 -- Tabs are as wide as their labels and laid out left to right without overlap.
 local previousRight=0
 for index=1,6 do

@@ -6,9 +6,9 @@ const median=values=>{const sorted=[...values].sort((a,b)=>a-b),middle=Math.floo
 const playerKey=p=>normal(p.actor.name).replace(/[\s'-]/g,'')+'@'+normal(p.actor.server).replace(/[\s'-]/g,'');
 const link=p=>`${HOST}/reports/${p.report.code}#fight=${p.fight.id}&source=${p.actor.id}`;
 const stamp=(p,event)=>((event.timestamp-p.fight.startTime)/1000).toFixed(1)+'s';
-function compatible(target,ref,minPercentile=100){
+function compatible(target,ref,minPercentile=100,mode='percentile'){
  const targetTalents=talentKey(target),referenceTalents=talentKey(ref);
- return minPercentile===100&&ref.complete&&!ref.deaths.length&&ref.percentile===100&&ref.fight.kill&&
+ return (mode==='observed' ? ['dps','healer','tank'].includes(target.role)&&ref.role===target.role&&Number.isFinite(ref.performance)&&ref.performance>=0 : minPercentile===100&&ref.percentile===100)&&ref.complete&&!ref.deaths.length&&ref.fight.kill&&
   typeof target.spec==='string'&&!['unknown','none',''].includes(normal(target.spec))&&ref.spec===target.spec&&
   typeof target.actor.subType==='string'&&ref.actor.subType===target.actor.subType&&
   ref.fight.encounterID===target.fight.encounterID&&target.fight.difficulty!=null&&ref.fight.difficulty===target.fight.difficulty&&
@@ -23,7 +23,7 @@ function compatible(target,ref,minPercentile=100){
   Math.abs((ref.report.startTime+ref.fight.startTime)-(target.report.startTime+target.fight.startTime))<=7*86400000&&
   (!target.partition||!ref.partition||target.partition===ref.partition)&&
   (target.level==null||ref.level==null||target.level===ref.level)&&
-  (!targetTalents||!referenceTalents||targetTalents===referenceTalents)&&
+  (mode==='observed'||!targetTalents||!referenceTalents||targetTalents===referenceTalents)&&
   (!target.metric||!ref.metric||target.metric===ref.metric);
 }
 function spell(p,id){return p.abilities.get(id)||p.counts.get(id)?.name||'Spell #'+id;}
@@ -88,18 +88,21 @@ function auraRows(p){
  }
  return rows;
 }
-function mentor(target,references,{minPercentile=100,minPeers=3}={}){
+function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}={}){
+ if(!['percentile','observed'].includes(mode))throw Error('Unknown reference mode.');
+ const observed=mode==='observed';minPeers=minPeers??(observed?1:3);
  if(minPercentile!==100)throw Error('Only verified 100-percentile reference parses are supported.');
- if(!Number.isSafeInteger(minPeers)||minPeers<3)throw Error('At least three independent reference players are required.');
+ if(!Number.isSafeInteger(minPeers)||minPeers<(observed?1:3))throw Error('At least three independent reference players are required.');
  const seen=new Set([playerKey(target)]),peers=[];
- for(const ref of references){if(!compatible(target,ref,minPercentile)||seen.has(playerKey(ref)))continue;seen.add(playerKey(ref));peers.push(ref);}
+ const candidates=observed?references.filter(ref=>compatible(target,ref,minPercentile,mode)).sort((a,b)=>b.performance-a.performance):references;
+ for(const ref of candidates){if(!compatible(target,ref,minPercentile,mode)||seen.has(playerKey(ref)))continue;seen.add(playerKey(ref));peers.push(ref);if(observed)break;}
  const links=peers.map(link),findings=[];
  const add=(kind,topic,title,what,why,next,evidence=[],comparison=null)=>findings.push({kind,topic,title,what,why,next,evidence,references:links,comparison});
  const targetTalents=talentKey(target),known=peers.filter(p=>talentKey(p)),sameBuild=targetTalents?known.filter(p=>talentKey(p)===targetTalents).length:0;
  const context={class:typeof target.actor.subType==='string'?target.actor.subType.toUpperCase():null,spec:target.spec,instanceId:target.fight.gameZone?.id,instance:target.fight.gameZone?.name,rankingZone:target.report.zone?.id,encounterId:target.fight.encounterID,encounter:target.fight.name,difficulty:target.fight.difficulty,
-  gameVersion:target.report.masterData.gameVersion,minPercentile,peerCount:peers.length,
+  gameVersion:target.report.masterData.gameVersion,minPercentile:observed?null:minPercentile,referenceMode:mode,role:observed?target.role:undefined,metric:observed?target.metric:undefined,peerCount:peers.length,
   talentMatches:sameBuild,talentSamples:known.length,targetTalentsKnown:!!targetTalents,
-  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server,class:p.actor.subType.toUpperCase(),spec:p.spec,percentile:p.percentile,instanceId:p.fight.gameZone.id,encounterId:p.fight.encounterID,difficulty:p.fight.difficulty,gameVersion:p.report.masterData.gameVersion,url:link(p)}))};
+  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server||'',class:p.actor.subType.toUpperCase(),spec:p.spec,percentile:observed?undefined:p.percentile,role:observed?p.role:undefined,metric:observed?p.metric:undefined,performance:observed?p.performance:undefined,instanceId:p.fight.gameZone.id,encounterId:p.fight.encounterID,difficulty:p.fight.difficulty,gameVersion:p.report.masterData.gameVersion,url:link(p)}))};
  const eligible=target.complete&&target.fight.kill&&!!target.spec&&peers.length>=minPeers;
  if(!eligible){
   add('unavailable','coverage','Peer coaching not ready',`${peers.length}/${minPeers} independent compatible reference players available for ${target.spec||'an unknown spec'} on ${target.fight.name}.`,
@@ -108,6 +111,11 @@ function mentor(target,references,{minPercentile=100,minPeers=3}={}){
   return {ready:false,context,findings,peers};
  }
  const opportunity='Same spec and encounter do not guarantee the same talents, gear, assignment or target access. Confirm these before copying the pattern.';
+ if(observed&&Number.isFinite(target.performance))add('context','performance','Observed output',
+  `Your ${target.metric.toUpperCase()}: ${target.performance.toFixed(1)}; highest observed matching reference: ${peers[0].performance.toFixed(1)}.`,
+  'Highest observed means the supplied/scanned sample, not a global ranking. Gear and talents influence output even though they are not compared.',
+  'Use the recorded actions as examples; output alone does not identify a mistake.',[],
+  {action:target.role==='tank'?'Tank DPS (threat unavailable)':target.metric.toUpperCase(),you:target.performance,reference:peers[0].performance,unit:target.metric});
  const ownRows=castRows(target),peerRows=peers.map(castRows);
  // Deaths change opportunity. Do not interpret lost time as poor rotation.
  if(!target.deaths.length){

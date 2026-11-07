@@ -106,7 +106,7 @@ assert(not VisibleText('Your next fight'),'Reference-only browsing cannot supply
 assert(w:SetComparisonEncounter('32:72:3'))
 assert(VisibleText('Enhancement / Fixture Dungeon 2 / Fixture Boss 2'),'Encounter changes refresh Scenarios')
 assert(w:SetComparisonSpec('MAGE:fire'))
-assert(VisibleText('No matching 100-parse scenario data is connected for this selection.'))
+assert(VisibleText('No matching reference scenario data is connected for this selection.'))
 assert(not VisibleText('1.  1.0s — Stormstrike'),'Switching specs hides the previous rotation')
 assert(w:SetComparisonSpec('SHAMAN:enhancement'))
 FirstComparison.scenario.sourceURL='https://forever.warcraftlogs.com/reports/Other00000000001#fight=1&source=1'

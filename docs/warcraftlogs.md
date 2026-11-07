@@ -1,15 +1,55 @@
-# Warcraft Logs side-by-side comparisons
+# Warcraft Logs Optimization
 
-Warcraft Logs supplies the report and reference data. Combat Review displays a
-simple comparison: **Action | You | 100-parse players**, followed by one
-**Next fight** practice goal. Rates and coverage use the reference median;
-opening sequences use the observed common reference pattern.
+The Optimization tab replaces Combat Review. Choose **Spec** and
+**Instance / encounter** to compare your actions with matching references,
+followed by one **Next fight** practice goal. Scenarios shares this selection
+and displays the selected reference's recorded actions and timings.
 
-**Current data status:** no live Warcraft Logs project connection is configured.
-The UI and structured-data path are implemented and tested with synthetic data;
-there is no claim that all logged instances or current rankings are being fetched.
-Missing data produces one short status line. Synthetic rows are never bundled as
-real reference data.
+**Current data status:** the developer has successfully retrieved the supplied
+Ruins of Lordaeron report through the live API. That report had no available
+percentile references. The new observed-output collection, discovery and
+role/output table queries still require a live test; their automated tests use
+fixtures. No all-instance catalog, automatic player sync or global-best ranking
+is claimed. Missing data stays empty rather than being replaced by fake rows.
+
+## Observed references without percentiles
+
+The new developer collector supports independent references without percentile
+rankings. It selects the **highest observed matching output in the scanned
+sample**, never a global best or a 100 parse. Roles come from Warcraft Logs
+player details, not a spec-name guess: DPS uses damage/second, healers use
+healing/second, and tanks use tank damage/second. Output comes from the source
+tables' totals over the complete segment duration. Tank threat is unavailable
+and is not inferred from damage, taunts or target changes. Healing output also
+depends on incoming damage and assignments.
+
+References match class, spec, logged role, encounter, instance, difficulty, game
+version, known player level, dates within seven days and duration within 20%.
+The reference must survive a completed kill. Self-references are excluded.
+Gear and talent allocations do not filter observed references or appear in the
+comparison; their effects on output still prevent a causal rotation verdict.
+The old exact-100 path remains separately validated for when rankings exist.
+
+```powershell
+node tools/Optimize-WarcraftLogs.cjs --report bcVxQRyHF6qjXhLk --player "Argo Rax" --source 2
+```
+
+This attempts the first public report-discovery page for each supplied game
+instance and scans at most ten reports and thirty candidate player profiles.
+Coverage notes disclose limits and unavailable discovery. Additional public
+report codes can be supplied with `--reference-reports CODE,CODE`; they remain
+developer inputs, not player-page controls. No full-site crawler is claimed.
+Events are cached per report segment. A report may represent a whole dungeon
+segment; comparisons retain its supplied boundaries rather than inventing a
+boss/trash split. Unknown/mismatched roles or absent output tables are withheld.
+
+Results are saved under `.local/optimization`. Optional `--game-root PATH`
+writes ready comparisons to the existing personal `Data/CompanionReviews.lua`
+transport and a reference catalog. Use `/reload` after delivery. Only the
+identified character receives personal **You** values; another character can
+browse references. No-ready results do not overwrite existing delivered data.
+Personal data is excluded from release packages. Credentials remain in the
+developer process environment.
 
 ## Player flow
 

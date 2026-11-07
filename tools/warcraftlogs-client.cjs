@@ -35,7 +35,10 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   }
   if(typeof token!=='string'||!token)throw Error('Sign in to Warcraft Logs again.');
   const result=await jsonRequest(API_HOST+'/api/v2/'+api,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
-  if(result.errors?.length||!result.data)throw Error('Warcraft Logs API rejected this query. Verify the Forever schema and report permissions.');
+  if(result.errors?.length||!result.data){
+   const messages=(result.errors||[]).slice(0,3).map(e=>String(e.message||'Query unavailable').replace(/[\x00-\x1f]/g,' ').slice(0,300));
+   throw Error('Warcraft Logs API rejected this query. '+messages.join(' '));
+  }
   return result.data;
  }
  const reports=new Map();
@@ -63,6 +66,27 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   const ranks=data.worldData?.encounter?.characterRankings;
   if(!Array.isArray(ranks?.rankings))throw Error('Leaderboard unavailable; no reference parses were assumed.');
   return ranks.rankings;
+ }
+ async function observedPlayers(code,fight,metric){
+  if(!['dps','hps'].includes(metric))throw Error('Unsupported observed output metric.');
+  const data=await query(`query($code:String!,$fight:Int!){reportData{report(code:$code){playerDetails(fightIDs:[$fight],includeCombatantInfo:false) table(fightIDs:[$fight],dataType:${metric==='hps'?'Healing':'DamageDone'})}}}`,{code:reportCode(code),fight:fight.id});
+  const raw=data.reportData?.report,details=raw?.playerDetails?.data?.playerDetails??raw?.playerDetails?.playerDetails;
+  const entries=raw?.table?.data?.entries;
+  if(!details||!Array.isArray(entries))throw Error('Observed role/output tables unavailable for this report.');
+  const rows=[],seenRoles=new Map();
+  for(const [group,role]of [['dps','dps'],['healers','healer'],['tanks','tank']])for(const player of details[group]||[]){
+   if(seenRoles.has(player.id)&&seenRoles.get(player.id)!==role)throw Error('A player has ambiguous logged roles in this segment.');
+   seenRoles.set(player.id,role);
+   const output=entries.find(e=>e.id===player.id);
+   if(Number.isSafeInteger(player.id)&&Number.isFinite(output?.total)&&output.total>=0)rows.push({id:player.id,role,total:output.total,level:Number.isSafeInteger(player.level)?player.level:null});
+  }
+  return rows;
+ }
+ async function instanceReports(gameZoneID,page=1){
+  const data=await query('query($zone:Int!,$page:Int!){reportData{reports(gameZoneID:$zone,page:$page,limit:10){data{code} has_more_pages}}}',{zone:gameZoneID,page});
+  const reports=data.reportData?.reports;
+  if(!Array.isArray(reports?.data))throw Error('Public instance report discovery is unavailable.');
+  return {codes:reports.data.map(r=>reportCode(r.code)),hasMore:reports.has_more_pages===true};
  }
  async function percentile(code,fight,actor,metric){
   const data=await query(`query($code:String!,$fight:Int!,$metric:ReportRankingMetricType!){reportData{report(code:$code){rankings(fightIDs:[$fight],playerMetric:$metric,compare:Parses,timeframe:Historical)}}}`,{code,fight:fight.id,metric});
@@ -98,7 +122,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   }
   throw Error('The matching rules period could not be identified for this run. Try a recent uploaded run.');
  }
- return {report,events,topRanks,percentile,currentUser,recentReports,partitionFor};
+ return {report,events,topRanks,percentile,currentUser,recentReports,partitionFor,observedPlayers,instanceReports};
 }
 function specFor(report,fight,actor){const index=fight.friendlyPlayers?.indexOf(actor.id);return index>=0?fight.friendlySpecs?.[index]:null;}
 function profile(report,fight,actor,stream){
@@ -153,11 +177,12 @@ function compare(target,references,options={}){
  const practice=selected(['change','context','unavailable']);
  if(!practice.length)practice.push(...selected(['good']));
  improve.unshift(...practice.map(f=>`${f.title}\n${f.what}\nNext pull: ${f.next}`));
- if(coaching.ready)good.unshift(`Peer group: ${compatible.length} independent ${target.spec} players on ${target.fight.name}, same instance, difficulty and game version; verified ${coaching.context.minPercentile}th percentile or higher.`);
+ const observed=coaching.context.referenceMode==='observed';
+ if(coaching.ready)good.unshift(observed?`Highest observed matching ${target.role} output in the scanned sample; not a percentile or global ranking.`:`Peer group: ${compatible.length} independent ${target.spec} players on ${target.fight.name}, same instance, difficulty and game version; verified ${coaching.context.minPercentile}th percentile or higher.`);
  if(!observations.length)observations.push('No specific mistake established by these checks. Absence of findings does not establish flawless play.');
  if(!improve.length)improve.push('No specific rotation practice goal was established from the matching peer sample.');
  const timeline=target.timeline.slice(0,150).map(e=>`${stamp(e)} / ${e.type} / ${target.abilities.get(e.abilityGameID)|| (e.abilityGameID?'Spell #'+e.abilityGameID:target.actor.name)}`);
- return {good:good.join('\n'),observations:observations.join('\n\n'),improve:improve.slice(0,12).join('\n\n'),timeline:timeline.join('\n'),references:compatible.map(r=>`${HOST}/reports/${r.report.code}#fight=${r.fight.id}&source=${r.actor.id} / ${r.actor.name} / ${r.spec} / ${r.percentile} percentile`).join('\n'),mentoring:{ready:coaching.ready,context:coaching.context,findings:coaching.findings},comparison,coverage:`${target.complete?'Complete retrieved':'Partial'} event stream. ${compatible.length} compatible verified reference players at ${coaching.context.minPercentile}th percentile or higher. Same encounter, difficulty, class, spec, game version and zone; duration within 20%, dates within seven days. Known level differences excluded; level is not always exposed. Talent snapshots: ${coaching.context.talentSamples} reference players; ${coaching.context.talentMatches} match the exposed target IDs/ranks (${coaching.context.targetTalentsKnown?'target talents recorded':'target talents unavailable'}). Complete talent effects, gear, tuning/hotfix and assignment equivalence are not verified. Peer patterns are practice goals, not automatic error verdicts or a universal rotation. This sample does not establish which specs are most popular or best across all dungeons. Timeline shows ${Math.min(150,target.timeline.length)}/${target.timeline.length} selected events.`};
+ return {good:good.join('\n'),observations:observations.join('\n\n'),improve:improve.slice(0,12).join('\n\n'),timeline:timeline.join('\n'),references:compatible.map(r=>`${HOST}/reports/${r.report.code}#fight=${r.fight.id}&source=${r.actor.id} / ${r.actor.name} / ${r.spec} / ${observed?'highest observed '+r.metric:r.percentile+' percentile'}`).join('\n'),mentoring:{ready:coaching.ready,context:coaching.context,findings:coaching.findings},comparison,coverage:`${target.complete?'Complete retrieved':'Partial'} event stream. ${observed?'Highest observed output in the scanned sample; no percentile ranking. Gear and talents are not compared, but still affect output. Tank threat is unavailable; tank output uses DPS.':`${compatible.length} compatible verified reference players at ${coaching.context.minPercentile}th percentile or higher.`} Same encounter, difficulty, class, spec, game version and zone; duration within 20%, dates within seven days. Known level differences excluded; level is not always exposed. Talent snapshots: ${coaching.context.talentSamples} reference players; ${coaching.context.talentMatches} match the exposed target IDs/ranks (${coaching.context.targetTalentsKnown?'target talents recorded':'target talents unavailable'}). Complete talent effects, gear, tuning/hotfix and assignment equivalence are not verified. Peer patterns are practice goals, not automatic error verdicts or a universal rotation. This sample does not establish which specs are most popular or best across all dungeons. Timeline shows ${Math.min(150,target.timeline.length)}/${target.timeline.length} selected events.`};
 }
 function encodeReview(target,analysis){
  const fields=['FCWCL1',target.report.code,target.fight.id,target.actor.name,target.actor.server||'',target.actor.subType?.toUpperCase(),target.spec||'Unknown',target.fight.encounterID,target.fight.name,Math.round(target.report.startTime+target.fight.startTime),Math.round(target.duration*1000),analysis.good,analysis.observations,analysis.improve,analysis.timeline,analysis.references,analysis.coverage];

@@ -299,8 +299,8 @@ end
 
 local pages = {
     Rotation = {
-        heading = "After-Combat Review",
-        description = "What went well, what needs work, and what to try next.",
+        heading = "Optimization",
+        description = "Compare your actions with matching damage, healing or tank references.",
         cards = {},
     },
     Talents = {
@@ -309,7 +309,7 @@ local pages = {
         cards = {},
     },
     Scenarios = {
-        heading = "100-Parse Scenarios",
+        heading = "Reference Scenarios",
         description = "Recorded spells, timing and item uses for your chosen spec and encounter.",
         cards = {},
     },
@@ -501,7 +501,7 @@ local function ShowTab(tabName)
         end
         FC:BuildGuideSelectors(currentPage,updateGuideSource);updateGuideSource()
         local resources={
-            {"WARCRAFT LOGS - FOREVER","Report and 100-parse reference data for matched spec and encounter comparisons.","https://forever.warcraftlogs.com/"},
+            {"WARCRAFT LOGS - FOREVER","Logged damage, healing and tank references for matching specs and encounters.","https://forever.warcraftlogs.com/"},
             {"FOREVER LOGS - STATISTICS SOURCE","Source of recorded class/spec aggregate statistics. Explore the original data and website.","https://foreverlogs.gg/"},
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},
@@ -517,7 +517,7 @@ end
 local tabs = {
     { name = "Talents", label = "Talent Builds" },
     { name = "Learn", label = "Learn" },
-    { name = "Rotation", label = "Combat Review" },
+    { name = "Rotation", label = "Optimization" },
     { name = "Scenarios", label = "Scenarios" },
     { name = "Gear", label = "Gear" },
     { name = "Resources", label = "Resources" },

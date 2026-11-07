@@ -25,7 +25,7 @@ function W:LoadCompanionReviews()
    end
   end
  end
- if imported>0 then print('Forever Coaching: '..imported..' coaching review loaded from your companion. Open Combat Review.') end
+ if imported>0 then print('Forever Coaching: '..imported..' comparison loaded. Open Optimization.') end
  return imported
 end
 local companionEvents=CreateFrame('Frame')
@@ -109,7 +109,7 @@ function W:Import(text,comparison)
  if not fight or not encounter or not started or not duration or duration>86400000 then return false,'Invalid fight metadata.' end
  local player=safe(UnitName,'player');local realm=safe(GetRealmName);local _,class
  if UnitClass then local ok,a,b=pcall(UnitClass,'player');if ok and not (issecretvalue and issecretvalue(b)) then class=b end end
- if not player or not realm or normalize(fields[4])~=normalize(player) or normalize(fields[5])~=normalize(realm) or fields[6]~=class then return false,'This report belongs to a different character, realm or class.' end
+ if not player or not realm or normalize(fields[4])~=normalize(player) or (fields[5]~='' and normalize(fields[5])~=normalize(realm)) or fields[6]~=class then return false,'This report belongs to a different character, realm or class.' end
  local guid=safe(UnitGUID,'player');if not guid then return false,'Character identity unavailable.' end
  local review={code=code,fight=fight,player=fields[4],realm=fields[5],class=fields[6],spec=fields[7],encounter=encounter,name=fields[9],started=started,duration=duration,good=fields[12],observations=fields[13],improve=fields[14],timeline=fields[15],references=fields[16],coverage=fields[17],character=guid}
  if comparison then
@@ -141,7 +141,9 @@ function W:PrepareComparison(payload,review)
   not finite(review.started) or review.started<=0 or type(review.player)~='string' or type(review.realm)~='string' then return nil,'Comparison identity is invalid.' end
  if type(payload)~='table' or payload.schema~=1 or payload.source~='Warcraft Logs' or payload.ready~=true then return nil,'Comparison data is incomplete.' end
  local context=payload.context;local report=payload.report
- if type(context)~='table' or type(report)~='table' or type(context.referencePlayers)~='table' or type(payload.findings)~='table' or context.minPercentile~=100 or context.class~=review.class or
+ local observed=type(context)=='table' and context.referenceMode=='observed'
+ if observed and (not ({dps=true,healer=true,tank=true})[context.role] or context.metric~=(context.role=='healer' and 'hps' or 'dps') or context.minPercentile~=nil) then return nil,'Invalid observed role or metric.' end
+ if type(context)~='table' or type(report)~='table' or type(context.referencePlayers)~='table' or type(payload.findings)~='table' or (not observed and (context.minPercentile~=100 or context.referenceMode~=nil and context.referenceMode~='percentile')) or context.class~=review.class or
   type(context.spec)~='string' or comparisonKey(context.class,context.spec)~=comparisonKey(review.class,review.spec) or
   context.encounterId~=review.encounter or report.code~=review.code or report.fightID~=review.fight or
   normalize(report.player)~=normalize(review.player) or normalize(report.realm)~=normalize(review.realm) or
@@ -150,29 +152,31 @@ function W:PrepareComparison(payload,review)
  end
  local peers,seen={},{}
  for _,peer in ipairs(context.referencePlayers or {})do
-  if type(peer)~='table' or type(peer.player)~='string' or type(peer.realm)~='string' or peer.percentile~=100 or
+  if type(peer)~='table' or type(peer.player)~='string' or type(peer.realm)~='string' or (not observed and peer.percentile~=100) or
+   (observed and (peer.percentile~=nil or peer.role~=context.role or peer.metric~=context.metric or not finite(peer.performance) or peer.performance<0)) or
    peer.class~=context.class or peer.spec~=context.spec or peer.instanceId~=context.instanceId or
    peer.encounterId~=context.encounterId or peer.difficulty~=context.difficulty or peer.gameVersion~=context.gameVersion or
    type(peer.url)~='string' or not peer.url:match('^https://forever%.warcraftlogs%.com/reports/%w+#fight=%d+&source=%d+$') then
-   return nil,'Only matching 100-percentile reference players can be compared.'
+   return nil,'Only references with a matching source, spec, role and encounter can be compared.'
   end
   local code=peer.url:match('/reports/(%w+)');if #code~=16 then return nil,'Invalid reference report.' end
   local key=normalize(peer.player)..'@'..normalize(peer.realm)
   if key==normalize(review.player)..'@'..normalize(review.realm) or seen[key] then return nil,'Reference players must be independent.' end
-  seen[key]=true;peers[#peers+1]={player=displayText(peer.player,100),percentile=100,url=peer.url}
+  seen[key]=true;peers[#peers+1]={player=displayText(peer.player,100),percentile=not observed and 100 or nil,url=peer.url,role=observed and context.role or nil,performance=observed and peer.performance or nil}
  end
- if #peers<3 then return nil,'At least three matching 100-percentile reference players are required.' end
+ if #peers<(observed and 1 or 3) or observed and #peers~=1 then return nil,'The required matching reference sample is missing.' end
  local rows,nextFight={},nil
  local function valueText(value,unit)
   if unit=='sequence' then return displayText(value,400) end
   if not finite(value) or value<0 or value>100000 then return nil end
   if unit=='percent' then if value>100.000001 then return nil end;return string.format('%.0f%%',math.min(100,value)) end
   if unit=='casts/min' then return string.format('%.1f casts/min',value) end
+  if observed and unit==context.metric then return string.format('%.1f %s',value,unit:upper()) end
  end
  local topics={}
  for _,finding in ipairs(payload.findings or {})do
   local item=type(finding)=='table' and finding.comparison
-  if type(item)=='table' and (finding.kind=='good' or finding.kind=='change') then
+  if type(item)=='table' and (finding.kind=='good' or finding.kind=='change' or observed and finding.kind=='context') then
    local you,reference=valueText(item.you,item.unit),valueText(item.reference,item.unit)
    local action=displayText(item.action,180);local practice=displayText(finding.next,800)
    if not you or not reference or not action or action=='' or not practice or practice=='' then return nil,'Comparison values are invalid.' end
@@ -187,8 +191,8 @@ function W:PrepareComparison(payload,review)
   local raw=payload.scenario;local source
   if type(raw)~='table' or not finite(raw.duration) or raw.duration<=0 or raw.duration>86400 then return nil,'Invalid reference scenario.' end
   for _,peer in ipairs(peers)do if peer.url==raw.sourceURL then source=peer end end
-  if not source then return nil,'Scenario must come from a matching 100-percentile reference.' end
-  scenario={player=source.player,url=source.url,duration=raw.duration}
+  if not source then return nil,'Scenario must come from a matching reference.' end
+  scenario={player=source.player,url=source.url,duration=raw.duration,basis=observed and ('highest observed '..context.role..' '..context.metric:upper()) or '100 percentile'}
   for _,kind in ipairs({'casts','items','buffs'})do
    local limit=kind=='casts' and 100 or 50
    local countKey=kind=='casts' and 'castCount' or kind=='items' and 'itemCount' or 'buffCount'
@@ -209,7 +213,8 @@ function W:PrepareComparison(payload,review)
  return {specKey=comparisonKey(context.class,context.spec),class=context.class,spec=displayText(context.spec,100),
   instanceId=context.instanceId,instance=displayText(context.instance,120) or 'Instance',encounterId=context.encounterId,difficultyName=displayText(context.difficultyName,80),
   encounter=displayText(context.encounter,160) or review.name,difficulty=context.difficulty,
-  started=review.started,rows=rows,nextFight=nextFight or rows[1].practice,peerCount=#peers,references=peers,scenario=scenario}
+  started=review.started,rows=rows,nextFight=nextFight or rows[1].practice,peerCount=#peers,references=peers,scenario=scenario,
+  referenceMode=observed and 'observed' or 'percentile',role=observed and context.role or nil,metric=observed and context.metric or nil}
 end
 function W:ComparisonSpecs()
  local options,seen={},{}
@@ -284,7 +289,7 @@ function W:GetComparisonModel()
  local guid=safe(UnitGUID,'player');local choices,encounters={},{}
  for _,entry in ipairs(self:ComparisonCatalog())do
   if entry.specKey==selected then
-   local key=entry.instanceId..':'..entry.encounterId..':'..entry.difficulty
+   local key=entry.instanceId..':'..entry.encounterId..':'..entry.difficulty..(entry.role and (':'..entry.role) or '')
    local existing=choices[key]
    if not existing or entry.started>existing.entry.started then choices[key]={entry=entry,mine=false}end
   end
@@ -292,7 +297,7 @@ function W:GetComparisonModel()
  for _,review in ipairs(saved().reviews)do
   local entry=review.comparison
   if type(entry)=='table' and entry.specKey==selected then
-   local key=entry.instanceId..':'..entry.encounterId..':'..entry.difficulty
+   local key=entry.instanceId..':'..entry.encounterId..':'..entry.difficulty..(entry.role and (':'..entry.role) or '')
    local existing=choices[key]
    local mine=guid and review.character==guid
    if not existing or mine and not existing.mine or mine==existing.mine and entry.started>existing.entry.started then choices[key]={entry=entry,mine=mine}end
@@ -300,7 +305,7 @@ function W:GetComparisonModel()
  end
  for key,value in pairs(choices)do
   local entry=value.entry;local difficulty=entry.difficultyName or safe(GetDifficultyInfo,entry.difficulty)
-  encounters[#encounters+1]={value=key,label=entry.instance..' / '..entry.encounter..(type(difficulty)=='string' and (' / '..difficulty) or '')}
+  encounters[#encounters+1]={value=key,label=entry.instance..' / '..entry.encounter..(type(difficulty)=='string' and (' / '..difficulty) or '')..(entry.role and (' / '..entry.role) or '')}
  end
  table.sort(encounters,function(a,b)return a.label<b.label end)
  local key=selection.encounter
@@ -311,13 +316,16 @@ function W:GetComparisonModel()
  end
  local match=key and choices[key]
  local model={specs=options,selectedSpec=selected,encounters=encounters,selectedEncounter=key,rows={},ready=false,
-  status='No Warcraft Logs comparison data is connected for this selection.',metrics='Warcraft Logs / 100-parse comparison'}
+  status='No Warcraft Logs comparison data is connected for this selection.',metrics='Warcraft Logs / Optimization',referenceHeading='REFERENCE'}
  if match then
   local entry=match.entry;model.ready=true;model.rows={}
   for _,row in ipairs(entry.rows)do model.rows[#model.rows+1]={action=row.action,you=match.mine and row.you or 'No matching fight',reference=row.reference,kind=match.mine and row.kind or 'reference'}end
   model.nextFight=match.mine and entry.nextFight or nil
   model.scenario=entry.scenario
+  model.referenceMode=entry.referenceMode;model.role=entry.role;model.metric=entry.metric
+  model.referenceHeading=entry.referenceMode=='observed' and (entry.role=='healer' and 'TOP OBSERVED HEALER' or entry.role=='tank' and 'TOP OBSERVED TANK DPS' or 'TOP OBSERVED DPS') or '100-PARSE PLAYERS'
   model.status='Typical values from '..entry.peerCount..' matching 100 parses / saved comparison'
+  if entry.referenceMode=='observed' then model.status='Highest observed '..entry.role..' '..entry.metric:upper()..' in the scanned sample / '..entry.references[1].player..'. Not a percentile or global ranking.\nTalents and gear are not compared, but affect output.'..(entry.role=='tank' and ' Threat data is unavailable; this compares tank damage.' or entry.role=='healer' and ' Healing depends on incoming damage and assignments.' or '')end
   model.metrics=entry.spec..' / '..entry.instance..' / '..entry.encounter
  end
  return model

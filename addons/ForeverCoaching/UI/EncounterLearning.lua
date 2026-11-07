@@ -14,10 +14,11 @@ function FC:BuildParserScenarioPage(parent)
   encounter:SetOptions(model.encounters,model.selectedEncounter,'Choose instance / encounter')
   local replay=model.scenario
   if not replay then
-   document:Line(model.ready and 'This comparison has no recorded reference sequence yet.' or 'No matching 100-parse scenario data is connected for this selection.')
+   document:Line(model.ready and 'This comparison has no recorded reference sequence yet.' or 'No matching reference scenario data is connected for this selection.')
   else
    document:Line(model.metrics,true)
-   document:Line(replay.player..' / 100 percentile / '..string.format('%.1fs',replay.duration))
+   document:Line(replay.player..' / '..(replay.basis or '100 percentile')..' / '..string.format('%.1fs',replay.duration))
+   document:Line(model.status)
    document:Line('Follow the recorded spell order and timing for this encounter. Adapt to your assignments and available abilities; this is one player\'s run.')
    local function actions(title,kind,countKey)
     document:Line(title..' ('..#replay[kind]..' / '..replay[countKey]..' recorded)',true)
