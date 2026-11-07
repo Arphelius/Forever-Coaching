@@ -18,11 +18,20 @@ function deliver(gameRoot,results){
  if(selected.length>30||selected.some(r=>typeof r.importCode!=='string'||r.importCode.length>60000||!r.importCode.startsWith('FCWCL1|')))throw Error('Review delivery is invalid.');
  const addon=addonDirectory(gameRoot),destination=path.join(addon,'Data','CompanionReviews.lua');
  if(fs.existsSync(destination)&&fs.lstatSync(destination).isSymbolicLink())throw Error('The review file must not be redirected.');
- const records=selected.map(r=>({id:createHash('sha256').update(r.importCode).digest('hex')+require('crypto').randomBytes(8).toString('hex'),code:r.importCode}));
+ const records=selected.map(r=>({id:createHash('sha256').update(r.importCode).digest('hex')+require('crypto').randomBytes(8).toString('hex'),code:r.importCode,comparison:r.analysis.comparison}));
  // Review codes contain ASCII percent-encoded data. Never serialize OAuth
  // state, tokens, raw events or arbitrary helper objects into the addon.
  const quote=value=>'"'+value.replace(/[\\"\x00-\x1f\x7f]/g,c=>c==='\\'?'\\\\':c==='"'?'\\"':'\\'+c.charCodeAt(0).toString().padStart(3,'0'))+'"';
- const text='-- Personal coaching reviews from the local companion. No credentials.\nForeverCoaching=ForeverCoaching or {}\nForeverCoaching.CompanionReviews={'+records.map(r=>'{id='+quote(r.id)+',code='+quote(r.code)+'}').join(',')+'}\n';
+ function lua(value,depth=0){
+  if(depth>12)throw Error('Comparison data is too deeply nested.');
+  if(value==null)return 'nil';if(typeof value==='string')return quote(value);
+  if(typeof value==='boolean')return String(value);
+  if(typeof value==='number'&&Number.isFinite(value))return String(value);
+  if(Array.isArray(value))return '{'+value.map(v=>lua(v,depth+1)).join(',')+'}';
+  if(typeof value==='object')return '{'+Object.entries(value).map(([key,v])=>'['+quote(key)+']='+lua(v,depth+1)).join(',')+'}';
+  throw Error('Invalid comparison value.');
+ }
+ const text='-- Personal coaching reviews from the local companion. No credentials.\nForeverCoaching=ForeverCoaching or {}\nForeverCoaching.CompanionReviews={'+records.map(r=>'{id='+quote(r.id)+',code='+quote(r.code)+',comparison='+lua(r.comparison)+'}').join(',')+'}\n';
  const temporary=path.join(addon,'Data','.CompanionReviews-'+require('crypto').randomBytes(8).toString('hex')+'.tmp');
  try{fs.writeFileSync(temporary,text,{flag:'wx'});fs.renameSync(temporary,destination);}finally{if(fs.existsSync(temporary))fs.unlinkSync(temporary);}
  return {sent:records.length,message:'Ready in WoW. Type /reload, then open Combat Review on the reviewed character.'};

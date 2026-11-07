@@ -7,8 +7,8 @@ local meta = { __index = function(_, key)
     if key:match('^Set') or key:match('^Get') or key:match('^Register')
         or key:match('^Enable') or key:match('^Start') or key:match('^Stop') or key:match('^Clear') then return noop end
 end }
-function CreateFrame(_, name, parent)
-    local frame = setmetatable({ name=name, parent=parent, hidden=false, scripts={}, events={} }, meta)
+function CreateFrame(frameType, name, parent)
+    local frame = setmetatable({ frameType=frameType, name=name, parent=parent, hidden=false, scripts={}, events={} }, meta)
     TestFrames[#TestFrames+1] = frame
     if name then _G[name]=frame end
     return frame

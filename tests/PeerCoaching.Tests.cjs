@@ -26,6 +26,8 @@ for(const className of Object.keys(classes)){
  const matched=mentor(sample({className,target:true,matching:true}),refs);
  for(const topic of ['ability-use','opener','aura-coverage'])assert(matched.findings.some(f=>f.kind==='good'&&f.topic===topic),className+': positive '+topic);
  const analysis=compare(target,refs);
+ assert.equal(analysis.comparison.context.class,className.toUpperCase());
+ assert(analysis.comparison.findings.filter(f=>f.kind==='change').every(f=>f.comparison&&f.comparison.you!==undefined&&f.comparison.reference!==undefined),className+': preserve side-by-side metrics for the addon');
  assert(analysis.observations.includes('Your first casts:'));
  assert(analysis.improve.includes('Next pull:'));
  assert(analysis.references.includes('100 percentile'));

@@ -58,21 +58,19 @@ listener.scripts.OnEvent(listener,'PLAYER_REGEN_DISABLED');listener.scripts.OnEv
 for _,callback in ipairs(TestTimers)do callback()end
 assert(ForeverCoaching.CombatReview:GetSource()=='warcraftlogs','Local recording must not replace the Warcraft Logs access page')
 assert(not ForeverCoachingDB.combatAnalysisReady,'A local recording must not announce new Warcraft Logs analysis')`);
-run(fs.readFileSync('addons/ForeverCoaching/UI/WarcraftLogs.lua','utf8'));
+for(const file of ['addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua'])run(fs.readFileSync(file,'utf8'));
 run(`local parent=CreateFrame('Frame');local panel=ForeverCoaching:BuildWarcraftLogsPanel(parent,728)
-assert(panel.frame.parent==parent and panel.height==240,'Warcraft Logs access stays compact in review content')
-assert(not panel.input and not panel.importButton and not panel.advancedButton,'The player page must not require scripts or review-code imports')
+assert(panel.frame.parent==parent and panel.height==120,'Missing comparisons show one compact state')
+assert(panel.specPicker and panel.encounterPicker,'Only spec and encounter selection are needed')
+assert(not panel.url and not panel.saveButton and not panel.input and not panel.importButton,'The player page must not require links, scripts or imports')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No separate popup remains')
-panel.url:SetText('https://unrelated.test/reports/AbCdEfGh12345678');panel.saveButton.scripts.OnClick(panel.saveButton)
-assert(panel.status:GetText():find('forever.warcraftlogs.com',1,true),'Report links are restricted to the intended provider')
+assert(not ForeverCoaching.WarcraftLogs:SaveReportURL('https://unrelated.test/reports/AbCdEfGh12345678'),'Legacy link storage remains provider-bound')
 local reportURL='https://forever.warcraftlogs.com/reports/AbCdEfGh12345678#fight=1'
-panel.url:SetText(reportURL);panel.saveButton.scripts.OnClick(panel.saveButton)
+assert(ForeverCoaching.WarcraftLogs:SaveReportURL(reportURL))
 assert(ForeverCoaching.WarcraftLogs:GetReportURL()==reportURL,'Save report access per character')
 UnitGUID=function()return 'Player-another'end
 assert(ForeverCoaching.WarcraftLogs:GetReportURL()==ForeverCoaching.WarcraftLogs.url,'Do not show another character report link')
 UnitGUID=function()return 'Player-test'end
-panel.reportButton.scripts.OnClick(panel.reportButton)
-assert(panel.url:GetText()==reportURL)
 assert(ForeverCoaching.WarcraftLogs:GetReferenceURL(),'Expose a supplied 100-parse reference link')
 local entry=ForeverCoachingDB.warcraftLogs.reviews[1];local references=entry.references
 entry.references=references:gsub('100 percentile','99.99 percentile')

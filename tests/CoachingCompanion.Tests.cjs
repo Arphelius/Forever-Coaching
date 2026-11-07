@@ -29,7 +29,7 @@ async function freePort(){const s=net.createServer();await new Promise(r=>s.list
 function checkImported(luaText){
  const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
  function run(code){if(lauxlib.luaL_dostring(L,to_luastring(code))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
- for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua'])run(fs.readFileSync(file,'utf8'));
+ for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua'])run(fs.readFileSync(file,'utf8'));
  run(`GetRealmName=function()return 'FixtureRealm'end;UnitName=function()return 'WrongCharacter'end;UnitGUID=function()return 'Player-fixture'end;UnitAffectingCombat=function()return false end`);
  run(luaText);
  run(`local w=ForeverCoaching.WarcraftLogs
@@ -40,6 +40,10 @@ function checkImported(luaText){
  UnitAffectingCombat=function()return false end
  assert(w:LoadCompanionReviews()==1,'Companion file should import without copy/paste')
  assert(w:GetSummary().improveText:find('reference median',1,true),'Peer coaching must reach the in-game review')
+ ForeverCoaching.EncounterCoach={GetCombatContext=function()return {class='SHAMAN',tree=2}end}
+ local comparison=w:GetComparisonModel()
+ assert(comparison.ready and #comparison.rows>0 and comparison.selectedSpec=='SHAMAN:enhancement','Structured data must reach the comparison table')
+ assert(comparison.rows[1].you~='No matching fight' and comparison.rows[1].reference,'Keep player and 100-parse values separate')
  assert(ForeverCoaching.CombatReview:GetSource()=='warcraftlogs')
  assert(w:LoadCompanionReviews()==0 and #w:GetReviews()==1,'A reload must not duplicate deliveries')
  local selected=ForeverCoachingDB.warcraftLogs.selected;w:LoadCompanionReviews()

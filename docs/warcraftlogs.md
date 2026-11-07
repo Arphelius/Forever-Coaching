@@ -1,30 +1,67 @@
-# Warcraft Logs access and 100-parse comparisons
+# Warcraft Logs side-by-side comparisons
 
-Warcraft Logs is the destination for uploaded reports, rankings and timeline
-comparisons: https://forever.warcraftlogs.com/ . Forever Coaching provides easy
-report access and displays supplied snapshots. It does not replace Warcraft Logs
-with a local rotation coach or a second player application.
+Warcraft Logs supplies the report and reference data. Combat Review displays a
+simple comparison: **Action | You | 100-parse players**, followed by one
+**Next fight** practice goal. Rates and coverage use the reference median;
+opening sequences use the observed common reference pattern.
+
+**Current data status:** no live Warcraft Logs project connection is configured.
+The UI and structured-data path are implemented and tested with synthetic data;
+there is no claim that all logged instances or current rankings are being fetched.
+Missing data produces one short status line. Synthetic rows are never bundled as
+real reference data.
 
 ## Player flow
 
-1. Record and upload with the logging tools supported by Warcraft Logs.
-2. Paste the report link in Combat Review and click **Save report**. It is saved
-   for this character independently of other characters' links.
-3. Click **Your report**, press Ctrl+C, and paste the selected link in a browser.
-   Compare the uploaded fight with matching 100-percentile parses on Warcraft
-   Logs. **100-parse references** selects a supplied reference link when a
-   qualifying snapshot exists; otherwise it selects the site and explains that
-   a reference must be chosen there.
+The review has only two controls: **Spec** and **Instance / encounter**. The spec
+menu covers the 27 configured specs across nine supported classes. When readable,
+the actual current spec is the default and is marked current. Choosing another
+spec changes the review filter, not the player's talent build or live advice.
 
-The normal page has no API-key setup, companion launcher, generated-code import,
-spec fallback picker or local coaching controls. Player packages exclude the
-companion application. Developer utilities remain in the repository.
+The encounter selector lists available matching source data. Saved selection is
+kept per character; without a previous choice, the newest matching player fight
+is preferred. Switching specs or encounters clears stale rows and advice. A
+reference catalog can be browsed without a matching personal fight, but the
+player column then says **No matching fight** and personal advice is withheld.
 
-Links are selectable; the addon does not open a browser, embed the site, upload
-logs or fetch live website results. A saved URL is a bookmark, not a retrieved
-review. Automatic fresh in-game results are not implemented by link access alone.
-Existing supplied comparisons remain viewable and identify their encounter,
-spec and fight ID.
+The three old report/reference/browser instruction cards are removed. So are the
+report URL field, report-save/navigation buttons, logging buttons, import controls
+and details button. The normal review does not ask players to configure API keys,
+launch a helper, copy a link or paste a generated code. Player packages exclude
+the companion application. Developer utilities remain in the repository.
+
+The display consumes data supplied by the project integration. The addon itself
+does not embed the website, upload logs or issue HTTP requests. A project-side
+authorized data feed and coverage discovery are still required to provide fresh
+comparisons across the instances Warcraft Logs has recorded. These are backend
+requirements, not additional player buttons. Coverage is limited to supplied,
+validated entries; the current UI does not claim a complete/live catalog.
+
+Legacy paragraph-only snapshots cannot populate side-by-side values and are not
+parsed into invented numbers. They remain readable through the legacy API for
+existing integrations, but the normal review uses the structured comparison model.
+
+## Structured comparison data
+
+The external analysis result now includes `analysis.comparison` alongside legacy
+text. It contains source/schema, class/spec, actual instance and encounter IDs,
+difficulty, game version, identified report/player, independent 100-parse
+reference players and typed findings. Each supported finding separates its
+`comparison.action`, `you`, `reference` and `unit` (`casts/min`, `percent` or
+`sequence`), with its evidence and conditional practice goal.
+
+The existing developer transport can deliver this object with each review code.
+On ingestion the addon validates the player/report identity, matching context,
+exact-100 references, independent reference players, finite metric values and
+supported units. It saves a normalized copy with the identified character.
+Another character's personal values never appear under **You**.
+
+A backend can also supply
+`ForeverCoaching.WarcraftLogsCatalog={schema=1,source='Warcraft Logs',entries={...}}`
+containing the same validated comparison objects. These provide reference-only
+instance browsing until a matching player fight exists. A catalog replacement
+invalidates cached rows. This contract does not implement a live server or an
+all-report crawler by itself.
 
 ## Comparison rules
 
@@ -93,8 +130,10 @@ player auras count; target deaths close intervals and overlaps are merged.
 
 - `node tests/WarcraftLogs.Tests.cjs`: API fixtures, exact-100 filtering, per-character
   bookmarks, reference links, imported-data limits and logging controls.
-- `node tests/WarcraftLogsAccess.Tests.cjs`: actual Lua review UI, removed setup
-  controls and suppression of false local-analysis notices.
+- `node tests/WarcraftLogsAccess.Tests.cjs`: actual Lua review UI with exactly two
+  controls, no instruction cards, all 27 specs/current-spec selection, real typed
+  column values from fixtures, a next-fight goal, multi-instance filtering,
+  catalog replacement, stale-row clearing and character isolation.
 - `node tests/PeerCoaching.Tests.cjs`: all nine classes, attribution, independent
   peers, matching context and exact-100 observations.
 - `node tests/RunClassCoverageTests.cjs`: shared class-wide checks.

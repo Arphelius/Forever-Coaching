@@ -94,12 +94,12 @@ function mentor(target,references,{minPercentile=100,minPeers=3}={}){
  const seen=new Set([playerKey(target)]),peers=[];
  for(const ref of references){if(!compatible(target,ref,minPercentile)||seen.has(playerKey(ref)))continue;seen.add(playerKey(ref));peers.push(ref);}
  const links=peers.map(link),findings=[];
- const add=(kind,topic,title,what,why,next,evidence=[])=>findings.push({kind,topic,title,what,why,next,evidence,references:links});
+ const add=(kind,topic,title,what,why,next,evidence=[],comparison=null)=>findings.push({kind,topic,title,what,why,next,evidence,references:links,comparison});
  const targetTalents=talentKey(target),known=peers.filter(p=>talentKey(p)),sameBuild=targetTalents?known.filter(p=>talentKey(p)===targetTalents).length:0;
- const context={spec:target.spec,instanceId:target.fight.gameZone?.id,instance:target.fight.gameZone?.name,rankingZone:target.report.zone?.id,encounter:target.fight.name,difficulty:target.fight.difficulty,
+ const context={class:typeof target.actor.subType==='string'?target.actor.subType.toUpperCase():null,spec:target.spec,instanceId:target.fight.gameZone?.id,instance:target.fight.gameZone?.name,rankingZone:target.report.zone?.id,encounterId:target.fight.encounterID,encounter:target.fight.name,difficulty:target.fight.difficulty,
   gameVersion:target.report.masterData.gameVersion,minPercentile,peerCount:peers.length,
   talentMatches:sameBuild,talentSamples:known.length,targetTalentsKnown:!!targetTalents,
-  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server,spec:p.spec,percentile:p.percentile,url:link(p)}))};
+  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server,class:p.actor.subType.toUpperCase(),spec:p.spec,percentile:p.percentile,instanceId:p.fight.gameZone.id,encounterId:p.fight.encounterID,difficulty:p.fight.difficulty,gameVersion:p.report.masterData.gameVersion,url:link(p)}))};
  const eligible=target.complete&&target.fight.kill&&!!target.spec&&peers.length>=minPeers;
  if(!eligible){
   add('unavailable','coverage','Peer coaching not ready',`${peers.length}/${minPeers} independent compatible reference players available for ${target.spec||'an unknown spec'} on ${target.fight.name}.`,
@@ -121,11 +121,11 @@ function mentor(target,references,{minPercentile=100,minPeers=3}={}){
    if(actual<expected*.65){
     add('change','ability-use',`${name}: fewer uses`,`${name}: ${actual.toFixed(1)} casts/min versus ${expected.toFixed(1)} reference median (${users.length}/${peers.length} peers used it).`,
      `You used it ${row?.events.length||0} times; peers used it ${median(peerRows.map(rows=>rows.get(key)?.events.length||0)).toFixed(0)} times over comparable fights. This is a rotation difference, not proof it was ready. ${opportunity}`,
-     `For the next ${target.fight.name} pull, track ${name}. If learned, ready and appropriate for your assignment, practice fitting it into safe action windows; compare its use rate again after the pull.`,evidence);
+     `For the next ${target.fight.name} pull, track ${name}. If learned, ready and appropriate for your assignment, practice fitting it into safe action windows; compare its use rate again after the pull.`,evidence,{action:name,you:actual,reference:expected,unit:'casts/min'});
    }else if(actual>=expected*.8&&actual<=expected*1.2){
     add('good','ability-use',`${name}: peer-aligned usage`,`${name}: ${actual.toFixed(1)} casts/min, close to the ${expected.toFixed(1)} reference median.`,
      'Your recorded use frequency is consistent with these peers; this does not grade each cast or prove equal damage.',
-     `Keep this ${name} usage habit while checking the target and encounter assignment.`,evidence);
+     `Keep this ${name} usage habit while checking the target and encounter assignment.`,evidence,{action:name,you:actual,reference:expected,unit:'casts/min'});
    }
   }
  }
@@ -140,7 +140,7 @@ function mentor(target,references,{minPercentile=100,minPeers=3}={}){
    `Your first casts: ${actual}. ${pattern.count}/${peers.length} peers opened with ${expected}.`,
    `Opening order can affect setup and follow-up actions. This is an observed reference pattern, not a universal priority list. ${opportunity}`,
    matches?'Keep the opening order on equivalent pulls, adapting it when mechanics require.':
-    `Before the next comparable pull, rehearse ${expected} if it fits your learned toolkit and assignment. Then compare the opening casts again.`,own.map(s=>`${s.time} ${s.name}`));
+    `Before the next comparable pull, rehearse ${expected} if it fits your learned toolkit and assignment. Then compare the opening casts again.`,own.map(s=>`${s.time} ${s.name}`),{action:'Opening sequence',you:actual,reference:expected,unit:'sequence'});
  }
  if(!target.deaths.length){
   const ownAuras=auraRows(target),peerAuras=peers.map(auraRows);
@@ -156,12 +156,12 @@ function mentor(target,references,{minPercentile=100,minPeers=3}={}){
      `${row.name} on ${row.target}: ${actual.toFixed(0)}% observed fight coverage versus ${expected.toFixed(0)}% reference median (${samples.length} peers).`,
      `Only intervals beginning with a recorded application are counted. Target downtime, dispels and assignments can explain this difference. ${opportunity}`,
      `Track ${row.name} expiration on ${row.target}. On safe, eligible windows, practice maintaining the effect; check the missing intervals against mechanics before changing refresh timing.`,
-     row.intervals.slice(0,3).map(([start,end])=>`${((start-target.fight.startTime)/1000).toFixed(1)}s-${((end-target.fight.startTime)/1000).toFixed(1)}s ${row.name}`));
+     row.intervals.slice(0,3).map(([start,end])=>`${((start-target.fight.startTime)/1000).toFixed(1)}s-${((end-target.fight.startTime)/1000).toFixed(1)}s ${row.name}`),{action:row.name+' coverage / '+row.target,you:actual,reference:expected,unit:'percent'});
    }else if(expected>=60&&actual>=expected-10){
     add('good','aura-coverage',`${row.name}: sustained coverage`,
      `${row.name} on ${row.target}: ${actual.toFixed(0)}% observed coverage versus ${expected.toFixed(0)}% reference median.`,
      'You maintained coverage comparable to the retrieved peers. Coverage does not establish snapshot quality or ideal refresh timing.',
-     `Keep tracking ${row.name} on your assigned target while respecting encounter downtime.`);
+     `Keep tracking ${row.name} on your assigned target while respecting encounter downtime.`,[],{action:row.name+' coverage / '+row.target,you:actual,reference:expected,unit:'percent'});
    }
   }
  }

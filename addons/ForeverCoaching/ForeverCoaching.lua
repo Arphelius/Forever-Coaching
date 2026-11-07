@@ -340,6 +340,12 @@ local function reviewDisplay(value)
 end
 
 local function UpdateReviewText()
+    if reviewWidgets and reviewWidgets.warcraftLogs and reviewWidgets.warcraftLogs.comparisonView then
+        local view=reviewWidgets.warcraftLogs
+        view.refresh();reviewWidgets.metrics:SetText(view.metrics or '')
+        reviewWidgets.content:SetHeight(view.height+20)
+        return
+    end
     if reviewWidgets and FC.CombatReview and FC.CombatReview.GetLatestSummary then
         local filter=FC.GuideBrowser and FC.GuideBrowser:GetReviewFilter()
         local ok,result=pcall(FC.CombatReview.GetLatestSummary,FC.CombatReview,filter)
@@ -441,13 +447,16 @@ local function ShowTab(tabName)
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
 
     if tabName == "Rotation" then
-        local toolbar=Theme:Toolbar(currentPage,M.toolbarTop)
-        local detailButton=NewButton(currentPage,'Show details',96)
-        local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details');FitButton(detailButton,96);toolbar:Layout()end
-        detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
-        toolbar:Add(detailButton,6)
+        local comparisonView=FC.WarcraftLogs and FC.BuildWarcraftLogsPanel
+        if not comparisonView then
+            local toolbar=Theme:Toolbar(currentPage,M.toolbarTop)
+            local detailButton=NewButton(currentPage,'Show details',96)
+            local function detailLabel()detailButton:SetText(reviewExpanded and 'Less detail' or 'Show details');FitButton(detailButton,96);toolbar:Layout()end
+            detailLabel();detailButton:SetScript('OnClick',function()reviewExpanded=not reviewExpanded;detailLabel();UpdateReviewText()end)
+            toolbar:Add(detailButton,6)
+        end
 
-        local rowTop=M.toolbarTop-M.buttonHeight-6
+        local rowTop=comparisonView and M.toolbarTop or M.toolbarTop-M.buttonHeight-6
         reviewText=nil
         reviewWidgets={}
         reviewWidgets.metrics=AddText(currentPage,"",11,MUTED)
@@ -459,6 +468,13 @@ local function ShowTab(tabName)
         reviewScroll:SetPoint("TOPLEFT",currentPage,"TOPLEFT",0,scrollTop);reviewScroll:SetPoint("BOTTOMRIGHT",currentPage,"BOTTOMRIGHT",-26,12)
         local reviewContent=CreateFrame("Frame",nil,reviewScroll);reviewContent:SetSize(CARD_W+36,1040);reviewScroll:SetScrollChild(reviewContent)
         if FC.BuildWarcraftLogsPanel then reviewWidgets.warcraftLogs=FC:BuildWarcraftLogsPanel(reviewContent,CARD_W) end
+        reviewWidgets.content=reviewContent
+        if comparisonView then
+            UpdateReviewText()
+            if frame:IsShown() then FC.CombatReview:MarkLatestViewed()end
+            UpdateCharacterInfo()
+            return
+        end
         local goodCard,observation=AddCard(reviewContent,"WHAT YOU DID WELL","",0,300)
         local wrongCard,takeaway=AddCard(reviewContent,"WHAT WENT WRONG","",-312,300)
         local improveCard,nextStep=AddCard(reviewContent,"WHAT TO IMPROVE","",-624,300)
@@ -484,7 +500,7 @@ local function ShowTab(tabName)
         end
         FC:BuildGuideSelectors(currentPage,updateGuideSource);updateGuideSource()
         local resources={
-            {"WARCRAFT LOGS - FOREVER","Record combat, upload outside WoW, then import an analyzed report through Combat Review > Warcraft Logs.","https://forever.warcraftlogs.com/"},
+            {"WARCRAFT LOGS - FOREVER","Report and 100-parse reference data for matched spec and encounter comparisons.","https://forever.warcraftlogs.com/"},
             {"FOREVER LOGS - STATISTICS SOURCE","Source of recorded class/spec aggregate statistics. Explore the original data and website.","https://foreverlogs.gg/"},
             {"MYTHICSIM - BUILDS & SIMULATIONS","Build references and simulation research. See each build's own source for its assumptions.","https://mythicsim.com/"},
             {"SIMGEARFOREVER - GEARING COMPANION","Companion addon for gear and stat optimization. Gear integration is planned separately.","https://www.curseforge.com/wow/addons/simgearforever"},

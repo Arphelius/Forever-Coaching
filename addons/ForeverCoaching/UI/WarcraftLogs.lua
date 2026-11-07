@@ -1,51 +1,50 @@
 local FC=ForeverCoaching
 local CreateFrame=FC.CreateLocalizedFrame or CreateFrame
--- Warcraft Logs is the analysis destination. In-game controls provide copyable
--- links and display already supplied snapshots; they do not embed the website.
+
 function FC:BuildWarcraftLogsPanel(parent,width)
  if not self.WarcraftLogs then return end
- local panel=CreateFrame('Frame',nil,parent,'BackdropTemplate')
- panel:SetSize(width,240);panel:SetPoint('TOPLEFT',parent,'TOPLEFT',18,0)
- panel:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=1})
- panel:SetBackdropColor(.07,.09,.13,.94);panel:SetBackdropBorderColor(.65,.48,.19,.9)
- local function label(value,x,y,w,font)
-  local text=panel:CreateFontString(nil,'OVERLAY',font or 'GameFontHighlightSmall')
-  text:SetPoint('TOPLEFT',x,y);text:SetWidth(w);text:SetJustifyH('LEFT');text:SetText(value);return text
+ local panel=CreateFrame('Frame',nil,parent)
+ panel:SetSize(width,160);panel:SetPoint('TOPLEFT',parent,'TOPLEFT',18,0)
+ local function text(value,x,y,w,font)
+  local label=panel:CreateFontString(nil,'OVERLAY',font or 'GameFontHighlightSmall')
+  label:SetPoint('TOPLEFT',x,y);label:SetWidth(w);label:SetJustifyH('LEFT');label:SetText(value);return label
  end
- local title=label('WARCRAFT LOGS',16,-14,width-32,'GameFontNormalLarge')
- title:SetTextColor(1,.78,.3)
- label('Your reports and 100-parse references, with Warcraft Logs handling the report analysis.',16,-42,width-32)
- label('Save your report link once. Select a link below and press Ctrl+C to view it in your browser.',16,-62,width-32)
- local url=CreateFrame('EditBox',nil,panel,'InputBoxTemplate')
- url:SetSize(width-44,20);url:SetPoint('TOPLEFT',22,-96);url:SetAutoFocus(false);url:SetText(self.WarcraftLogs:GetReportURL())
- url:SetScript('OnEditFocusGained',function(box)box:HighlightText()end)
- url:SetScript('OnEscapePressed',function(box)box:ClearFocus()end)
- local status=label('',16,-196,width-32);status:SetHeight(30)
- local function button(value,x,y,w,callback,owner)
-  local b=CreateFrame('Button',nil,owner or panel,'UIPanelButtonTemplate')
-  b:SetSize(w,24);b:SetPoint('TOPLEFT',x,y);b:SetText(value);b:SetScript('OnClick',callback);return b
+ text('Spec',0,-8,math.floor(width*.44),'GameFontNormal')
+ text('Instance / encounter',math.floor(width*.46),-8,math.floor(width*.54),'GameFontNormal')
+ local result={frame=panel,height=160,comparisonView=true,rows={}}
+ local spec=FC:GuidePicker(panel,0,-30,math.floor(width*.44),function(key)FC.WarcraftLogs:SetComparisonSpec(key)end)
+ local encounter=FC:GuidePicker(panel,math.floor(width*.46),-30,math.floor(width*.54),function(key)FC.WarcraftLogs:SetComparisonEncounter(key)end)
+ local status=text('',0,-72,width)
+ local headers={text('ACTION',0,-112,math.floor(width*.34),'GameFontNormal'),text('YOU',math.floor(width*.36),-112,math.floor(width*.28),'GameFontNormal'),text('100-PARSE PLAYERS',math.floor(width*.67),-112,math.floor(width*.33),'GameFontNormal')}
+ local nextHeading=text('NEXT FIGHT',0,-160,width,'GameFontNormal')
+ local nextStep=text('',0,-184,width)
+ function result.refresh()
+  local model=FC.WarcraftLogs:GetComparisonModel();result.model=model;result.metrics=model.metrics
+  spec:SetOptions(model.specs,model.selectedSpec,'Choose spec')
+  encounter:SetOptions(model.encounters,model.selectedEncounter,'No encounter data')
+  status:SetText(model.status)
+  for _,header in ipairs(headers)do header:SetShown(model.ready)end
+  local offset=142
+  for index,row in ipairs(model.rows)do
+   local labels=result.rows[index]
+   if not labels then labels={text('',0,0,math.floor(width*.34)),text('',math.floor(width*.36),0,math.floor(width*.28)),text('',math.floor(width*.67),0,math.floor(width*.33))};result.rows[index]=labels end
+   local height=0
+   for column,value in ipairs({row.action,row.you,row.reference})do
+    local label=labels[column];label:SetText(value);label:ClearAllPoints()
+    label:SetPoint('TOPLEFT',column==1 and 0 or column==2 and math.floor(width*.36) or math.floor(width*.67),-offset)
+    label:Show();height=math.max(height,label:GetStringHeight())
+   end
+   offset=offset+math.max(28,height)+18
+  end
+  for index=#model.rows+1,#result.rows do for _,label in ipairs(result.rows[index])do label:Hide()end end
+  nextHeading:SetShown(model.ready and model.nextFight~=nil);nextStep:SetShown(model.ready and model.nextFight~=nil)
+  if model.nextFight then
+   nextHeading:ClearAllPoints();nextHeading:SetPoint('TOPLEFT',0,-offset-12)
+   nextStep:SetText(model.nextFight);nextStep:ClearAllPoints();nextStep:SetPoint('TOPLEFT',0,-offset-38)
+   offset=offset+58+nextStep:GetStringHeight()
+  end
+  result.height=model.ready and offset+20 or 120;panel:SetHeight(result.height)
  end
- local logging=label('',width-198,-17,182);logging:SetJustifyH('RIGHT')
- local function refresh()
-  logging:SetText(FC.WarcraftLogs:GetLogging() and 'File logging: On' or 'File logging: Off')
-  if not url.HasFocus or not url:HasFocus()then url:SetText(FC.WarcraftLogs:GetReportURL())end
- end
- local function selectLink(link,message)url:SetText(link);url:HighlightText();url:SetFocus();status:SetText(message)end
- local save=button('Save report',16,-126,116,function()
-  local ok,message=FC.WarcraftLogs:SaveReportURL(url:GetText());status:SetText(message)
-  if ok then url:SetText(FC.WarcraftLogs:GetReportURL());if FC.RefreshCombatReview then FC:RefreshCombatReview()end end
- end)
- local report=button('Your report',140,-126,116,function()selectLink(FC.WarcraftLogs:GetReportURL(),'Press Ctrl+C, then paste the link into your browser.')end)
- local references=button('100-parse references',264,-126,156,function()
-  local link=FC.WarcraftLogs:GetReferenceURL()
-  selectLink(link or FC.WarcraftLogs.url,link and 'This reference is labeled 100 percentile in the supplied snapshot. Verify its context on Warcraft Logs.' or 'Choose a verified 100 parse on Warcraft Logs for the same spec, encounter and difficulty.')
- end)
- button('Warcraft Logs',428,-126,132,function()selectLink(FC.WarcraftLogs.url,'Press Ctrl+C, then paste the website address into your browser.')end)
- button('Start file logging',16,-160,140,function()local ok,message=FC.WarcraftLogs:SetLogging(true);status:SetText(message);refresh()end)
- button('Stop file logging',164,-160,140,function()local ok,message=FC.WarcraftLogs:SetLogging(false);status:SetText(message);refresh()end)
- button('Previous review',312,-160,116,function()FC.WarcraftLogs:Select(1);status:SetText('Showing the selected supplied snapshot below.');refresh()end)
- button('Next review',436,-160,108,function()FC.WarcraftLogs:Select(-1);status:SetText('Showing the selected supplied snapshot below.');refresh()end)
- local result={frame=panel,height=240,refresh=refresh,url=url,saveButton=save,reportButton=report,referencesButton=references,status=status}
- panel:SetScript('OnShow',refresh);refresh()
- return result
+ result.specPicker=spec;result.encounterPicker=encounter
+ result.status=status;result.nextStep=nextStep;result.refresh();return result
 end
