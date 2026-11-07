@@ -7,6 +7,7 @@ local session
 local pendingRecommendations = {}
 local pendingDecisions = {}
 local cachedCharacterKey
+local cachedPlayerGUID
 
 local function isSecret(value)
     return issecretvalue and issecretvalue(value) or false
@@ -15,7 +16,7 @@ end
 local function visibleUnitGUID(unit)
     if C_Secrets and C_Secrets.ShouldUnitIdentityBeSecret then
         local ok, secret = pcall(C_Secrets.ShouldUnitIdentityBeSecret, unit)
-        if not ok or secret == true or isSecret(secret) then return nil end
+        if not ok or isSecret(secret) or secret == true then return nil end
     end
     if not UnitGUID then return nil end
     local ok, guid = pcall(UnitGUID, unit)
@@ -50,6 +51,32 @@ local function characterKey()
     if isSecret(name) or isSecret(realm) or not name then return cachedCharacterKey end
     cachedCharacterKey = tostring(name) .. "-" .. tostring(realm or "")
     return cachedCharacterKey
+end
+
+local function playerGUID()
+    local guid = visibleUnitGUID('player')
+    if type(guid) == 'string' then cachedPlayerGUID = guid end
+    return cachedPlayerGUID
+end
+
+local function belongsToPlayer(report)
+    local guid = playerGUID()
+    if guid and report.characterGUID then return report.characterGUID == guid end
+    -- Older reviews stored the display realm name, which can change on Forever.
+    -- Their linked timeline already contains the stable player GUID.
+    if guid and report.fightTimelineId then
+        for _, fight in ipairs(ForeverCoachingDB.fightTimelines or {}) do
+            if fight.id == report.fightTimelineId then
+                if fight.character == guid then
+                    report.characterGUID = guid
+                    return true
+                end
+                if type(fight.character) == 'string' and fight.character:match('^Player%-') then return false end
+            end
+        end
+    end
+    local character = characterKey()
+    return character ~= nil and report.character == character
 end
 
 local function copyTalents(talents)
@@ -162,6 +189,7 @@ local function beginCombat()
     session = {
         started = GetTime and GetTime() or 0,
         character = characterKey(),
+        characterGUID = playerGUID(),
         playerLevel = playerLevel,
         tuningRevision = FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.revision,
         casts = 0,
@@ -416,6 +444,7 @@ local function buildReport(reviewSession)
         decisions = session.decisions,
         timestamp = time and time() or 0,
         character = session.character,
+        characterGUID = session.characterGUID,
         tuningRevision = session.tuningRevision,
         class = session.class,
         specTree = session.specTree,
@@ -451,10 +480,8 @@ end
 
 function Review:GetLatestText()
     ensureSavedData()
-    local currentCharacter = characterKey()
-    if not currentCharacter then return "Character identity is unavailable, so this review cannot be matched safely." end
     for _, review in ipairs(ForeverCoachingDB.reviews) do
-        if review.character == currentCharacter then return compactReviewText(review) end
+        if belongsToPlayer(review) then return compactReviewText(review) end
     end
     return "No combat review for this character yet. Finish a fight with a hostile target to record one."
 end
@@ -526,12 +553,9 @@ function Review:GetLatestSummary(filter)
             goodText=section(imported.good),wrongText=section(imported.wrong),improveText=section(imported.improve),
             coverage=imported.coverage,sourceUrl="https://foreverlogs.gg/"}
     end
-    local character=characterKey()
     local latest
-    if character or filter then
-        for _,report in ipairs(ForeverCoachingDB.reviews) do
-            if (filter or report.character==character) and self:MatchesFilter(report,filter) then latest=report;break end
-        end
+    for _,report in ipairs(ForeverCoachingDB.reviews) do
+        if (filter or belongsToPlayer(report)) and self:MatchesFilter(report,filter) then latest=report;break end
     end
     if not latest then
         if filter then return {metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='',improveText=''} end
@@ -615,7 +639,7 @@ function Review:GetObservedDamage(spellID, activeTalents, currentLevel)
 
     for index = 1, math.min(#ForeverCoachingDB.reviews, 5) do
         local review = ForeverCoachingDB.reviews[index]
-        if review.character == currentCharacter and review.damageSource == "BlizzardDamageMeter"
+        if belongsToPlayer(review) and review.damageSource == "BlizzardDamageMeter"
             and (not FC.ForeverSpellCatalog or review.tuningRevision==FC.ForeverSpellCatalog.revision) then
             include(review.damageByAbility, review.activeTalents, review.playerLevel)
         end
@@ -638,6 +662,7 @@ pcall(events.RegisterEvent, events, "UI_ERROR_MESSAGE")
 events:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         characterKey()
+        playerGUID()
         pendingDecisions = {}
     elseif event == "PLAYER_REGEN_DISABLED" then
         beginCombat()

@@ -93,3 +93,18 @@ assert(review:GetSource()=='local','Finished fight hidden behind imported source
 local _,attempts,nextStep=review:SummarizeDecisions(latest)
 assert(attempts:find('Out of range',1,true),'Recorded client failure missing from review')
 assert(nextStep:find('timeline',1,true),'Recorded failures need investigation guidance')
+-- Forever can rename its realm display label. Recover legacy reviews by the
+-- GUID in the linked timeline, without mixing same-name characters on realms.
+latest.characterGUID=nil
+GetRealmName=function()return 'RenamedRealm'end
+assert(review:GetLatestSummary().goodText:find('1 successful casts',1,true),'Realm label change hid a saved fight')
+assert(latest.characterGUID==UnitGUID('player'),'Legacy timeline GUID was not migrated')
+assert(review:GetLatestText():find('Out of range',1,true),'Text lookup ignored recovered identity')
+local oldRecorder=FC.FightRecorder
+FC.FightRecorder=nil
+assert(review:GetLatestSummary().goodText:find('1 successful casts',1,true),'Migrated identity must survive timeline expiry')
+FC.FightRecorder=oldRecorder
+latest.character=UnitName('player')..'-'..GetRealmName()
+latest.characterGUID='different-player'
+ForeverCoachingDB.reviews={latest}
+assert(review:GetLatestSummary().metrics=='Local observations / No fight recorded yet','A different GUID must not match by character name')
