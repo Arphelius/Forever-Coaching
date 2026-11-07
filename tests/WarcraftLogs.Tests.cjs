@@ -95,11 +95,13 @@ async function main(){
  }});
  assert.equal((await client.report(report.code)).code,report.code);
  assert.equal((await client.events(report.code,fight)).complete,true);
- assert(calls.every(c=>c.url==='https://forever.warcraftlogs.com/api/v2/client'));
+ assert(calls.every(c=>c.url==='https://www.warcraftlogs.com/api/v2/client'),'API requests use the documented central service, not the Forever report-link host');
  assert.equal(calls[1].body.variables.fight,1);
  const bad=createClient({accessToken:'fixture',fetcher:async()=>({ok:true,text:async()=>JSON.stringify({data:{reportData:{report:{events:{data:[],nextPageTimestamp:0}}}}})})});
  await assert.rejects(()=>bad.events(report.code,fight),/pagination/);
  await assert.rejects(()=>createClient({accessToken:'fixture',fetcher:async()=>({ok:false,status:429})}).report(report.code),/rate limit/);
+ await assert.rejects(()=>createClient({accessToken:'fixture',fetcher:async()=>({ok:false,status:404})}).report(report.code),/GraphQL API endpoint not found \(404\)/);
+ await assert.rejects(()=>createClient({clientId:'fixture',clientSecret:'fixture',fetcher:async()=>({ok:false,status:401})}).report(report.code),/authentication request failed \(401\)/);
  const partial=createClient({accessToken:'fixture',fetcher:async()=>({ok:true,text:async()=>JSON.stringify({data:{reportData:{report:{events:{data:[],nextPageTimestamp:10}}}}})})});
  assert.equal((await partial.events(report.code,fight,1)).complete,false);
  const output=fs.mkdtempSync(path.join(os.tmpdir(),'fc-wcl-tests-'));

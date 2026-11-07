@@ -1,5 +1,8 @@
 // Public-report API access. Credentials stay outside the addon and exported reviews.
 const HOST='https://forever.warcraftlogs.com';
+// Report links use the Forever site; OAuth and GraphQL use the documented
+// central Warcraft Logs service, not the report website's subdomain.
+const API_HOST='https://www.warcraftlogs.com';
 const {mentor,renderFinding}=require('./peer-coaching.cjs');
 function reportCode(value){
  if(/^[A-Za-z0-9]{16}$/.test(value||''))return value;
@@ -10,7 +13,12 @@ function reportCode(value){
 }
 async function jsonRequest(url,options,fetcher=fetch){
  const response=await fetcher(url,{...options,redirect:'error',signal:AbortSignal.timeout(30000)});
- if(!response.ok)throw Error(response.status===429?'Warcraft Logs rate limit reached; retry later.':`Warcraft Logs request failed (${response.status}). Check report permissions and API access.`);
+ if(!response.ok){
+  const stage=new URL(url).pathname==='/oauth/token'?'authentication':'GraphQL API';
+  throw Error(response.status===429?'Warcraft Logs rate limit reached; retry later.':
+   response.status===404?`Warcraft Logs ${stage} endpoint not found (404). Check the service address; this is not an invalid-credentials verdict.`:
+   `Warcraft Logs ${stage} request failed (${response.status}). Check ${stage==='authentication'?'client credentials':'report permissions and API access'}.`);
+ }
  const raw=await response.text();if(raw.length>32*1024*1024)throw Error('Warcraft Logs response too large.');
  try{return JSON.parse(raw);}catch{throw Error('Warcraft Logs returned invalid JSON.');}
 }
@@ -26,7 +34,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
    token=auth.access_token;expires=Date.now()+Math.max(1,Number(auth.expires_in||3600)-60)*1000;
   }
   if(typeof token!=='string'||!token)throw Error('Sign in to Warcraft Logs again.');
-  const result=await jsonRequest(HOST+'/api/v2/'+api,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
+  const result=await jsonRequest(API_HOST+'/api/v2/'+api,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
   if(result.errors?.length||!result.data)throw Error('Warcraft Logs API rejected this query. Verify the Forever schema and report permissions.');
   return result.data;
  }

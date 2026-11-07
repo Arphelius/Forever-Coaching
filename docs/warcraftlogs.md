@@ -123,6 +123,12 @@ user-authorized developer tools can access permitted reports through the user
 endpoint. The previous OAuth companion is retained as a developer utility and
 excluded from player packages.
 
+Report links use `forever.warcraftlogs.com`; API requests use the documented
+central `https://www.warcraftlogs.com/api/v2/client` (or `/user` for user OAuth).
+Authentication and API HTTP failures are labeled separately. A route-level 404
+does not by itself indicate bad credentials. Actual Forever report/schema support
+still requires an authenticated live test.
+
 Forever does not require players to supply a realm. The collector uses a unique
 character name, optionally restricted by `--source` (the player source ID from
 that report). `--realm` remains an optional metadata filter for integrations.
