@@ -48,8 +48,9 @@ fc.EncounterCoach={Summarize=function()return 'Observed response','Unconfirmed i
 fc.ScenarioTracker={Summarize=function()return 'Resource pressure observed','Mana was low.','Recover mana safely between pulls.'end}
 ForeverCoachingDB.reviews={report}
 local summary=review:GetLatestSummary()
-assert(summary.wrongText:find('assignment needs checking',1,true),'Keep encounter observation qualifications')
-assert(summary.improveText:find('interrupt assignment',1,true) and summary.improveText:find('Recover mana',1,true),'Do not discard encounter/scenario next steps')
+assert(summary.diagnosticText:find('assignment needs checking',1,true),'Keep encounter observation qualifications in diagnostics')
+assert(summary.diagnosticText:find('interrupt assignment',1,true) and summary.diagnosticText:find('Recover mana',1,true),'Retain encounter/scenario diagnostics')
+assert(summary.wrongText:find('No comparison with other players',1,true) and summary.peerCoachingReady==false,'Do not label local observations as peer rotation coaching')
 `);
 lua.lua_close(L);
 console.log('PASS: spell mix, timed/grouped failures, error-specific and localized next steps, unknown causes, deaths and encounter/scenario guidance. Simulated observations only.');

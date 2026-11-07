@@ -615,6 +615,16 @@ function Review:MatchesFilter(report,filter)
     if class=='DRUID' and tree==2 and filter.role and not report.specRole then return false end
     return true
 end
+local function localRecordingSummary(summary)
+    -- Preserve diagnostics for inspection without presenting client errors as
+    -- evidence that the player's rotation was right or wrong.
+    summary.diagnosticText=table.concat({summary.goodText or '',summary.wrongText or '',summary.improveText or ''},'\n\n')
+    summary.headings={'LOCAL RECORDING','PEER ROTATION COMPARISON','GET SPEC-SPECIFIC COACHING'}
+    summary.wrongText='No comparison with other players has been performed for this local recording. Cast failures and spell counts do not establish rotation quality.'
+    summary.improveText='Analyze this uploaded encounter with matching same-spec reference fights, then import its review in the Warcraft Logs panel above. The comparison will show peer-aligned habits, rotation differences and a next-pull practice goal.'
+    summary.peerCoachingReady=false
+    return summary
+end
 function Review:GetLatestSummary(filter)
     if self:GetSource()=="warcraftlogs" and FC.WarcraftLogs then return FC.WarcraftLogs:GetSummary() end
     ensureSavedData()
@@ -668,9 +678,9 @@ function Review:GetLatestSummary(filter)
         if (filter or belongsToPlayer(report)) and self:MatchesFilter(report,filter) then latest=report;break end
     end
     if not latest then
-        if filter then return {metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='',improveText=''} end
-        return {metrics="Local observations / No fight recorded yet",goodText="Finish a fight to see your review.",wrongText='',improveText='',observation="Finish a fight to see a review for this character.",
-            takeaway='',nextStep=''}
+        if filter then return localRecordingSummary({metrics='No recorded fight for this class/spec',goodText='No matching fight recorded yet.',wrongText='',improveText=''}) end
+        return localRecordingSummary({metrics="Local observations / No fight recorded yet",goodText="Finish a fight to save a local recording.",wrongText='',improveText='',observation="Finish a fight to save a recording for this character.",
+            takeaway='',nextStep=''})
     end
     local rotationGood,rotationWrong,rotationImprove=self:SummarizeDecisions(latest)
     if latest.encounterCoaching and FC.EncounterCoach then
@@ -694,18 +704,18 @@ function Review:GetLatestSummary(filter)
         -- Keep the recorded observer's qualifications: an unconfirmed response
         -- is not proof of a missed assignment or an incorrect attack.
         local build=latest.encounterCoaching.build or {}
-        return {metrics="Local encounter decisions / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
+        return localRecordingSummary({metrics="Local recording / "..(build.title or "Build unavailable").." / "..tostring(latest.casts or 0).." casts",
             goodText=good~="" and good or "No matching situational response was confirmed. Damage casts alone do not establish encounter execution.",
             wrongText=rotationWrong~='' and rotationWrong or 'No verified mistakes identified from the available observations.',
             improveText=rotationImprove~='' and rotationImprove or 'No specific correction is supported by this recording. Record another fight to collect more evidence.',
-            coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')}
+            coverage=(recorded and recorded.coverage or "Observed ready interrupts, group health, removable debuffs and mana. No complete combat outcome stream was available.")..(scenarios and '\n'..scenarios.coverage or '')})
     end
     if rotationWrong=='' then rotationWrong='No verified mistakes identified from the available observations.' end
     if rotationImprove=='' then rotationImprove='No specific correction is supported by this recording. Record another fight to collect more evidence.' end
-    return {goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local observations / %.0f sec / %s",tonumber(latest.duration) or 0,
+    return localRecordingSummary({goodText=rotationGood,wrongText=rotationWrong,improveText=rotationImprove,metrics=string.format("Local recording / %.0f sec / %s",tonumber(latest.duration) or 0,
             latest.damageSource and "damage available" or "cast observations only"),
         observation=rotationGood,takeaway=rotationWrong,nextStep=rotationImprove,
-        coverage='Local cast observations only. Live rotation assessment has been removed. Restricted combat information is unavailable.'}
+        coverage='Local cast observations only. Peer rotation coaching requires retrieved reference fights. Restricted combat information is unavailable.'})
 end
 
 function Review:GetSource()

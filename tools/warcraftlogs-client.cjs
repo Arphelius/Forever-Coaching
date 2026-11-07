@@ -1,5 +1,6 @@
 // Public-report API access. Credentials stay outside the addon and exported reviews.
 const HOST='https://forever.warcraftlogs.com';
+const {mentor,renderFinding}=require('./peer-coaching.cjs');
 function reportCode(value){
  if(/^[A-Za-z0-9]{16}$/.test(value||''))return value;
  let url;try{url=new URL(value);}catch{throw Error('Use a Forever Warcraft Logs report URL.');}
@@ -28,7 +29,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
  }
  const reports=new Map();
  async function report(value){const code=reportCode(value);if(reports.has(code))return reports.get(code);
-  const data=await query(`query($code:String!){reportData{report(code:$code){code title startTime zone{id} masterData{gameVersion actors{id name server type subType} abilities{gameID name}} fights{id name encounterID difficulty startTime endTime kill inProgress friendlyPlayers friendlySpecs}}}}`,{code});
+  const data=await query(`query($code:String!){reportData{report(code:$code){code title startTime zone{id} masterData{gameVersion actors{id name server type subType} abilities{gameID name}} fights{id name encounterID difficulty gameZone{id name} hardModeLevel keystoneLevel keystoneAffixes startTime endTime kill inProgress friendlyPlayers friendlySpecs}}}}`,{code});
   const result=data.reportData?.report;
   if(!result||result.code!==code||!Array.isArray(result.fights)||!Array.isArray(result.masterData?.actors))throw Error('Report metadata unavailable.');
   reports.set(code,result);return result;
@@ -70,9 +71,11 @@ function profile(report,fight,actor,stream){
  const counts=new Map();for(const e of casts){const id=e.abilityGameID;if(!Number.isSafeInteger(id))continue;const row=counts.get(id)||{id,name:abilities.get(id)||'Spell #'+id,count:0,first:(e.timestamp-fight.startTime)/1000};row.count++;counts.set(id,row);}
  const deaths=events.filter(e=>e.type==='death'&&e.targetID===actor.id);
  const timeline=events.filter(e=>(e.sourceID===actor.id||e.targetID===actor.id)&&['cast','death','interrupt','dispel','applybuff','removebuff','applydebuff','removedebuff','resurrect'].includes(e.type));
- return {report,fight,actor,spec:specFor(report,fight,actor),complete:stream.complete,duration:(fight.endTime-fight.startTime)/1000,casts,counts,deaths,timeline,events,abilities};
+ const combatant=events.find(e=>e.type==='combatantinfo'&&e.sourceID===actor.id);
+ const level=Number.isSafeInteger(combatant?.level)?combatant.level:Number.isSafeInteger(actor.level)?actor.level:null;
+ return {report,fight,actor,spec:specFor(report,fight,actor),level,complete:stream.complete,duration:(fight.endTime-fight.startTime)/1000,casts,counts,deaths,timeline,events,abilities};
 }
-function compare(target,references){
+function compare(target,references,options={}){
  const good=[],observations=[],improve=[];
  const stamp=e=>((e.timestamp-target.fight.startTime)/1000).toFixed(1)+'s';
  good.push(`${target.casts.length} successful cast events; ${target.deaths.length} recorded deaths. ${target.fight.kill?'Boss defeated.':'Attempt ended without a kill.'}`);
@@ -82,17 +85,20 @@ function compare(target,references){
   observations.push(`Death at ${stamp(death)}. Final recorded hits: ${hits.map(e=>`${target.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID} at ${stamp(e)} (${Number(e.amount)||0})`).join('; ')||'unavailable'}. This does not establish blame.`);
   improve.push(`Review the 10 seconds before ${stamp(death)} for encounter damage, positioning and available help. The log alone does not prove a defensive was ready.`);
  }
- const compatible=references.filter(r=>r.complete&&r.percentile===100&&r.fight.kill&&r.fight.encounterID===target.fight.encounterID&&target.fight.difficulty!=null&&r.fight.difficulty===target.fight.difficulty&&r.actor.subType===target.actor.subType&&r.spec===target.spec&&target.report.zone?.id!=null&&r.report.zone?.id===target.report.zone?.id&&Number.isFinite(target.report.masterData.gameVersion)&&r.report.masterData.gameVersion===target.report.masterData.gameVersion&&Math.abs(r.duration-target.duration)/target.duration<=.2);
- if(target.complete&&target.fight.kill&&target.spec&&compatible.length>=3){
-  const ids=new Set(compatible.flatMap(r=>[...r.counts.keys()]));
-  for(const id of ids){const rates=compatible.map(r=>(r.counts.get(id)?.count||0)*60/r.duration).sort((a,b)=>a-b);const median=rates[Math.floor(rates.length/2)];const actual=(target.counts.get(id)?.count||0)*60/target.duration;
-   if(median>0&&actual<median*.65&&compatible.filter(r=>r.counts.has(id)).length>=3){const name=compatible.find(r=>r.counts.has(id)).counts.get(id).name;improve.push(`${name}: ${actual.toFixed(1)} casts/min versus ${median.toFixed(1)} reference median. Check build, assignment, encounter phases and availability; this difference is not a verified mistake.`);}
-  }
- }
+ const coaching=mentor(target,references,options),compatible=coaching.peers;
+ // Keep multiple decision areas visible rather than filling all cards with
+ // frequency checks for the first few abilities in a spell list.
+ function selected(kinds){const topics=new Map();return coaching.findings.filter(f=>kinds.includes(f.kind)).filter(f=>{const count=topics.get(f.topic)||0;topics.set(f.topic,count+1);return count<2;}).slice(0,6);}
+ good.unshift(...selected(['good']).map(renderFinding));
+ observations.unshift(...selected(['change','context','unavailable']).map(renderFinding));
+ const practice=selected(['change','context','unavailable']);
+ if(!practice.length)practice.push(...selected(['good']));
+ improve.unshift(...practice.map(f=>`${f.title}\n${f.what}\nNext pull: ${f.next}`));
+ if(coaching.ready)good.unshift(`Peer group: ${compatible.length} independent ${target.spec} players on ${target.fight.name}, same instance, difficulty and game version; verified ${coaching.context.minPercentile}th percentile or higher.`);
  if(!observations.length)observations.push('No specific mistake established by these checks. Absence of findings does not establish flawless play.');
- if(!improve.length)improve.push('Inspect the recorded timeline and encounter assignments. At least three compatible verified 100-percentile kills are required for cast-rate comparisons.');
+ if(!improve.length)improve.push('No specific rotation practice goal was established from the matching peer sample.');
  const timeline=target.timeline.slice(0,150).map(e=>`${stamp(e)} / ${e.type} / ${target.abilities.get(e.abilityGameID)|| (e.abilityGameID?'Spell #'+e.abilityGameID:target.actor.name)}`);
- return {good:good.join('\n'),observations:observations.join('\n\n'),improve:improve.slice(0,12).join('\n\n'),timeline:timeline.join('\n'),references:compatible.map(r=>`${HOST}/reports/${r.report.code}#fight=${r.fight.id}&source=${r.actor.id} / 100 percentile`).join('\n'),coverage:`${target.complete?'Complete retrieved':'Partial'} event stream. ${compatible.length} compatible verified 100-percentile references. Same encounter, difficulty, class, spec, game version and zone; duration within 20%. Talent/gear/assignment equivalence is not verified. Comparisons are review prompts, not error verdicts. Timeline shows ${Math.min(150,target.timeline.length)}/${target.timeline.length} selected events. No claim to scan all site reports.`};
+ return {good:good.join('\n'),observations:observations.join('\n\n'),improve:improve.slice(0,12).join('\n\n'),timeline:timeline.join('\n'),references:compatible.map(r=>`${HOST}/reports/${r.report.code}#fight=${r.fight.id}&source=${r.actor.id} / ${r.actor.name} / ${r.spec} / ${r.percentile} percentile`).join('\n'),mentoring:{ready:coaching.ready,context:coaching.context,findings:coaching.findings},coverage:`${target.complete?'Complete retrieved':'Partial'} event stream. ${compatible.length} compatible verified reference players at ${coaching.context.minPercentile}th percentile or higher. Same encounter, difficulty, class, spec, game version and zone; duration within 20%, dates within seven days. Known level differences excluded; level is not always exposed. Talent snapshots: ${coaching.context.talentSamples} reference players; ${coaching.context.talentMatches} match the exposed target IDs/ranks (${coaching.context.targetTalentsKnown?'target talents recorded':'target talents unavailable'}). Complete talent effects, gear, tuning/hotfix and assignment equivalence are not verified. Peer patterns are practice goals, not automatic error verdicts or a universal rotation. This sample does not establish which specs are most popular or best across all dungeons. Timeline shows ${Math.min(150,target.timeline.length)}/${target.timeline.length} selected events.`};
 }
 function encodeReview(target,analysis){
  const fields=['FCWCL1',target.report.code,target.fight.id,target.actor.name,target.actor.server||'',target.actor.subType?.toUpperCase(),target.spec||'Unknown',target.fight.encounterID,target.fight.name,Math.round(target.report.startTime+target.fight.startTime),Math.round(target.duration*1000),analysis.good,analysis.observations,analysis.improve,analysis.timeline,analysis.references,analysis.coverage];

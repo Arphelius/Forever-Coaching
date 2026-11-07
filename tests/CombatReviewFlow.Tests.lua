@@ -28,7 +28,7 @@ for _,f in ipairs(TestFrames) do
     if f.text==review:GetLatestSummary().improveText and f:IsShown() then reviewText=f end
 end
 assert(reviewText,'Visible explained review area missing')
-for _,heading in ipairs({'WHAT YOU DID WELL','WHAT WENT WRONG','WHAT TO IMPROVE'}) do
+for _,heading in ipairs({'LOCAL RECORDING','PEER ROTATION COMPARISON','GET SPEC-SPECIFIC COACHING'}) do
  local visible=false;for _,f in ipairs(TestFrames) do if f.text==heading and f:IsShown() then visible=true end end
  assert(visible,'Missing review section: '..heading)
 end
@@ -94,15 +94,15 @@ local _,attempts,nextStep=review:SummarizeDecisions(latest)
 assert(attempts:find('Out of range',1,true),'Recorded client failure missing from review')
 assert(nextStep:find('range',1,true),'Range failure needs specific range guidance')
 FC:OpenCombatReview()
-local visibleFailure,visibleCasts,visibleAdvice=false,false,false
+local visibleCoachingStatus,visibleCasts,visibleImportStep=false,false,false
 for _,frame in ipairs(TestFrames) do
  if frame:IsShown() and type(frame.text)=='string' then
-  if frame.text:find('Lightning Bolt failed',1,true) and frame.text:find('Out of range',1,true) then visibleFailure=true end
+  if frame.text:find('No comparison with other players',1,true) then visibleCoachingStatus=true end
   if frame.text:find('Casts: Lightning Bolt x1',1,true) then visibleCasts=true end
-  if frame.text:find('Move within Lightning Bolt range',1,true) then visibleAdvice=true end
+  if frame.text:find('matching same-spec reference fights',1,true) then visibleImportStep=true end
  end
 end
-assert(visibleFailure and visibleCasts and visibleAdvice,'Default review must show actual casts, error details and actionable guidance without Show details')
+assert(visibleCoachingStatus and visibleCasts and visibleImportStep,'Local diagnostics must not masquerade as peer coaching; show the path to a matched review')
 -- Forever can rename its realm display label. Recover legacy reviews by the
 -- GUID in the linked timeline, without mixing same-name characters on realms.
 latest.characterGUID=nil

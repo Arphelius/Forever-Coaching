@@ -2,20 +2,24 @@ const assert=require('assert/strict'),fs=require('fs'),os=require('os'),path=req
 const {reportCode,createClient,profile,compare,encodeReview}=require('../tools/warcraftlogs-client.cjs');
 const {collect}=require('../tools/Review-WarcraftLogs.cjs');
 const actor={id:1,name:'Tester',server:'Test Realm',subType:'Shaman',type:'Player'};
-const fight={id:1,name:'Test Boss',encounterID:7,difficulty:3,startTime:0,endTime:60000,kill:true,friendlyPlayers:[1],friendlySpecs:['Enhancement']};
+const fight={id:1,name:'Test Boss',encounterID:7,difficulty:3,gameZone:{id:33,name:'Test Dungeon'},startTime:0,endTime:60000,kill:true,friendlyPlayers:[1],friendlySpecs:['Enhancement']};
 const report={code:'AbCdEfGh12345678',startTime:1793900000000,zone:{id:100},masterData:{gameVersion:16,actors:[actor],abilities:[{gameID:403,name:'Lightning Bolt'},{gameID:99,name:'Boss hit'}]},fights:[fight]};
 const stream={complete:true,events:[{timestamp:1000,type:'cast',sourceID:1,abilityGameID:403},{timestamp:29000,type:'damage',targetID:1,sourceID:2,abilityGameID:99,amount:100},{timestamp:30000,type:'death',targetID:1,sourceID:2},{timestamp:32000,type:'death',targetID:2,sourceID:1}]};
 const target=profile(report,fight,actor,stream);
-const references=Array.from({length:3},(_,i)=>{const r=profile({...report,code:'RefCode00000000'+String(i).padStart(2,'0')},fight,actor,{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))});r.percentile=100;return r;});
-const analysis=compare(target,references),code=encodeReview(target,analysis);
+const references=Array.from({length:3},(_,i)=>{const peer={...actor,name:'Peer'+i};const r=profile({...report,code:'RefCode00000000'+String(i).padStart(2,'0'),masterData:{...report.masterData,actors:[peer]}},fight,peer,{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))});r.percentile=100;return r;});
+const aliveStream={complete:true,events:stream.events.filter(e=>e.type!=='death')};
+const alive=profile(report,fight,actor,aliveStream);
+const analysis=compare(alive,references),code=encodeReview(alive,analysis);
 assert.equal(reportCode('https://forever.warcraftlogs.com/reports/'+report.code+'#fight=1'),report.code);
 assert.throws(()=>reportCode('https://evil.test/reports/'+report.code));
 assert.match(analysis.improve,/Lightning Bolt: 1.0 casts\/min versus 4.0/);
-assert.match(analysis.observations,/Death at 30.0s/);assert.doesNotMatch(analysis.observations,/32.0s/);
+assert.match(compare(target,references).observations,/Death at 30.0s/);assert.doesNotMatch(compare(target,references).observations,/32.0s/);
+assert.doesNotMatch(compare(target,references).improve,/casts\/min/,'Do not grade a death-shortened rotation as low cast frequency');
 assert.match(analysis.coverage,/3 compatible verified/);
 assert.doesNotMatch(compare({...target,complete:false},references).improve,/casts\/min/);
 assert.doesNotMatch(compare({...target,fight:{...fight,kill:false}},references).improve,/casts\/min/);
-assert.doesNotMatch(compare(target,references.map(r=>({...r,percentile:99.99}))).improve,/casts\/min/);
+assert.doesNotMatch(compare(alive,references.map(r=>({...r,percentile:94.99}))).improve,/casts\/min/);
+assert.match(compare(alive,references.map(r=>({...r,percentile:95}))).improve,/casts\/min/);
 assert.doesNotMatch(compare(target,references.map(r=>({...r,spec:'Elemental'}))).improve,/casts\/min/);
 assert.doesNotMatch(compare(target,references.slice(0,2)).improve,/casts\/min/);
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require('../tools/preview-runtime/node_modules/fengari');
@@ -81,14 +85,15 @@ async function main(){
  assert.equal(rows.length,2);assert(fs.existsSync(path.join(output,report.code+'-2.fcwcl.txt')));
  assert(!fs.readFileSync(path.join(output,'reviews.json'),'utf8').includes('fixture-only'));
  const ranked=await collect({report:report.code,player:'Tester',realm:'Test Realm',partition:1,output,client:{
-  report:async code=>code===report.code?report:{...report,code},
-  events:async code=>code===report.code?stream:{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))},
-  topRanks:async()=>references.map(r=>({name:'Tester',report:{code:r.report.code,fightID:1}})),
-  percentile:async()=>100
+  report:async code=>code===report.code?report:references.find(r=>r.report.code===code).report,
+  events:async code=>code===report.code?aliveStream:{complete:true,events:[1000,11000,21000,31000].map(timestamp=>({timestamp,type:'cast',sourceID:1,abilityGameID:403}))},
+  topRanks:async()=>references.map(r=>({name:r.actor.name,report:{code:r.report.code,fightID:1}})),
+  percentile:async()=>97
  }});
  assert.match(ranked[0].analysis.coverage,/3 compatible verified/);
  assert.match(ranked[0].analysis.improve,/casts\/min/);
+ assert.match(ranked[0].analysis.references,/97 percentile/,'Use the verified percentile, not a fabricated perfect parse');
  }finally{fs.rmSync(output,{recursive:true,force:true});}
- console.log('PASS: WCL API pagination/errors, evidence-based outcomes, conservative 100-parse comparisons, all report attempts, safe character-bound import, logging controls, UI and fresh local review selection. Simulated fixtures only.');
+ console.log('PASS: WCL API pagination/errors, independent high-percentile peer coaching, death opportunity limits, all report attempts, safe character-bound import, logging controls, UI and fresh local review selection. Simulated fixtures only.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

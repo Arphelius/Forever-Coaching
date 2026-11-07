@@ -1,8 +1,10 @@
 const fs=require('fs'),path=require('path');
 const {HOST,reportCode,createClient,specFor,profile,compare,encodeReview}=require('./warcraftlogs-client.cjs');
-async function collect({report:input,player,realm,metric='dps',partition,output='.local/warcraftlogs',client=createClient()}){
+const {compatible}=require('./peer-coaching.cjs');
+async function collect({report:input,player,realm,metric='dps',partition,minPercentile=95,output='.local/warcraftlogs',client=createClient()}){
  if(!player||!realm)throw Error('Specify --player and --realm to identify the character.');
  if(!['dps','hps'].includes(metric))throw Error('Metric must be dps or hps.');
+ if(!Number.isFinite(minPercentile)||minPercentile<90||minPercentile>100)throw Error('Reference percentile must be between 90 and 100.');
  if(partition!==undefined&&(!Number.isSafeInteger(partition)||partition<1))throw Error('Partition must be a positive integer from the matching leaderboard.');
  const report=await client.report(reportCode(input));
  const norm=s=>String(s).toLowerCase().replace(/[\s'-]/g,'');
@@ -11,6 +13,7 @@ async function collect({report:input,player,realm,metric='dps',partition,output=
  const actor=actors[0],results=[],referenceCache=new Map();
  for(const fight of report.fights.filter(f=>f.encounterID>0&&!f.inProgress&&f.endTime>f.startTime&&f.friendlyPlayers?.includes(actor.id))){
   const target=profile(report,fight,actor,await client.events(report.code,fight));
+  target.metric=metric;target.partition=partition;
   const references=[],notes=[];
   if(partition&&target.spec&&fight.kill){
    try{
@@ -28,16 +31,18 @@ async function collect({report:input,player,realm,metric='dps',partition,output=
        const candidates=meta.masterData.actors.filter(a=>a.type==='Player'&&a.name===rank.name&&a.subType===actor.subType&&f.friendlyPlayers?.includes(a.id)&&specFor(meta,f,a)===target.spec);
        if(candidates.length!==1)continue;
        const percent=await client.percentile(code,f,candidates[0],metric);
-       if(percent!==100)continue;
+       if(!Number.isFinite(percent)||percent<minPercentile||percent>100)continue;
        ref=profile(meta,f,candidates[0],await client.events(code,f));ref.percentile=percent;
+       ref.metric=metric;ref.partition=partition;
        referenceCache.set(key,ref);
       }
-      if(!references.some(r=>r.report.code===ref.report.code&&r.fight.id===ref.fight.id&&r.actor.id===ref.actor.id))references.push(ref);
+      if(compatible(target,ref,minPercentile)&&!references.some(r=>norm(r.actor.name)===norm(ref.actor.name)&&norm(r.actor.server)===norm(ref.actor.server))&&
+       !(norm(ref.actor.name)===norm(actor.name)&&norm(ref.actor.server)===norm(actor.server)))references.push(ref);
      }catch{notes.push('A leaderboard reference could not be retrieved or verified.');}
     }
    }catch(error){notes.push(error.message);}
   }else notes.push('Reference comparison requires a kill, an exposed spec and an explicit matching --partition.');
-  const analysis=compare(target,references);
+  const analysis=compare(target,references,{minPercentile});
   analysis.coverage+=` Metric: ${metric}; requested partition: ${partition??'not supplied'}. References restricted to +/-7 days. `+[...new Set(notes)].join(' ');
   results.push({fightID:fight.id,encounter:fight.name,url:`${HOST}/reports/${report.code}#fight=${fight.id}&source=${actor.id}`,analysis,importCode:encodeReview(target,analysis)});
  }
@@ -49,8 +54,8 @@ async function collect({report:input,player,realm,metric='dps',partition,output=
 }
 if(require.main===module){
  const args=process.argv.slice(2),options={};
- if(args.includes('--help')){console.log('node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME --realm REALM [--metric dps|hps] [--partition ID] [--output .local/warcraftlogs]\nSet WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. All completed boss attempts in this report are reviewed.');}
- else{try{for(let i=0;i<args.length;i+=2){const name=args[i].replace(/^--/,'');if(!['report','player','realm','metric','partition','output'].includes(name)||args[i+1]===undefined)throw Error('Unknown option or missing value. Use --help.');options[name]=name==='partition'?Number(args[i+1]):args[i+1];}
+ if(args.includes('--help')){console.log('node tools/Review-WarcraftLogs.cjs --report FOREVER_REPORT_URL --player NAME --realm REALM [--metric dps|hps] [--partition ID] [--min-percentile 95] [--output .local/warcraftlogs]\nSet WCL_CLIENT_ID/WCL_CLIENT_SECRET or WCL_ACCESS_TOKEN in the environment. No credentials are exported. Compares rotation habits with at least three independent matching reference players. All completed boss attempts in this report are reviewed.');}
+ else{try{for(let i=0;i<args.length;i+=2){const name=args[i].replace(/^--/,'');if(!['report','player','realm','metric','partition','min-percentile','output'].includes(name)||args[i+1]===undefined)throw Error('Unknown option or missing value. Use --help.');options[name==='min-percentile'?'minPercentile':name]=['partition','min-percentile'].includes(name)?Number(args[i+1]):args[i+1];}
  collect(options).then(rows=>console.log(`Prepared ${rows.length} fight reviews. Paste a .fcwcl.txt file into Combat Review > Warcraft Logs > Import.`)).catch(e=>{console.error(e.message);process.exitCode=1;});}catch(e){console.error(e.message);process.exitCode=1;}}
 }
 module.exports={collect};
