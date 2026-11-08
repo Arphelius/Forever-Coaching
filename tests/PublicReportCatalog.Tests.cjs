@@ -48,6 +48,8 @@ async function main(){
  const winner=structuredClone(catalog.examples.find(e=>e.class==='SHAMAN'&&e.spec==='Enhancement'&&e.dungeonKey==='ruins-of-lordaeron'));
  const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.scenario.castCount=44;
  winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
+ winner.rotations[0].damage=[{spellID:101,name:'Trash damage ability',amount:300}];
+ winner.rotations.push({...structuredClone(winner.rotations[0]),start:1,end:19,damage:[{spellID:101,name:'Trash damage ability',amount:200}]});
  run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner]}));
  run(`
 local fc=ForeverCoaching;local w=fc.WarcraftLogs
@@ -66,8 +68,8 @@ assert(model.supportedDungeonCount==35 and model.coveredDungeonCount==2,'Support
 assert(model.selectedSpec=='SHAMAN:enhancement')
 assert(model.nextFight==nil and model.rows[1].you==nil)
 assert(model.rows[1].action:find('Highest observed',1,true) and model.rows[1].reference:find('40.0 DPS',1,true))
-assert(model.rows[2].action:find('Trash mobs',1,true) and model.rows[2].reference:find('Fixture spell',1,true))
-assert(model.rows[3].action:find('Fixture Boss',1,true))
+assert(model.rows[2].action=='Overall trash damage')
+local foundBoss=false;for _,row in ipairs(model.rows)do if row.action:find('Fixture Boss',1,true)then foundBoss=true end end;assert(foundBoss)
 for _,option in ipairs(model.encounters)do assert(not option.label:find('Fixture ',1,true),'Dropdown contains dungeons, never players')end
 local parent=CreateFrame('Frame');parent:SetSize(800,440);parent:Show()
 fc.testPanel=fc:BuildWarcraftLogsPanel(parent,728)
@@ -109,14 +111,14 @@ assert(page.model.sectionLabel=='Winner boss')
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Trash mobs',1,true),'Boss view must not dump trash casts')end
 assert(not w:SetPublicSection('boss:invented'),'Reject missing encounters')
 assert(w:SetPublicSection('trash'))
-local last=false;for _,row in ipairs(page.model.rows)do if row.reference:find('Tail combat action',1,true)then last=true end end
-assert(last,'Selecting one encounter retains its entire rotation, including later chunks')
+local total,ability=false,false;for _,row in ipairs(page.model.rows)do if row.reference:find('500 total damage',1,true)then total=true end;if row.reference:find('Trash damage ability / 500 damage / 100.0%%')then ability=true end;assert(not row.action:find('pull ',1,true) and not row.reference:find('Tail combat action',1,true),'Hide individual trash timelines')end
+assert(total and ability and #page.model.rows==3,'Aggregate all trash pulls by ability')
 assert(w:SetPublicEncounter('dungeon:shapers-terrace'))
 assert(#page.model.rows==0 and page.model.selectedSection==nil,'Dungeon changes clear stale encounter content')
 assert(w:SetPublicSpec('SHAMAN:enhancement') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local tail,boss=false,false
 for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
-assert(tail and boss and #full.rows==7,'Render the entire winner sequence beyond opener and chunk boundaries')
+assert(not tail and boss and #full.rows==4,'Keep bosses separate and summarize trash once')
 local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()

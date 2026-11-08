@@ -27,6 +27,11 @@ function combatCasts(p,start,end){
 }
 function summarize(p,segment){
  const casts=combatCasts(p,segment.startTime,segment.endTime);
+ const damage=new Map();
+ for(const e of p.events)if(e.type==='damage'&&e.sourceID===p.actor.id&&e.timestamp>=segment.startTime&&e.timestamp<segment.endTime&&Number.isFinite(e.amount)&&e.amount>0){
+  const id=e.abilityGameID;if(!Number.isSafeInteger(id)||id<=0)continue;
+  const row=damage.get(id)||{spellID:id,name:p.abilities.get(id)||'Spell #'+id,amount:0};row.amount+=e.amount;damage.set(id,row);
+ }
  const action=e=>({spellID:e.abilityGameID,name:p.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID});
  const compact=[];let previousCast,chain=0;
  for(const event of casts){
@@ -53,7 +58,7 @@ function summarize(p,segment){
  return {combatOnly:true,kind:segment.encounterID===0?'trash':'boss',name:segment.encounterID===0?'Trash mobs':segment.name,
   start:(segment.startTime-p.fight.startTime)/1000,end:(segment.endTime-p.fight.startTime)/1000,
   opener:compact.filter(e=>e.chain===compact[0]?.chain).slice(0,6).map(action),repeated:repeated?repeated.events.map(action):[],repeats:repeated?.count||0,
-  steps,fullSequence:true,combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
+  damage:[...damage.values()],steps,fullSequence:true,combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
 }
 function isDungeonRun(fight){
  const dungeon=resolveDungeon(fight.gameZone?.name,fight.name),normal=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');

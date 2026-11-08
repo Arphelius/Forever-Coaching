@@ -23,6 +23,8 @@ assert.equal(rows.length,2);assert.equal(rows[0].name,'Trash mobs');assert.equal
 assert.deepEqual(rows[0].opener.map(e=>e.name),['Lightning Bolt','Lightning Shield'],'Only active combat abilities; buffs are supported by reviewed class metadata');
 assert.deepEqual(rows[1].opener.map(e=>e.name),['Stormstrike','Lightning Bolt','Stormstrike','Lightning Bolt']);
 assert.deepEqual(rows[1].repeated.map(e=>e.name),['Stormstrike','Lightning Bolt']);assert.equal(rows[1].repeats,2);
+const damageProfile={...p,events:[...events,{timestamp:5000,type:'damage',sourceID:1,abilityGameID:6603,amount:50},{timestamp:6000,type:'damage',sourceID:2,abilityGameID:403,amount:999},{timestamp:21000,type:'damage',sourceID:1,abilityGameID:403,amount:100}]};
+assert.deepEqual(encounterRotations(damageProfile)[0].damage,[{spellID:6603,name:'Melee',amount:50}],'Trash damage includes auto attacks, excludes other actors and boss damage');
 assert(rows.every(r=>!JSON.stringify(r).includes(actor.name)));
 assert(rows.every(r=>r.fullSequence&&r.steps.reduce((n,s)=>n+s.count,0)===r.combatCasts),'Full sequences account for every filtered combat cast');
 const long=profile(report,fight,actor,{complete:true,events:Array.from({length:30},(_,i)=>cast(21000+i*100,i%2?403:17364))});

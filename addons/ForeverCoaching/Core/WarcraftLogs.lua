@@ -425,7 +425,16 @@ function W:PreparePublicExample(raw)
     end
     if total~=rotation.combatCasts then return end
    elseif rotation.fullSequence~=nil then return end
-   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),
+   local damage={}
+   if rotation.damage~=nil then
+    if type(rotation.damage)~='table' then return end
+    local seenDamage={}
+    for _,spell in ipairs(rotation.damage)do
+     if type(spell)~='table' or not finite(spell.spellID) or spell.spellID<=0 or spell.spellID%1~=0 or seenDamage[spell.spellID] or type(spell.name)~='string' or spell.name=='' or not finite(spell.amount) or spell.amount<0 then return end
+     seenDamage[spell.spellID]=true;damage[#damage+1]={spellID=spell.spellID,name=displayText(spell.name,180),amount=spell.amount}
+    end
+   end
+   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=rotation.damage and damage,
     opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill,
     steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start}
   end
@@ -487,15 +496,30 @@ function W:GetPublicReportModel()
    local reference={action='Highest observed '..entry.role..' run',reference=string.format('%.1f %s / same recorded difficulty and game version. All encounter sequences below follow this one run.',entry.performance,entry.metric:upper())}
    rows[#rows+1]=reference
    local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
-   local trash=0
+   local trashDamage,trashTotal,trashAvailable={},0,true
+   for _,r in ipairs(rotations)do if r.kind=='trash' then
+    if not r.damage then trashAvailable=false end
+    for _,spell in ipairs(r.damage or {})do local row=trashDamage[spell.spellID] or {name=spell.name,amount=0};row.amount=row.amount+spell.amount;trashDamage[spell.spellID]=row;trashTotal=trashTotal+spell.amount end
+   end end
+   local trashShown=false
    for _,r in ipairs(rotations)do
-    if r.kind=='trash' then trash=trash+1 end
-    local title=r.kind=='trash' and ('Trash mobs / pull '..trash) or r.name
+    local title=r.kind=='trash' and 'Overall trash damage' or r.name
     local sectionKey=r.kind=='trash' and 'trash' or 'boss:'..r.name:lower()
     local section=sectionMap[sectionKey]
     if not section then section={value=sectionKey,label=r.kind=='trash' and 'Trash mobs' or r.name,rows={},sources={}};sectionMap[sectionKey]=section;sections[#sections+1]=section end
     if not section.sources[entry.key]then section.sources[entry.key]=true;section.rows[#section.rows+1]=reference end
     local function addRow(row)rows[#rows+1]=row;section.rows[#section.rows+1]=row end
+    if r.kind=='trash' then
+     if not trashShown then
+      trashShown=true
+      if not trashAvailable then addRow({action=title,reference='Refresh public reports to load overall trash damage. Individual pulls are hidden.'})
+      else
+       addRow({action=title,reference=string.format('%.0f total damage across all recorded trash pulls.',trashTotal)})
+       local spells={};for _,spell in pairs(trashDamage)do spells[#spells+1]=spell end;table.sort(spells,function(a,b)return a.amount>b.amount end)
+       for first=1,#spells,8 do local lines={};for i=first,math.min(first+7,#spells)do local spell=spells[i];lines[#lines+1]=string.format('%s / %.0f damage / %.1f%%',spell.name,spell.amount,trashTotal>0 and spell.amount*100/trashTotal or 0)end;addRow({action='Damage by ability',reference=table.concat(lines,'\n')})end
+      end
+     end
+    else
     if r.kind=='boss' and not r.kill then title=title..' / attempt'end
     if #r.steps==0 then addRow({action=title,reference='No qualifying combat ability casts were identified for this encounter.'})end
     for first=1,#r.steps,8 do
@@ -506,6 +530,7 @@ function W:GetPublicReportModel()
       lines[#lines+1]=time..'  '..step.name..(step.count>1 and (' x'..step.count) or '')
      end
      addRow({action=first==1 and title or (title..' (continued)'),reference=table.concat(lines,'\n')})
+    end
     end
    end
   end
