@@ -4,12 +4,13 @@ Forever Coaching combines talent builds, class guides, combat recording and figh
 reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
-Optimization shows **compact combat rotations by dungeon encounter**; personal
-comparisons are paused. Select a recorded spec and dungeon to see an observed
-trash opener and named-boss sequences, including repeated patterns where the
-same combat sequence was recorded more than once. Player names, raw cast dumps
-and non-combat actions are not shown. The catalog includes only supplied,
-retrieved public reports, not every log on the service.
+Optimization shows **full combat rotations from the highest-output matching dungeon run**; personal
+comparisons are paused. Select a recorded spec and dungeon to follow the selected
+class/spec winner's entire trash and boss sequences, with timing and repeat counts.
+The collector scores available runs by dungeon DPS, healer HPS, or tank DPS;
+it follows discovery pages and keeps each winning run coherent across encounters.
+Player names and non-combat actions are hidden. Search limits and unavailable
+reports are disclosed; this is not a verified ranking across every log on the service.
 Fights are still being logged and combat is still being tested: these examples
 are not guaranteed to be the best possible outcome. Use them at your discretion.
 The catalog starts with a real cached Shadowfang Keep excerpt and expands as

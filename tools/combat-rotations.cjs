@@ -26,7 +26,7 @@ function combatCasts(p,start,end){
   (evidence.has(e.abilityGameID)||learned.has(e.abilityGameID))).sort((a,b)=>a.timestamp-b.timestamp);
 }
 function summarize(p,segment){
- const casts=combatCasts(p,segment.startTime,segment.endTime);if(!casts.length)return null;
+ const casts=combatCasts(p,segment.startTime,segment.endTime);
  const action=e=>({spellID:e.abilityGameID,name:p.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID});
  const compact=[];let previousCast,chain=0;
  for(const event of casts){
@@ -41,17 +41,29 @@ function summarize(p,segment){
   if(i>=row.last+size){row.count++;row.last=i;}patterns.set(key,row);
  }
  const repeated=[...patterns.values()].filter(p=>p.count>=2).sort((a,b)=>b.count*b.events.length-a.count*a.events.length||b.count-a.count)[0];
+ const steps=[];let previous;
+ for(const event of casts){
+  const at=(event.timestamp-segment.startTime)/1000;
+  const row=steps.at(-1);
+  const separated=previous&&(event.timestamp-previous.timestamp>15000||p.deaths.some(d=>d.timestamp>=previous.timestamp&&d.timestamp<=event.timestamp));
+  if(row&&row.spellID===event.abilityGameID&&!separated){row.count++;row.end=at;}
+  else steps.push({...action(event),at,end:at,count:1});
+  previous=event;
+ }
  return {combatOnly:true,kind:segment.encounterID===0?'trash':'boss',name:segment.encounterID===0?'Trash mobs':segment.name,
   start:(segment.startTime-p.fight.startTime)/1000,end:(segment.endTime-p.fight.startTime)/1000,
-  opener:compact.filter(e=>e.chain===compact[0].chain).slice(0,6).map(action),repeated:repeated?repeated.events.map(action):[],repeats:repeated?.count||0,
-  combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
+  opener:compact.filter(e=>e.chain===compact[0]?.chain).slice(0,6).map(action),repeated:repeated?repeated.events.map(action):[],repeats:repeated?.count||0,
+  steps,fullSequence:true,combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
+}
+function isDungeonRun(fight){
+ const dungeon=resolveDungeon(fight.gameZone?.name,fight.name),normal=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+ return !!(fight.dungeonPulls?.length||dungeon&&[dungeon.name,...dungeon.aliases].some(n=>normal(n)===normal(fight.name)||normal(n)===normal(fight.gameZone?.name+': '+fight.name)));
 }
 function encounterRotations(p){
- const dungeon=resolveDungeon(p.fight.gameZone?.name,p.fight.name),normal=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
- const wholeDungeon=dungeon&&[dungeon.name,...dungeon.aliases].some(n=>normal(n)===normal(p.fight.name));
+ const wholeDungeon=isDungeonRun(p.fight);
  const segments=Array.isArray(p.fight.dungeonPulls)&&p.fight.dungeonPulls.length?p.fight.dungeonPulls:
   p.fight.encounterID===0||!wholeDungeon&&p.fight.name!==p.fight.gameZone?.name?[p.fight]:[];
  return segments.filter(s=>Number.isFinite(s.startTime)&&Number.isFinite(s.endTime)&&s.endTime>s.startTime&&s.startTime>=p.fight.startTime&&s.endTime<=p.fight.endTime&&Number.isSafeInteger(s.encounterID)&&s.encounterID>=0&&typeof s.name==='string')
   .map(s=>summarize(p,s)).filter(Boolean);
 }
-module.exports={encounterRotations,combatCasts,nonCombat};
+module.exports={encounterRotations,combatCasts,nonCombat,isDungeonRun};

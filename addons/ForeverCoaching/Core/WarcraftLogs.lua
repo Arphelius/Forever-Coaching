@@ -362,6 +362,8 @@ function W:PreparePublicExample(raw)
  if raw.started~=nil and (not finite(raw.started) or raw.started<=0)then return end
  if raw.metric~=nil and (raw.metric~=(raw.role=='healer' and 'hps' or 'dps') or raw.role=='unknown')then return end
  if raw.performance~=nil and (not raw.metric or not finite(raw.performance) or raw.performance<0)then return end
+ if raw.gameVersion~=nil and (not finite(raw.gameVersion) or raw.gameVersion%1~=0)then return end
+ if raw.rankingScope~=nil and raw.rankingScope~='dungeon' then return end
  local dungeon=FC.SupportedDungeons and self:ResolvePublicDungeon(raw.instance,raw.encounter)
  if FC.SupportedDungeons and not dungeon or dungeon and raw.dungeonKey~=nil and raw.dungeonKey~=dungeon.key then return end
  local url='https://forever.warcraftlogs.com/reports/'..raw.code..'#fight='..raw.fightID..'&source='..raw.actorID
@@ -395,12 +397,12 @@ function W:PreparePublicExample(raw)
    if type(rotation)~='table' or rotation.combatOnly~=true or (rotation.kind~='boss' and rotation.kind~='trash') or
     type(rotation.name)~='string' or rotation.name=='' or not finite(rotation.start) or not finite(rotation['end']) or
     rotation.start<0 or rotation['end']<=rotation.start or rotation['end']>raw.duration or
-    not finite(rotation.combatCasts) or rotation.combatCasts<1 or rotation.combatCasts%1~=0 or
+    not finite(rotation.combatCasts) or rotation.combatCasts<0 or rotation.combatCasts>scenario.castCount or rotation.combatCasts%1~=0 or
     not finite(rotation.repeats) or rotation.repeats<0 or rotation.repeats%1~=0 or
     type(rotation.complete)~='boolean' or type(rotation.kill)~='boolean' then return end
    local sequences={}
    for _,field in ipairs({'opener','repeated'})do
-    local sequence=rotation[field];if type(sequence)~='table' or #sequence>(field=='opener' and 6 or 4) or field=='opener' and #sequence==0 then return end
+    local sequence=rotation[field];if type(sequence)~='table' or #sequence>(field=='opener' and 6 or 4) or field=='opener' and #sequence==0 and not (rotation.fullSequence==true and rotation.combatCasts==0) then return end
     local names={}
     for _,action in ipairs(sequence)do
      if type(action)~='table' or not finite(action.spellID) or action.spellID<=0 or action.spellID%1~=0 or
@@ -410,15 +412,30 @@ function W:PreparePublicExample(raw)
     sequences[field]=table.concat(names,' > ')
    end
    if #rotation.repeated>0 and (rotation.repeats<2 or #rotation.repeated<2)then return end
+   local steps={}
+   if rotation.fullSequence==true then
+    if type(rotation.steps)~='table' or #rotation.steps==0 and rotation.combatCasts~=0 or #rotation.steps>rotation.combatCasts then return end
+    local total,last=0,-1;local duration=rotation['end']-rotation.start
+    for _,step in ipairs(rotation.steps)do
+     if type(step)~='table' or not finite(step.spellID) or step.spellID<=0 or step.spellID%1~=0 or
+      ({[1]=true,[75]=true,[5019]=true,[6603]=true})[step.spellID] or type(step.name)~='string' or step.name=='' or
+      not finite(step.at) or not finite(step['end']) or step.at<0 or step.at<last or step['end']<step.at or step['end']>duration or
+      not finite(step.count) or step.count<1 or step.count%1~=0 then return end
+     last=step['end'];total=total+step.count;steps[#steps+1]={name=displayText(step.name,180),at=step.at,['end']=step['end'],count=step.count}
+    end
+    if total~=rotation.combatCasts then return end
+   elseif rotation.fullSequence~=nil then return end
    rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),
-    opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill}
+    opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill,
+    steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start}
   end
  end
  return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
   instance=dungeon and dungeon.name or displayText(raw.instance,120) or 'Instance',dungeonKey=dungeon and dungeon.key,
   encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
   role=raw.role,metric=raw.metric,performance=raw.performance,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
-  started=raw.started or 0,rows=rows,scenario=scenario,rotations=rotations,excerpt=not raw.spellCountsComplete}
+  started=raw.started or 0,rows=rows,scenario=scenario,rotations=rotations,excerpt=not raw.spellCountsComplete,
+  difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope=raw.rankingScope}
 end
 function W:PublicExamples()
  local source=FC.PublicReportCatalog
@@ -455,20 +472,36 @@ function W:GetPublicReportModel()
  end end
  local function rotationRows(entries)
   local best={}
-  for _,entry in ipairs(entries or {})do for _,rotation in ipairs(entry.rotations or {})do
-   local key=rotation.kind..':'..rotation.name:lower()..':'..entry.role
-   local old=best[key]
-   if not old or rotation.complete and not old.rotation.complete or rotation.complete==old.rotation.complete and
-    (rotation.kill and not old.rotation.kill or rotation.kill==old.rotation.kill and rotation.combatCasts>old.rotation.combatCasts)then best[key]={rotation=rotation,role=entry.role}end
-  end end
-  local list={};for _,value in pairs(best)do list[#list+1]=value end
-  table.sort(list,function(a,b)if a.rotation.kind~=b.rotation.kind then return a.rotation.kind=='trash'end;return a.rotation.name..a.role<b.rotation.name..b.role end)
+  for _,entry in ipairs(entries or {})do
+   local full=#entry.rotations>0
+   for _,r in ipairs(entry.rotations)do if not r.fullSequence or not r.complete then full=false end end
+   if full and entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric and entry.role~='unknown' then
+    local key=entry.role..':'..entry.difficulty..':'..entry.gameVersion;local old=best[key]
+    if not old or entry.performance>old.performance or entry.performance==old.performance and entry.started>old.started then best[key]=entry end
+   end
+  end
+  local list={};for _,entry in pairs(best)do list[#list+1]=entry end
+  table.sort(list,function(a,b)return a.role..a.difficulty..a.gameVersion<b.role..b.difficulty..b.gameVersion end)
   local rows={}
-  for _,value in ipairs(list)do
-   local r=value.rotation;local body='Observed opener: '..r.opener
-   if r.repeated~='' then body=body..'\nRepeated sequence: '..r.repeated..' ('..r.repeats..' observed repeats)'end
-   if not r.complete then body=body..'\nPartial recorded combat.'end
-   rows[#rows+1]={action=r.name..(value.role~='unknown' and (' / '..value.role) or ''),reference=body}
+  for _,entry in ipairs(list)do
+   rows[#rows+1]={action='Highest observed '..entry.role..' run',reference=string.format('%.1f %s / same recorded difficulty and game version. All encounter sequences below follow this one run.',entry.performance,entry.metric:upper())}
+   local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
+   local trash=0
+   for _,r in ipairs(rotations)do
+    if r.kind=='trash' then trash=trash+1 end
+    local title=r.kind=='trash' and ('Trash mobs / pull '..trash) or r.name
+    if r.kind=='boss' and not r.kill then title=title..' / attempt'end
+    if #r.steps==0 then rows[#rows+1]={action=title,reference='No qualifying combat ability casts were identified for this encounter.'}end
+    for first=1,#r.steps,8 do
+     local lines={}
+     for i=first,math.min(first+7,#r.steps)do
+      local step=r.steps[i];local time=string.format('%.1fs',step.at)
+      if step['end']>step.at then time=time..string.format('-%.1fs',step['end'])end
+      lines[#lines+1]=time..'  '..step.name..(step.count>1 and (' x'..step.count) or '')
+     end
+     rows[#rows+1]={action=first==1 and title or (title..' (continued)'),reference=table.concat(lines,'\n')}
+    end
+   end
   end
   return rows
  end
@@ -488,12 +521,14 @@ function W:GetPublicReportModel()
  local entry=key and choices[key]
  if entry and #entry.rows==0 then
   model.metrics=entry.instance..' / awaiting public reports'
-  model.status=entry.hasReports and 'Public dungeon logs are loaded, but named-boss/trash rotations have not been extracted yet. Refresh the public reports to collect encounter pull data.' or
+  model.status=entry.hasReports and 'Public logs are loaded, but complete ranked dungeon rotations are not available yet. Refresh the public catalog to collect full sequences and output scores.' or
    entry.instance..' is supported. No public-report example is loaded for this spec yet. Fights are still being logged; this does not mean the dungeon or spec is unsupported.'
  elseif entry then
-  model.ready=true;model.rows=entry.rows;model.metrics=entry.instance..' / observed combat rotations'
-  model.status='Compact sequences observed during trash pulls and named bosses. Repeated sequences are recorded patterns, not a guaranteed priority list.'
+  model.ready=true;model.rows=entry.rows;model.metrics=entry.instance..' / full recorded combat rotations'
+  model.status='The highest-output matching class/spec run is selected for each role and recorded difficulty. Full combat sequences retain timing and repeated casts; source player names are hidden.'
  end
+ local scan=FC.PublicReportCatalog and FC.PublicReportCatalog.scan
+ if type(scan)=='table' and finite(scan.reports) then model.status=model.status..'\n'..scan.reports..' available public reports examined'..(finite(scan.rankedCandidates) and (' / '..scan.rankedCandidates..' class/spec runs scored.') or '.')..(scan.incomplete and ' Search coverage is incomplete.' or ' Available discovery pages were exhausted.')..' This is not a verified ranking across every log on Warcraft Logs.'end
  if model.supportedDungeonCount>0 then model.status=model.status..'\nExamples loaded for '..covered..' of '..model.supportedDungeonCount..' supported dungeons for this spec.'end
  return model
 end

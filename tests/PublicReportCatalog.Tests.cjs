@@ -6,7 +6,7 @@ const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require('../tools/preview-ru
 const specs={Druid:['Balance','Feral','Restoration'],Hunter:['Beast Mastery','Marksmanship','Survival'],Mage:['Arcane','Fire','Frost'],Paladin:['Holy','Protection','Retribution'],Priest:['Discipline','Holy','Shadow'],Rogue:['Assassination','Combat','Subtlety'],Shaman:['Elemental','Enhancement','Restoration'],Warlock:['Affliction','Demonology','Destruction'],Warrior:['Arms','Fury','Protection']};
 const actors=[];for(const [subType,values]of Object.entries(specs))for(const spec of values)actors.push({id:actors.length+1,name:'Fixture '+subType+' '+spec,type:'Player',subType,spec});
 function report(code){return {code,startTime:1793900000000,zone:{id:3000},masterData:{gameVersion:7,actors,abilities:[{gameID:101,name:'Fixture spell'},{gameID:102,name:'Fixture buff'}]},
- fights:[1,2].map(id=>({id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep',encounterID:100+id,gameZone:{id:200+id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep'},difficulty:10,startTime:0,endTime:60000,kill:id===1,inProgress:false,friendlyPlayers:actors.map(a=>a.id),friendlySpecs:actors.map(a=>a.spec),dungeonPulls:[{id:1,encounterID:0,name:'Trash',startTime:0,endTime:20000,kill:true},{id:2,encounterID:900+id,name:'Fixture Boss '+id,startTime:21000,endTime:60000,kill:true}]}))};}
+ fights:[1,2].map(id=>({id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep',encounterID:100+id,gameZone:{id:200+id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep'},difficulty:10,startTime:0,endTime:60000,kill:true,inProgress:false,friendlyPlayers:actors.map(a=>a.id),friendlySpecs:actors.map(a=>a.spec),dungeonPulls:[{id:1,encounterID:0,name:'Trash',startTime:0,endTime:20000,kill:true},{id:2,encounterID:900+id,name:'Fixture Boss '+id,startTime:21000,endTime:60000,kill:true}]}))};}
 async function main(){
  assert.equal(dungeons.length,35);assert.equal(new Set(dungeons.map(d=>d.key)).size,35);
  for(const dungeon of dungeons)for(const name of [dungeon.name,...dungeon.aliases])assert.equal(resolveDungeon(name,'Fixture boss')?.key,dungeon.key);
@@ -16,18 +16,19 @@ async function main(){
  assert.equal(resolveDungeon('Scarlet Monastery','Fixture boss'),null,'Never guess a wing from an ambiguous parent name');
  assert.equal(resolveDungeon('Molten Core','Fixture boss'),null,'Raids are outside the current supported scope');
  let streams=0;
- const client={report:async code=>report(code),events:async(code,fight)=>{streams++;return {complete:fight.id===1,events:actors.flatMap(a=>[
+ const client={report:async code=>report(code),events:async(code,fight)=>{streams++;return {complete:true,events:actors.flatMap(a=>[
   ...[1000,2000,3000,4000,22000,23000,24000,25000].flatMap((timestamp,i)=>[{timestamp,type:'cast',sourceID:a.id,abilityGameID:i%2?102:101},{timestamp:timestamp+10,type:'damage',sourceID:a.id,abilityGameID:i%2?102:101}]),
   {timestamp:4000,type:'applybuff',sourceID:a.id,targetID:a.id,abilityGameID:102},
   {timestamp:5000,type:'useitem',sourceID:a.id,itemID:900,itemName:'Fixture item'},
- ])};},observedPlayers:async(code,fight,metric)=>actors.map(a=>({id:a.id,role:['Holy','Restoration','Discipline'].includes(a.spec)?'healer':a.spec==='Protection'?'tank':'dps',total:metric==='hps'?600:1200}))};
+ ])};},observedPlayers:async(code,fight,metric)=>actors.map(a=>({id:a.id,role:['Holy','Restoration','Discipline'].includes(a.spec)?'healer':a.spec==='Protection'?'tank':'dps',total:(metric==='hps'?600:1200)*(code==='PublicReport0002'?2:1)}))};
  const catalog=await collectPublicReports({reports:['PublicReport0001','PublicReport0002'],client});
- assert.equal(catalog.examples.length,108,'Every player/spec in every supplied dungeon segment, including unsuccessful attempts');
- assert.equal(streams,4,'One event download per report/segment, shared across players');
+ assert.equal(catalog.examples.length,54,'Highest-output class/spec/role run in each supplied dungeon');
+ assert.equal(streams,2,'Download winner streams once per segment, not every losing candidate');
+ assert(catalog.examples.every(e=>e.code==='PublicReport0002'),'Rank by actual output, not report order or cast count');
  assert.equal(new Set(catalog.examples.map(e=>e.class+e.spec)).size,27);
  assert(catalog.examples.some(e=>e.role==='healer'&&e.metric==='hps')&&catalog.examples.some(e=>e.role==='tank'&&e.metric==='dps'));
  assert(catalog.examples.every(e=>e.scenario.items[0].itemID===900&&e.rotations.length===2));
- assert(catalog.examples.some(e=>!e.kill&&!e.complete&&!e.spellCountsComplete));
+ assert(catalog.examples.every(e=>e.kill&&e.complete&&e.spellCountsComplete&&e.rankingScope==='dungeon'));
  assert(catalog.examples.every(e=>['ruins-of-lordaeron','shadowfang-keep'].includes(e.dungeonKey)));
  let unsupportedEvents=0;
  const raids=await collectPublicReports({reports:['PublicReport0001'],client:{...client,
@@ -36,14 +37,18 @@ async function main(){
  }});
  assert.equal(raids.examples.length,0);assert.equal(unsupportedEvents,0);assert(raids.notes.some(n=>n.includes('outside the current scope')));
  const missingRoles=await collectPublicReports({reports:['PublicReport0001'],client:{...client,observedPlayers:async()=>{throw Error('fixture output unavailable');}}});
- assert.equal(missingRoles.examples.length,54,'Missing output tables must not hide recorded specs/actions');
- assert(missingRoles.examples.every(e=>e.role==='unknown'&&e.performance===undefined));
+ assert.equal(missingRoles.examples.length,0,'Unknown output cannot be labeled a top performer');
+ assert(missingRoles.notes.some(n=>n.includes('output')));
  const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
  function run(s){if(lauxlib.luaL_dostring(L,to_luastring(s))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
  run('unpack=unpack or table.unpack');
  for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Data/SupportedDungeons.lua','addons/ForeverCoaching/Data/PublicReportCatalog.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
  run(`assert(#ForeverCoaching.WarcraftLogs:PublicExamples()>0,'Bundled real public excerpt must validate')`);
  run('TestCatalog='+toLua(catalog)+';ExpectedDungeons='+toLua(dungeons));
+ const winner=structuredClone(catalog.examples.find(e=>e.class==='SHAMAN'&&e.spec==='Enhancement'&&e.dungeonKey==='ruins-of-lordaeron'));
+ const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.scenario.castCount=44;
+ winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
+ run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner]}));
  run(`
 local fc=ForeverCoaching;local w=fc.WarcraftLogs
 assert(#fc.SupportedDungeons==35)
@@ -60,8 +65,9 @@ assert(model.referenceOnly and model.ready and #model.specs==27 and #model.encou
 assert(model.supportedDungeonCount==35 and model.coveredDungeonCount==2,'Supported scope is separate from supplied report coverage')
 assert(model.selectedSpec=='SHAMAN:enhancement')
 assert(model.nextFight==nil and model.rows[1].you==nil)
-assert(model.rows[1].action:find('Trash mobs',1,true) and model.rows[1].reference:find('Observed opener:',1,true))
-assert(model.rows[2].action:find('Fixture Boss',1,true) and model.rows[1].reference:find('Repeated sequence:',1,true))
+assert(model.rows[1].action:find('Highest observed',1,true) and model.rows[1].reference:find('40.0 DPS',1,true))
+assert(model.rows[2].action:find('Trash mobs',1,true) and model.rows[2].reference:find('Fixture spell',1,true))
+assert(model.rows[3].action:find('Fixture Boss',1,true))
 for _,option in ipairs(model.encounters)do assert(not option.label:find('Fixture ',1,true),'Dropdown contains dungeons, never players')end
 local parent=CreateFrame('Frame');parent:SetSize(800,440);parent:Show()
 fc.testPanel=fc:BuildWarcraftLogsPanel(parent,728)
@@ -71,7 +77,7 @@ assert(visible('ENCOUNTER') and visible('OBSERVED ROTATION'))
 for _,label in ipairs({'YOU','NEXT FIGHT','DO NOT DISPLAY PERSONAL DATA','No matching fight','100-PARSE PLAYERS'})do assert(not visible(label),'Comparison UI must be paused: '..label)end
 assert(fc.testPanel.status.text:find(w.publicNotice,1,true))
 assert(w:SetPublicEncounter('dungeon:shadowfang-keep'))
-assert(w:GetPublicReportModel().rows[1].reference:find('Partial recorded combat',1,true))
+assert(w:GetPublicReportModel().rows[1].reference:find('40.0 DPS',1,true))
 assert(not w:GetPublicReportModel().status:find('Fixture Shaman',1,true),'Player names are not displayed')
 assert(w:SetPublicSpec('MAGE:fire'))
 assert(fc.testPanel.model.selectedSpec=='MAGE:fire')
@@ -91,6 +97,12 @@ local savedSpell=sample.rotations[1].opener[1].spellID
 sample.rotations[1].opener[1].spellID=6603;assert(not w:PreparePublicExample(sample),'Reject automatic attacks in supplied rotation summaries');sample.rotations[1].opener[1].spellID=savedSpell
 local savedEnd=sample.rotations[1]['end'];sample.rotations[1]['end']=sample.duration+1;assert(not w:PreparePublicExample(sample),'Reject summaries outside the recorded run');sample.rotations[1]['end']=savedEnd
 sample.player='Fixture |cffff0000 markup';local clean=assert(w:PreparePublicExample(sample));assert(clean.player:find('||c',1,true))
+fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
+local full=w:GetPublicReportModel();assert(full.rows[1].reference:find('200.0 DPS',1,true),'Choose highest output, not first stored example')
+local tail,boss=false,false
+for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
+assert(tail and boss and #full.rows==7,'Render the entire winner sequence beyond opener and chunk boundaries')
+local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()
 assert(not fc.testPanel.model.ready and #fc.testPanel.model.rows==0)

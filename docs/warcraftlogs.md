@@ -1,5 +1,46 @@
 # Warcraft Logs Optimization
 
+## Full rotations and highest-output run selection
+
+Optimization now displays the **entire qualifying combat-cast sequence** from
+the highest-output retrieved dungeon run for each class/spec and recorded role,
+difficulty and game version. DPS and tanks use complete-run damage/second;
+healers use healing/second. Threat remains unavailable. Rankings use the source
+tables' total output divided by the whole dungeon duration, not cast frequency.
+Gear/talent effects are not normalized, and this is not a universal best build.
+
+The collector first inventories and scores the matching runs in all available
+reports returned by instance discovery, then downloads the highest-scored run's
+events. Lower-ranked event streams are fetched only if a higher-scored candidate
+cannot be retrieved completely. Such failures make coverage explicitly incomplete.
+All trash and boss sequences for a winner follow **that one run**; the addon does
+not pick another player's spells for an encounter just because they cast more.
+Separate encounter-only records are not ranked against full dungeon runs.
+
+Each full sequence retains cast order and timestamps. Only consecutive identical
+combat casts are compressed, with their exact count and first/last times. There
+is no opener-length truncation. The UI continues in chunks of eight steps until
+the end of each recorded pull, and shows all pulls in source order. Known
+encounters without qualifying combat casts are identified rather than omitted
+or filled with invented actions. Non-combat and automatic-attack filters remain.
+Player names stay hidden; Scenarios remains the restored class/spec guide.
+
+Discovery uses source-provided instance and ranking-zone IDs. It follows pages
+without the former seven-day date filter, up to configured safety limits
+(`--max-pages`, default 100 per scope; `--max-reports`, default 500 total).
+Missing search access, repeated pages, API failures or limits are shown as
+incomplete coverage. Only instances with actual source-provided API IDs can be
+queried; names in the supported roster do not invent IDs. Exhausting the pages
+the API exposes does not prove that all existing logs are publicly discoverable.
+The UI reports examined reports and scored class/spec runs, not a global rank.
+
+Refresh the public catalog once using `Build-PublicReportCatalog.cjs` to populate
+full sequences and ranking metadata. Legacy opener-only records remain readable
+as stored data but are not advertised as full winning rotations.
+
+The following sections retain implementation history; this section defines the
+current full-sequence and winner-selection behavior.
+
 ## Current presentation: encounter rotations; Scenarios restored
 
 Scenarios once again uses the original class/spec situation guides and its
