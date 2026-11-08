@@ -1,5 +1,6 @@
 const assert=require('assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
 const {collectPublicReports,writePublicCatalog}=require('../tools/Build-PublicReportCatalog.cjs');
+assert.throws(()=>writePublicCatalog({examples:[],scan:{reports:0,rankedCandidates:0},notes:['Fixture authentication failure']},'unused'),/Examined 0 reports; scored 0 candidates\.[\s\S]*Fixture authentication failure/,'Empty scans must explain the actual failure before preserving the catalog');
 const {toLua}=require('../tools/foreverlogs-review.cjs');
 const {dungeons,resolveDungeon}=require('../tools/forever-dungeons.cjs');
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require('../tools/preview-runtime/node_modules/fengari');

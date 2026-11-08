@@ -36,6 +36,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      recorded++;
     }
    }
+   if(!recorded)notes.push(`${code}: no rankable completed dungeon runs were found. Runs require a supported dungeon, completion status, spec, role and output metadata.`);
    coverage.push({code,rankedCandidates:recorded});
   }catch(error){notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
  }
@@ -77,7 +78,9 @@ function fromSavedComparisons(results){
  return {schema:1,source:'Warcraft Logs',examples,coverage:[],notes:['Cached public-report excerpts only. Refresh the known reports to include every recorded dungeon and spec.']};
 }
 function writePublicCatalog(catalog,destination){
- if(!catalog.examples.length)throw Error('No public examples collected; existing catalog was preserved.');
+ if(!catalog.examples.length)throw Error(['No public examples collected; existing catalog was preserved.',
+  catalog.scan?`Examined ${catalog.scan.reports} reports; scored ${catalog.scan.rankedCandidates||0} candidates.`:'',
+  ...(catalog.notes||[])].filter(Boolean).join('\n'));
  fs.mkdirSync(path.dirname(destination),{recursive:true});
  if(fs.existsSync(destination)&&fs.lstatSync(destination).isSymbolicLink())throw Error('The public catalog must not be redirected.');
  const tmp=destination+'.'+require('crypto').randomBytes(8).toString('hex')+'.tmp';
