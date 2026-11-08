@@ -15,7 +15,7 @@ async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=1
      const key=fight.gameZone.id+':'+report.zone.id+':'+report.masterData.gameVersion;
      if(!scopeKeys.has(key)){scopeKeys.add(key);scopes.push({gameZone: fight.gameZone.id,zoneID:report.zone.id});}
     }
-   }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;incomplete=true;notes.push(`${code}: ${error.message}`);}
+   }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;incomplete=true;notes.push(`${code}: ${error.message}`);}
   }
  }
  await loadQueued();
@@ -32,7 +32,7 @@ async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=1
      if(added===0){incomplete=true;notes.push('Instance discovery repeated a page; scanning stopped for that scope.');break;}
      if(page===maxPages||cursor>=maxReports){incomplete=true;notes.push('Public report discovery reached a configured limit; coverage is incomplete.');break;}
     }
-   }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;incomplete=true;notes.push('Instance discovery unavailable: '+error.message);}
+   }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;incomplete=true;notes.push('Instance discovery unavailable: '+error.message);}
    if(cursor>=maxReports)break;
   }
  }else if(discover){incomplete=true;notes.push('Instance discovery is unavailable; only supplied reports were examined.');}

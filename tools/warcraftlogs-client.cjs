@@ -23,10 +23,18 @@ async function jsonRequest(url,options,fetcher=fetch){
  const raw=await response.text();if(raw.length>32*1024*1024)throw Error('Warcraft Logs response too large.');
  try{return JSON.parse(raw);}catch{throw Error('Warcraft Logs returned invalid JSON.');}
 }
-function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.env.WCL_CLIENT_SECRET,accessToken=process.env.WCL_ACCESS_TOKEN,getAccessToken,api='client',fetcher=fetch}={}){
+function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.env.WCL_CLIENT_SECRET,accessToken=process.env.WCL_ACCESS_TOKEN,getAccessToken,api='client',fetcher=fetch,cacheDirectory,requestBudget=Infinity,onRequest=()=>{}}={}){
  if(!['client','user'].includes(api))throw Error('Unsupported Warcraft Logs connection.');
+ if(requestBudget!==Infinity&&(!Number.isSafeInteger(requestBudget)||requestBudget<1))throw Error('Request budget must be a positive integer.');
+ if(cacheDirectory&&(api!=='client'||getAccessToken))throw Error('Persistent cache is only supported for the public client collector.');
+ const cache=cacheDirectory?require('./wcl-response-cache.cjs').responseCache(cacheDirectory,clientId||accessToken||'no-credentials'):null;
+ const requestStats={cached:0,network:0};
  let token=accessToken,expires=accessToken?Infinity:0;
  async function query(query,variables={}){
+  const cacheKey=JSON.stringify({api,query,variables});
+  const cached=cache?.get(cacheKey);
+  if(cached){requestStats.cached++;return cached;}
+  if(requestStats.network>=requestBudget){const error=new Error('Request batch complete. Progress cached; existing catalog preserved. Run the same command again to resume.');error.code='WCL_REQUEST_BUDGET';throw error;}
   if(getAccessToken)token=await getAccessToken();
   if(!getAccessToken&&(!token||Date.now()>=expires)){
    if(!clientId||!clientSecret)throw Error('Set WCL_CLIENT_ID and WCL_CLIENT_SECRET, or WCL_ACCESS_TOKEN, outside the addon.');
@@ -35,11 +43,13 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
    token=auth.access_token;expires=Date.now()+Math.max(1,Number(auth.expires_in||3600)-60)*1000;
   }
   if(typeof token!=='string'||!token)throw Error('Sign in to Warcraft Logs again.');
+  requestStats.network++;onRequest(requestStats);
   const result=await jsonRequest(API_HOST+'/api/v2/'+api,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})},fetcher);
   if(result.errors?.length||!result.data){
    const messages=(result.errors||[]).slice(0,3).map(e=>String(e.message||'Query unavailable').replace(/[\x00-\x1f]/g,' ').slice(0,300));
    throw Error('Warcraft Logs API rejected this query. '+messages.join(' '));
   }
+  cache?.set(cacheKey,result.data);
   return result.data;
  }
  const reports=new Map();
@@ -123,7 +133,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   }
   throw Error('The matching rules period could not be identified for this run. Try a recent uploaded run.');
  }
- return {report,events,topRanks,percentile,currentUser,recentReports,partitionFor,observedPlayers,instanceReports};
+ return {report,events,topRanks,percentile,currentUser,recentReports,partitionFor,observedPlayers,instanceReports,requestStats};
 }
 function specFor(report,fight,actor){const index=fight.friendlyPlayers?.indexOf(actor.id);return index>=0?fight.friendlySpecs?.[index]:null;}
 function profile(report,fight,actor,stream){

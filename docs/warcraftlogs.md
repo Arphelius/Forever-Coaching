@@ -1,5 +1,34 @@
 # Warcraft Logs Optimization
 
+## Resume large public-report imports
+
+Run the following in the terminal holding your Warcraft Logs credentials:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'D:\Forever coaching Addon\Forever-Coaching\tools\Update-PublicReports.ps1'
+```
+
+The launcher reads all saved HTML listings in `.local/optimization`, allows up to
+1,000 discovered reports, and makes at most 100 new GraphQL requests per run.
+OAuth requests are outside that budget, and API point limits can still interrupt
+a batch before it uses all 100 requests. Use `-RequestBudget 25` for smaller runs.
+Successful GraphQL responses, including individual event pages, are immediately
+cached in `.local/warcraftlogs/api-cache`. Tokens, secrets and headers are never
+cached. The cache is local and excluded from addon ZIPs and Git.
+
+After **Request batch complete**, run the same command again. Cached responses do
+not consume the next batch's budget. After a rate limit, wait for the service's
+limit to reset before retrying. The scan rebuilds its selection from cached data
+and resumes network requests at the missing responses. Incomplete event streams
+are not delivered. The existing addon catalog is preserved during batch pauses
+and rate limits; only a completed collection writes a new catalog. Once it says
+**Catalog saved**, use `/reload` in WoW.
+
+Cache snapshots expire after seven days. To force a new snapshot earlier, rename
+the `api-cache` folder while no collector is running. Different client identities
+use separate cache keys. Previous scans made before caching was added cannot be
+resumed from disk and must be fetched once by this version.
+
 ## Encounter picker and shared reading layout
 
 Optimization now uses the same `ClassicTheme:Document` reading panel, wrapped

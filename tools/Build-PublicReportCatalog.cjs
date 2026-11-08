@@ -27,7 +27,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
     const outputs=new Map();
     for(const metric of ['dps','hps']){try{for(const row of await client.observedPlayers(code,fight,metric)){
      if((row.role==='healer'&&metric==='hps')||(row.role!=='healer'&&metric==='dps'))outputs.set(row.id,{...row,metric});
-    }}catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
+    }}catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
     for(const actor of report.masterData.actors.filter(a=>a.type==='Player'&&fight.friendlyPlayers?.includes(a.id))){
      const index=fight.friendlyPlayers.indexOf(actor.id),spec=fight.friendlySpecs?.[index],output=outputs.get(actor.id);
      if(typeof spec!=='string'||['unknown','none',''].includes(spec.toLowerCase())||!actor.subType||!output){found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: a player lacks spec, role or output metadata and cannot be ranked.`);continue;}
@@ -40,7 +40,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
    }
    if(!recorded)notes.push(`${code}: no rankable completed dungeon runs were found. Runs require a supported dungeon, completion status, spec, role and output metadata.`);
    coverage.push({code,rankedCandidates:recorded});
-  }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
+  }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
  }
  for(const rows of candidates.values()){
   rows.sort((a,b)=>b.performance-a.performance||(b.report.startTime+b.fight.startTime)-(a.report.startTime+a.fight.startTime));
@@ -58,7 +58,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,recordedDeaths:p.deaths.length,complete:true,kill:true,
      scenario:recordedScenario(p,url),rotations,spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:true});
     break;
-   }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
+   }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
   }
  }
  found.scan.rankedCandidates=coverage.reduce((n,r)=>n+(r.rankedCandidates||0),0);
@@ -90,18 +90,21 @@ function writePublicCatalog(catalog,destination){
  try{fs.writeFileSync(tmp,'-- Public Warcraft Logs examples. No credentials or personal comparisons.\nForeverCoaching=ForeverCoaching or {}\nForeverCoaching.PublicReportCatalog='+toLua(catalog)+'\n',{flag:'wx'});fs.renameSync(tmp,destination);}finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}
 }
 if(require.main===module){
- const args=process.argv.slice(2);let reports=KNOWN_REPORTS,gameRoot,reportPages;const limits={};
+ const args=process.argv.slice(2);let reports=KNOWN_REPORTS,gameRoot,reportPages,requestBudget=100;const limits={};
  try{
-  for(let i=0;i<args.length;i+=2){if(args[i]==='--reports'&&args[i+1])reports=args[i+1].split(',');else if(args[i]==='--report-pages'&&args[i+1])reportPages=args[i+1];else if(args[i]==='--game-root'&&args[i+1])gameRoot=args[i+1];else if(['--max-pages','--max-reports'].includes(args[i])&&args[i+1])limits[args[i]==='--max-pages'?'maxPages':'maxReports']=Number(args[i+1]);else throw Error('Use --reports CODE,CODE, --report-pages HTML_FILE_OR_FOLDER, optional --game-root PATH, --max-pages N and --max-reports N.');}
+  for(let i=0;i<args.length;i+=2){if(args[i]==='--reports'&&args[i+1])reports=args[i+1].split(',');else if(args[i]==='--request-budget'&&args[i+1])requestBudget=Number(args[i+1]);else if(args[i]==='--report-pages'&&args[i+1])reportPages=args[i+1];else if(args[i]==='--game-root'&&args[i+1])gameRoot=args[i+1];else if(['--max-pages','--max-reports'].includes(args[i])&&args[i+1])limits[args[i]==='--max-pages'?'maxPages':'maxReports']=Number(args[i+1]);else throw Error('Use --reports CODE,CODE, --report-pages HTML_FILE_OR_FOLDER, optional --game-root PATH, --request-budget N, --max-pages N and --max-reports N.');}
+  if(!Number.isSafeInteger(requestBudget)||requestBudget<1||requestBudget>1000)throw Error('Use --request-budget between 1 and 1000.');
   if(reportPages){const saved=readReportPages(reportPages);reports=[...new Set([...reports,...saved.codes])];console.log(`Loaded ${saved.codes.length} report links from ${saved.pages} saved pages. Only links present in those pages are included; additional website pages may exist.`);}
-  collectPublicReports({reports,...limits,onProgress:message=>console.log(message)}).then(catalog=>{
+  const client=createClient({cacheDirectory:path.resolve(__dirname,'../.local/warcraftlogs/api-cache'),requestBudget,onRequest:stats=>console.log(`API request ${stats.network}/${requestBudget}; ${stats.cached} cached responses reused.`)});
+  console.log('Resume cache enabled (7-day snapshots). Successful responses are saved after each request; credentials are never cached.');
+  collectPublicReports({reports,...limits,client,onProgress:message=>console.log(message)}).then(catalog=>{
    const destination=path.resolve(__dirname,'../addons/ForeverCoaching/Data/PublicReportCatalog.lua');
    writePublicCatalog(catalog,destination);
    if(gameRoot){const addon=addonDirectory(gameRoot);const manifest=fs.readFileSync(path.join(addon,'ForeverCoaching.toc'),'utf8');if(!manifest.includes('Data\\PublicReportCatalog.lua'))throw Error('Install the public-report browser update first.');writePublicCatalog(catalog,path.join(addon,'Data','PublicReportCatalog.lua'));}
    console.log(`Selected ${catalog.examples.length} highest-output class/spec/role runs after examining ${catalog.scan.reports} available public reports and ${catalog.scan.discoveryPages} discovery pages. ${catalog.scan.incomplete?'Coverage is incomplete.':'Available discovery pages were exhausted.'} This is not a verified global ranking.`);
    for(const note of catalog.notes)console.log(note);
    console.log('Catalog saved. Reload WoW after updating; a first installation with a changed TOC requires restarting the game.');
-  }).catch(e=>{console.error(e.message);process.exitCode=1;});
+  }).catch(e=>{console.error(e.message);console.log(`${client.requestStats.network} new API requests; ${client.requestStats.cached} cached responses reused.`);if(e.code==='WCL_RATE_LIMIT')console.log('Completed responses are cached. Wait for the API limit to reset, then run the same command again.');process.exitCode=e.code==='WCL_REQUEST_BUDGET'?0:1;});
  }catch(e){console.error(e.message);process.exitCode=1;}
 }
 module.exports={KNOWN_REPORTS,collectPublicReports,fromSavedComparisons,writePublicCatalog};
