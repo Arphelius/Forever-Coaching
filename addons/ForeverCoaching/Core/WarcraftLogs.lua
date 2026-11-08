@@ -571,11 +571,8 @@ function W:GetPublicReportModel()
    entry.instance..' is supported. No public-report example is loaded for this dungeon yet. The current scan did not retrieve usable runs; public reports may still exist on the website.'
  elseif entry then
   model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / full recorded combat rotations'
-  model.status='Highest recorded output for the selected class/spec, role and difficulty. Combat casts retain their timing and repetitions.'
+  model.status='This is not a verified ranking across every log on Warcraft Logs.'
  end
- local scan=FC.PublicReportCatalog and FC.PublicReportCatalog.scan
- if type(scan)=='table' and finite(scan.reports) then model.status=model.status..'\n'..scan.reports..' available public reports examined'..(finite(scan.rankedCandidates) and (' / '..scan.rankedCandidates..' class/spec runs scored.') or '.')..(scan.incomplete and ' Search coverage is incomplete.' or ' Available discovery pages were exhausted.')..' This is not a verified ranking across every log on Warcraft Logs.'end
- if model.supportedDungeonCount>0 then model.status=model.status..'\nExamples loaded for '..covered..' of '..model.supportedDungeonCount..' supported dungeons for this spec.'end
  return model
 end
 function W:SetPublicSection(key)
