@@ -1,55 +1,7 @@
 local CreateFrame=ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 local FC=ForeverCoaching
 local positions={Learn=1,Scenarios=1,Talents=1}
-function FC:BuildParserScenarioPage(parent)
- local W=self.WarcraftLogs;local Theme=self.ClassicTheme
- local document=Theme:Document(parent,Theme.METRICS.documentTop)
- local toolbar=Theme:Toolbar(parent,Theme.METRICS.toolbarTop,14)
- local spec=self:GuidePicker(parent,0,0,240,function(key)if W.GetPublicReportModel then W:SetPublicSpec(key)else W:SetComparisonSpec(key)end end)
- local encounter=self:GuidePicker(parent,0,0,360,function(key)if W.GetPublicReportModel then W:SetPublicEncounter(key)else W:SetComparisonEncounter(key)end end)
- toolbar:Add(spec,0);toolbar:Add(encounter,12);toolbar:SetFlexible(encounter,160)
- local function draw()
-  local model=W.GetPublicReportModel and W:GetPublicReportModel() or W:GetComparisonModel();document:Reset()
-  spec:SetOptions(model.specs,model.selectedSpec,'Choose spec')
-  encounter:SetOptions(model.encounters,model.selectedEncounter,'Choose instance / encounter')
-  local replay=model.scenario
-  if model.notice then document:Line(model.notice,false,'caution')end
-  if not replay then
-   document:Line(model.referenceOnly and model.status or model.ready and 'This comparison has no recorded reference sequence yet.' or 'No matching reference scenario data is connected for this selection.')
-  else
-   document:Line(model.metrics,true)
-   document:Line(replay.player..' / '..(replay.basis or '100 percentile')..' / '..string.format('%.1fs',replay.duration))
-   document:Line(model.status)
-   document:Line('This is one recorded sequence, not a guaranteed optimal rotation. Adapt to your assignments and available abilities.')
-   local function actions(title,kind,countKey)
-    document:Line(title..' ('..#replay[kind]..' / '..replay[countKey]..' recorded)',true)
-    if #replay[kind]==0 then
-     document:Line(kind=='items' and 'Item-use details were not exposed in this reference.' or 'No matching actions were recorded.')
-    else
-     for i,event in ipairs(replay[kind])do
-      document:Line(string.format('%d.  %.1fs — %s%s',i,event.at,event.name,event.itemID and (' / item #'..event.itemID) or ''))
-     end
-    end
-   end
-   actions('Recorded rotation','casts','castCount')
-   actions('Items used','items','itemCount')
-   actions('Self-applied buffs','buffs','buffCount')
-   if model.nextFight then document:Line('Your next fight',true);document:Line(model.nextFight)end
-  end
-  document:Finish()
- end
- self.parserScenarioView={parent=parent,refresh=draw,document=document,specPicker=spec,encounterPicker=encounter}
- draw()
- local listener=CreateFrame('Frame',nil,parent)
- for _,event in ipairs({'PLAYER_TALENT_UPDATE','TRAIT_CONFIG_UPDATED','ACTIVE_TALENT_GROUP_CHANGED','PLAYER_SPECIALIZATION_CHANGED'})do pcall(listener.RegisterEvent,listener,event)end
- listener:SetScript('OnEvent',function()if parent:IsShown()then draw()end end)
-end
-function FC:RefreshParserScenarios()
- local view=self.parserScenarioView
- if view and view.parent:IsShown() then view.refresh()end
-end
 function FC:BuildEncounterLearningPage(parent,mode)
- if mode=='Scenarios' and self.WarcraftLogs then return self:BuildParserScenarioPage(parent)end
  local coach=self.EncounterCoach;if not coach then return end
  local Theme=FC.ClassicTheme
  local document=Theme:Document(parent,Theme.METRICS.documentTop)

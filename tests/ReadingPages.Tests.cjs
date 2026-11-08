@@ -216,7 +216,7 @@ run(`local reviewButton;for _,f in ipairs(TestFrames)do if f.navigationIndex==3 
 assert(reviewButton);reviewButton.scripts.OnClick(reviewButton)
 local selector,status
 for _,f in ipairs(TestFrames)do if f:IsShown() then
- if f.text=='Instance / encounter' then selector=f end
+ if f.text=='Dungeon' then selector=f end
  if type(f.text)=='string' and f.text:find('No public-report example is loaded for this spec yet.',1,true) then status=f end
  assert(not (f.title and f.title.text=='WHAT YOU DID WELL'),'Normal review no longer uses generic finding cards')
 end end
@@ -227,5 +227,6 @@ assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,
 assert(ForeverCoachingFrame.scripts.OnDragStart and ForeverCoachingFrame.scripts.OnDragStop,'Main dashboard remains draggable')
 local scenario;for _,f in ipairs(TestFrames)do if f.navigationIndex==4 then scenario=f end end
 assert(scenario);scenario.scripts.OnClick(scenario)
-assert(ForeverCoaching.parserScenarioView,'Normal Scenarios uses the reference replay builder')
-print('PASS: inline reference selectors, missing-data status, reference Scenarios, one dashboard and retained dragging.')`);
+local guideMenu;for _,f in ipairs(TestFrames)do if f:IsShown() and f.guidePicker then guideMenu=true end end
+assert(not ForeverCoaching.parserScenarioView,'Scenarios is restored to class/spec guides, independent of Optimization')
+print('PASS: dungeon rotation controls, missing-data status, restored guide Scenarios, one dashboard and retained dragging.')`);

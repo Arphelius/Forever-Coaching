@@ -4,16 +4,18 @@ Forever Coaching combines talent builds, class guides, combat recording and figh
 reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
-Optimization and Scenarios currently browse **public report examples**; personal
-comparisons are paused. Select a recorded spec and dungeon/player run to see the
-source's spell usage, timing, explicit item uses and logged output. The catalog
-includes only supplied, retrieved public reports, not every log on the service.
+Optimization shows **compact combat rotations by dungeon encounter**; personal
+comparisons are paused. Select a recorded spec and dungeon to see an observed
+trash opener and named-boss sequences, including repeated patterns where the
+same combat sequence was recorded more than once. Player names, raw cast dumps
+and non-combat actions are not shown. The catalog includes only supplied,
+retrieved public reports, not every log on the service.
 Fights are still being logged and combat is still being tested: these examples
 are not guaranteed to be the best possible outcome. Use them at your discretion.
 The catalog starts with a real cached Shadowfang Keep excerpt and expands as
 supplied public reports are retrieved. Refresh the source reports for new data.
 
-Optimization and Scenarios support the **35 pre-raid dungeons/wings** in
+Optimization supports the **35 pre-raid dungeons/wings** in
 [the dungeon roster](data/forever-dungeons.json). Missing report data is labeled
 **awaiting reports for this spec**; supported scope is not presented as populated
 coverage. Raids are excluded from the current public-report collector.
@@ -29,7 +31,7 @@ Wowhead Forever talent links.
 
 Class data is reviewed against the November 3 launch tuning. Run **Check-ForeverTuning.cmd** to check for newer spells, talents or official notes. A daily GitHub Actions check is included; current build adaptations are planning starting points, with old simulation rankings withheld. See [tuning maintenance](docs/forever-spell-audit.md).
 
-Learn and Gear include class/spec menus for browsing guides. Learn also offers a direct lesson picker. Browsing does not activate a talent build. Optimization and Scenarios use the separate Warcraft Logs spec/encounter selection. See [guide browsing](docs/guide-browsing.md).
+Scenarios is restored to the original class/spec combat guides, with a situation picker and previous/next controls. Learn and Gear also retain their class/spec guides. These pages are independent of Optimization's public-report selections. Browsing does not activate a talent build. See [guide browsing](docs/guide-browsing.md).
 
 Choose **Language** at the right of the dashboard's tab row for English (default), Romana (shown without diacritics, which the game font lacks), Español, Français, Deutsch or Português. `/fclanguage` opens the selector. Class, spell and talent names stay unchanged. The browser preview has a separate saved language selector.
 

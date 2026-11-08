@@ -300,7 +300,7 @@ end
 local pages = {
     Rotation = {
         heading = "Optimization",
-        description = "Browse recorded spells and output from public dungeon reports. Comparisons are paused.",
+        description = "Observed combat rotations for trash pulls and named dungeon bosses.",
         cards = {},
     },
     Talents = {
@@ -309,8 +309,8 @@ local pages = {
         cards = {},
     },
     Scenarios = {
-        heading = "Public Report Scenarios",
-        description = "Recorded spells, timing and item uses for your chosen spec and encounter.",
+        heading = "Combat Scenarios",
+        description = "Browse a class, specialization and combat situation.",
         cards = {},
     },
     Learn = {
@@ -398,7 +398,6 @@ end
 
 function FC:RefreshCombatReview()
     UpdateReviewText()
-    if self.RefreshParserScenarios then self:RefreshParserScenarios() end
 end
 
 local function ShowTab(tabName)

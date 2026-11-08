@@ -4,6 +4,7 @@ const {createClient,reportCode,profile,recordedScenario,HOST}=require('./warcraf
 const {toLua}=require('./foreverlogs-review.cjs');
 const {addonDirectory}=require('./coaching-delivery.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
+const {encounterRotations}=require('./combat-rotations.cjs');
 const KNOWN_REPORTS=['bcVxQRyHF6qjXhLk','gFd1CVbHJqkKwfMN'];
 function spellsFromActions(actions){
  const counts=new Map();for(const e of actions){if(!e.spellID)continue;const row=counts.get(e.spellID)||{spellID:e.spellID,name:e.name,count:0};row.count++;counts.set(e.spellID,row);}
@@ -15,7 +16,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
  for(const code of codes){
   try{
    const report=await client.report(code);let recorded=0;
-   for(const fight of report.fights.filter(f=>f.encounterID>0&&!f.inProgress&&f.endTime>f.startTime)){
+   for(const fight of report.fights.filter(f=>f.encounterID>=0&&!f.inProgress&&f.endTime>f.startTime)){
     const dungeon=resolveDungeon(fight.gameZone?.name,fight.name);
     if(!dungeon){notes.push(`${code}, fight ${fight.id}: unsupported or ambiguous dungeon/wing; skipped. Raids are outside the current scope.`);continue;}
     const stream=await client.events(code,fight);const outputs=new Map();
@@ -29,7 +30,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
       dungeonKey:dungeon.key,instanceId:fight.gameZone.id,instance:fight.gameZone.name,encounterId:fight.encounterID,encounter:fight.name,difficulty:fight.difficulty,
       started:report.startTime+fight.startTime,duration:p.duration,role:output?.role||'unknown',metric:output?.metric,
       performance:output?output.total/p.duration:undefined,recordedDeaths:p.deaths.length,complete:p.complete,kill:fight.kill===true,
-      scenario,spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:p.complete});
+      scenario,rotations:encounterRotations(p),spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:p.complete});
      recorded++;
     }
    }

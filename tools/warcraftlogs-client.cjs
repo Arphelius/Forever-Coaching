@@ -43,7 +43,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
  }
  const reports=new Map();
  async function report(value){const code=reportCode(value);if(reports.has(code))return reports.get(code);
-  const data=await query(`query($code:String!){reportData{report(code:$code){code title startTime zone{id} masterData{gameVersion actors{id name server type subType} abilities{gameID name}} fights{id name encounterID difficulty gameZone{id name} hardModeLevel keystoneLevel keystoneAffixes startTime endTime kill inProgress friendlyPlayers friendlySpecs}}}}`,{code});
+  const data=await query(`query($code:String!){reportData{report(code:$code){code title startTime zone{id} masterData{gameVersion actors{id name server type subType} abilities{gameID name}} fights{id name encounterID difficulty gameZone{id name} hardModeLevel keystoneLevel keystoneAffixes startTime endTime kill inProgress friendlyPlayers friendlySpecs dungeonPulls{id name encounterID startTime endTime kill}}}}}`,{code});
   const result=data.reportData?.report;
   if(!result||result.code!==code||!Array.isArray(result.fights)||!Array.isArray(result.masterData?.actors))throw Error('Report metadata unavailable.');
   reports.set(code,result);return result;

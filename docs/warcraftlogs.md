@@ -1,5 +1,40 @@
 # Warcraft Logs Optimization
 
+## Current presentation: encounter rotations; Scenarios restored
+
+Scenarios once again uses the original class/spec situation guides and its
+previous/next/direct situation controls. It does not use public reports, inherit
+Optimization's filters, or show its cast history.
+
+Optimization has just **Spec** and **Dungeon** selectors. Each dungeon appears
+once, with no player-name or player-run options. It displays one compact
+**Observed opener** and, where actually repeated, a **Repeated sequence** for
+trash mobs and each named boss exposed by the report. Separate role examples
+remain labeled where a spec was recorded in different roles. The view does not
+show raw cast counts, every spell, player names, personal comparisons or automatic
+mistake judgments. The ongoing testing/discretion notice remains on Optimization.
+
+The collector requests Warcraft Logs `dungeonPulls` (name, encounter ID and
+start/end times) and slices events by those source boundaries. Pulls marked
+encounter ID zero are trash; named encounter pulls are bosses. Whole-dungeon
+records without pull metadata are not mislabeled as a boss. Older catalog data
+needs one refresh with `Build-PublicReportCatalog.cjs`; until then the view says
+that encounter rotations are awaiting extraction. No boss/trash split is guessed.
+
+Only actively cast combat abilities enter summaries: reviewed active class
+spells or actions with attributed damage/heal/interrupt/dispel/debuff evidence.
+Known racial combat buffs require an observed self-buff application. Automatic
+melee/shoot attacks, travel/teleport, conjured food/water, mounts and unclassified
+non-combat casts are excluded. Openers have at most six compact combat actions;
+repeated patterns have two to four actions and must recur at least twice.
+Repeated patterns/openers do not cross deaths or action gaps over fifteen
+seconds. The source run is kept coherent for each encounter example, rather than
+combining individual spells from different players into a made-up rotation.
+These remain observed examples, not universal priority lists or a global ranking.
+
+The older implementation notes below describe retained data/API history;
+the current view follows this section.
+
 ## Current mode: public examples, comparisons paused
 
 The supported pre-raid scope is the 35 dungeons/wings in
@@ -11,7 +46,7 @@ Blackrock Spire wings remain separate. Generic parent names without an explicit
 wing are not silently assigned to a wing. Common spelling/punctuation aliases
 are resolved in both the collector and addon.
 
-Both tabs list every supported dungeon for the selected spec. A dungeon without
+Optimization lists every supported dungeon for the selected spec. A dungeon without
 supplied examples is selectable as **awaiting reports for this spec** and shows
 no invented actions/output. Loaded coverage is counted separately from supported
 scope. Choosing another spec retains the dungeon where possible. The public
@@ -19,13 +54,13 @@ collector skips raids and unsupported/ambiguous instance names before downloadin
 their combat events, with a coverage note. Raid support is deferred until a later
 scope update after raids unlock.
 
-Optimization and Scenarios now use `ForeverCoaching.PublicReportCatalog`.
+Optimization uses `ForeverCoaching.PublicReportCatalog`; Scenarios uses its restored guides.
 The normal pages do not read personal comparison rows, show a **You** column,
 give mistake verdicts, or offer a next-fight comparison goal. Automatic companion
 comparison ingestion is paused while this catalog is loaded. Legacy comparison
 APIs and utilities below remain for future work, not the normal player flow.
 
-Both pages always show:
+Optimization always shows:
 
 > Fights are still being logged and combat is still being tested. These public-report examples are not guaranteed to be the best possible outcome. Use them at your discretion.
 
