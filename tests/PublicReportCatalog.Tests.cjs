@@ -1,12 +1,20 @@
 const assert=require('assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
 const {collectPublicReports,writePublicCatalog}=require('../tools/Build-PublicReportCatalog.cjs');
 const {toLua}=require('../tools/foreverlogs-review.cjs');
+const {dungeons,resolveDungeon}=require('../tools/forever-dungeons.cjs');
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=require('../tools/preview-runtime/node_modules/fengari');
 const specs={Druid:['Balance','Feral','Restoration'],Hunter:['Beast Mastery','Marksmanship','Survival'],Mage:['Arcane','Fire','Frost'],Paladin:['Holy','Protection','Retribution'],Priest:['Discipline','Holy','Shadow'],Rogue:['Assassination','Combat','Subtlety'],Shaman:['Elemental','Enhancement','Restoration'],Warlock:['Affliction','Demonology','Destruction'],Warrior:['Arms','Fury','Protection']};
 const actors=[];for(const [subType,values]of Object.entries(specs))for(const spec of values)actors.push({id:actors.length+1,name:'Fixture '+subType+' '+spec,type:'Player',subType,spec});
 function report(code){return {code,startTime:1793900000000,zone:{id:3000},masterData:{gameVersion:7,actors,abilities:[{gameID:101,name:'Fixture spell'},{gameID:102,name:'Fixture buff'}]},
- fights:[1,2].map(id=>({id,name:'Fixture Dungeon '+id,encounterID:100+id,gameZone:{id:200+id,name:'Fixture Dungeon '+id},difficulty:10,startTime:0,endTime:60000,kill:id===1,inProgress:false,friendlyPlayers:actors.map(a=>a.id),friendlySpecs:actors.map(a=>a.spec)}))};}
+ fights:[1,2].map(id=>({id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep',encounterID:100+id,gameZone:{id:200+id,name:id===1?'Ruins of Lordaeron':'Shadowfang Keep'},difficulty:10,startTime:0,endTime:60000,kill:id===1,inProgress:false,friendlyPlayers:actors.map(a=>a.id),friendlySpecs:actors.map(a=>a.spec)}))};}
 async function main(){
+ assert.equal(dungeons.length,35);assert.equal(new Set(dungeons.map(d=>d.key)).size,35);
+ for(const dungeon of dungeons)for(const name of [dungeon.name,...dungeon.aliases])assert.equal(resolveDungeon(name,'Fixture boss')?.key,dungeon.key);
+ assert.equal(resolveDungeon('Scarlet Monastery','Library')?.key,'scarlet-monastery-library');
+ assert.equal(resolveDungeon('Dire Maul','West')?.key,'dire-maul-west');
+ assert.equal(resolveDungeon('Stratholme','Undead')?.key,'stratholme-undead');
+ assert.equal(resolveDungeon('Scarlet Monastery','Fixture boss'),null,'Never guess a wing from an ambiguous parent name');
+ assert.equal(resolveDungeon('Molten Core','Fixture boss'),null,'Raids are outside the current supported scope');
  let streams=0;
  const client={report:async code=>report(code),events:async(code,fight)=>{streams++;return {complete:fight.id===1,events:actors.flatMap(a=>[
   {timestamp:1000,type:'cast',sourceID:a.id,abilityGameID:101},{timestamp:3000,type:'cast',sourceID:a.id,abilityGameID:101},
@@ -20,24 +28,36 @@ async function main(){
  assert(catalog.examples.some(e=>e.role==='healer'&&e.metric==='hps')&&catalog.examples.some(e=>e.role==='tank'&&e.metric==='dps'));
  assert(catalog.examples.every(e=>e.scenario.items[0].itemID===900&&e.spells[0].count===2));
  assert(catalog.examples.some(e=>!e.kill&&!e.complete&&!e.spellCountsComplete));
+ assert(catalog.examples.every(e=>['ruins-of-lordaeron','shadowfang-keep'].includes(e.dungeonKey)));
+ let unsupportedEvents=0;
+ const raids=await collectPublicReports({reports:['PublicReport0001'],client:{...client,
+  report:async code=>{const r=report(code);return {...r,fights:r.fights.map(f=>({...f,name:'Fixture raid boss',gameZone:{id:999,name:'Molten Core'}}))};},
+  events:async()=>{unsupportedEvents++;throw Error('Must not retrieve raid events');},
+ }});
+ assert.equal(raids.examples.length,0);assert.equal(unsupportedEvents,0);assert(raids.notes.some(n=>n.includes('outside the current scope')));
  const missingRoles=await collectPublicReports({reports:['PublicReport0001'],client:{...client,observedPlayers:async()=>{throw Error('fixture output unavailable');}}});
  assert.equal(missingRoles.examples.length,54,'Missing output tables must not hide recorded specs/actions');
  assert(missingRoles.examples.every(e=>e.role==='unknown'&&e.performance===undefined));
  const L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
  function run(s){if(lauxlib.luaL_dostring(L,to_luastring(s))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
  run('unpack=unpack or table.unpack');
- for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Data/PublicReportCatalog.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
+ for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Data/SupportedDungeons.lua','addons/ForeverCoaching/Data/PublicReportCatalog.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
  run(`assert(#ForeverCoaching.WarcraftLogs:PublicExamples()>0,'Bundled real public excerpt must validate')`);
- run('TestCatalog='+toLua(catalog));
+ run('TestCatalog='+toLua(catalog)+';ExpectedDungeons='+toLua(dungeons));
  run(`
 local fc=ForeverCoaching;local w=fc.WarcraftLogs
+assert(#fc.SupportedDungeons==35)
+for i,dungeon in ipairs(ExpectedDungeons)do assert(fc.SupportedDungeons[i].key==dungeon.key and fc.SupportedDungeons[i].name==dungeon.name,'Shared JS/Lua roster parity');assert(w:ResolvePublicDungeon(dungeon.name,'Fixture boss').key==dungeon.key);for j,alias in ipairs(dungeon.aliases)do assert(fc.SupportedDungeons[i].aliases[j]==alias and w:ResolvePublicDungeon(alias,'Fixture boss').key==dungeon.key)end end
+assert(w:ResolvePublicDungeon('Scarlet Monastery','Library').key=='scarlet-monastery-library')
+assert(not w:ResolvePublicDungeon('Dire Maul','Fixture boss') and not w:ResolvePublicDungeon('Molten Core','Fixture boss'))
 fc.EncounterCoach={GetCombatContext=function()return {class='SHAMAN',tree=2}end}
 fc.PublicReportCatalog=TestCatalog
 ForeverCoachingDB.warcraftLogs={reviews={{comparison={specKey='SHAMAN:enhancement',rows={{you='DO NOT DISPLAY PERSONAL DATA'}}}}}}
 w.GetComparisonModel=function()error('Personal comparisons must not be queried by normal pages')end
 assert(w:LoadCompanionReviews()==0,'Automatic personal comparisons are paused')
 local model=w:GetPublicReportModel()
-assert(model.referenceOnly and model.ready and #model.specs==27 and #model.encounters==4)
+assert(model.referenceOnly and model.ready and #model.specs==27 and #model.encounters==37)
+assert(model.supportedDungeonCount==35 and model.coveredDungeonCount==2,'Supported scope is separate from supplied report coverage')
 assert(model.selectedSpec=='SHAMAN:enhancement')
 assert(model.nextFight==nil and model.rows[1].you==nil)
 assert(model.rows[1].reference:find('2 uses / 2.0 casts/min',1,true))
@@ -56,6 +76,13 @@ assert(w:GetPublicReportModel().status:find('Partial event stream',1,true))
 assert(w:GetPublicReportModel().rows[1].reference=='2 uses in recorded excerpt','Do not extrapolate partial cast rates')
 assert(w:SetPublicSpec('MAGE:fire'))
 assert(w:GetPublicReportModel().metrics:find('Fire',1,true) and fc.testPanel.model.selectedSpec=='MAGE:fire')
+assert(w:SetPublicEncounter('dungeon:shapers-terrace'),'Missing-data dungeons remain selectable')
+local pending=w:GetPublicReportModel()
+assert(not pending.ready and pending.metrics:find("Shaper's Terrace",1,true) and pending.status:find('is supported',1,true))
+assert(#pending.rows==0 and pending.scenario==nil,'A supported dungeon must not invent report examples')
+assert(w:SetPublicSpec('SHAMAN:enhancement'))
+assert(w:GetPublicReportModel().selectedEncounter=='dungeon:shapers-terrace','Preserve dungeon selection across spec changes')
+assert(w:SetPublicEncounter('PublicReport0001:2:20'))
 assert(not w:SetPublicEncounter('invented') and not w:SetPublicSpec('MAGE:invented'))
 local sample=TestCatalog.examples[1];local original=sample.scenario.sourceURL
 sample.scenario.sourceURL='https://example.com/fake';assert(not w:PreparePublicExample(sample));sample.scenario.sourceURL=original

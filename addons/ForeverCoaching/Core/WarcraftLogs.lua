@@ -339,6 +339,17 @@ function W:GetReviews()
  return result
 end
 W.publicNotice='Fights are still being logged and combat is still being tested. These public-report examples are not guaranteed to be the best possible outcome. Use them at your discretion.'
+function W:ResolvePublicDungeon(instance,encounter)
+ local function key(value)return tostring(value or ''):lower():gsub('[^%w]','')end
+ local names={[key(instance)]=true,[key(encounter)]=true,[key(tostring(instance or '')..': '..tostring(encounter or ''))]=true}
+ local match
+ for _,dungeon in ipairs(FC.SupportedDungeons or {})do
+  local found=names[key(dungeon.name)]
+  for _,alias in ipairs(dungeon.aliases or {})do if names[key(alias)]then found=true end end
+  if found then if match then return nil end;match=dungeon end
+ end
+ return match
+end
 function W:PreparePublicExample(raw)
  if type(raw)~='table' or type(raw.code)~='string' or #raw.code~=16 or not raw.code:match('^%w+$') then return end
  for _,value in ipairs({raw.fightID or false,raw.actorID or false,raw.instanceId or false,raw.encounterId or false})do if not finite(value) or value<=0 or value%1~=0 then return end end
@@ -350,6 +361,8 @@ function W:PreparePublicExample(raw)
  if raw.started~=nil and (not finite(raw.started) or raw.started<=0)then return end
  if raw.metric~=nil and (raw.metric~=(raw.role=='healer' and 'hps' or 'dps') or raw.role=='unknown')then return end
  if raw.performance~=nil and (not raw.metric or not finite(raw.performance) or raw.performance<0)then return end
+ local dungeon=FC.SupportedDungeons and self:ResolvePublicDungeon(raw.instance,raw.encounter)
+ if FC.SupportedDungeons and not dungeon or dungeon and raw.dungeonKey~=nil and raw.dungeonKey~=dungeon.key then return end
  local url='https://forever.warcraftlogs.com/reports/'..raw.code..'#fight='..raw.fightID..'&source='..raw.actorID
  if raw.scenario.sourceURL~=url or raw.scenario.duration~=raw.duration then return end
  local scenario={player=displayText(raw.player,100),url=url,duration=raw.duration,basis='public report example'}
@@ -375,7 +388,8 @@ function W:PreparePublicExample(raw)
   rows[#rows+1]={action=displayText(spell.name,180),reference=raw.spellCountsComplete and (spell.count..' uses / '..string.format('%.1f casts/min',spell.count*60/raw.duration)) or (spell.count..' uses in recorded excerpt')}
  end
  return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
-  instance=displayText(raw.instance,120) or 'Instance',encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
+  instance=dungeon and dungeon.name or displayText(raw.instance,120) or 'Instance',dungeonKey=dungeon and dungeon.key,
+  encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
   role=raw.role,metric=raw.metric,performance=raw.performance,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
   started=raw.started or 0,rows=rows,scenario=scenario,excerpt=not raw.spellCountsComplete}
 end
@@ -397,7 +411,7 @@ function W:SetPublicSpec(key)
  return false
 end
 function W:SetPublicEncounter(key)
- for _,entry in ipairs(self:PublicExamples())do if entry.key==key and entry.specKey==self:GetPublicReportModel().selectedSpec then comparisonSelection().publicEncounter=key;if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
+ for _,option in ipairs(self:GetPublicReportModel().encounters)do if option.value==key then local selection=comparisonSelection();selection.publicEncounter=key;selection.publicDungeon=option.dungeonKey;if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
  return false
 end
 function W:GetPublicReportModel()
@@ -408,16 +422,37 @@ function W:GetPublicReportModel()
  if current and selection.publicLiveSpec~=current then selection.publicSpec=current;selection.publicEncounter=nil;selection.publicLiveSpec=current end
  local selected=selection.publicSpec or current or specs[1] and specs[1].value
  if selected~=current and not seen[selected]then selected=specs[1] and specs[1].value;selection.publicSpec=selected end
- local choices,encounters={},{}
+ local choices,encounters,groups={},{},{}
  for _,entry in ipairs(examples)do if entry.specKey==selected then
-  choices[entry.key]=entry;encounters[#encounters+1]={value=entry.key,label=entry.instance..' / '..entry.player..' / '..entry.role..' / fight '..entry.key:match(':(%d+):')}
+  choices[entry.key]=entry
+  local option={value=entry.key,dungeonKey=entry.dungeonKey,label=entry.instance..' / '..entry.player..' / '..entry.role..' / fight '..entry.key:match(':(%d+):')}
+  encounters[#encounters+1]=option
+  if entry.dungeonKey then groups[entry.dungeonKey]=groups[entry.dungeonKey] or {};groups[entry.dungeonKey][#groups[entry.dungeonKey]+1]=option end
  end end
  table.sort(encounters,function(a,b)return a.label==b.label and a.value<b.value or a.label<b.label end)
- local key=selection.publicEncounter;if not key or not choices[key]then key=encounters[1] and encounters[1].value;selection.publicEncounter=key end
+ local firstAvailable=encounters[1] and encounters[1].value;local covered=0
+ if FC.SupportedDungeons then
+  encounters={}
+  for _,dungeon in ipairs(FC.SupportedDungeons)do
+   local group=groups[dungeon.key]
+   if group then covered=covered+1;table.sort(group,function(a,b)return a.label==b.label and a.value<b.value or a.label<b.label end);for _,option in ipairs(group)do encounters[#encounters+1]=option end
+   else local key='dungeon:'..dungeon.key;choices[key]={unavailable=true,dungeonKey=dungeon.key,instance=dungeon.name};encounters[#encounters+1]={value=key,dungeonKey=dungeon.key,label=dungeon.name..' / awaiting reports for this spec'}end
+  end
+ end
+ local key=selection.publicEncounter
+ if not key or not choices[key]then
+  if selection.publicDungeon then local group=groups[selection.publicDungeon];key=group and group[1].value or 'dungeon:'..selection.publicDungeon end
+  if not key or not choices[key]then key=firstAvailable or encounters[1] and encounters[1].value end
+  selection.publicEncounter=key
+ end
  local model={referenceOnly=true,notice=self.publicNotice,specs=specs,selectedSpec=selected,encounters=encounters,selectedEncounter=key,
-  rows={},ready=false,metrics='Public report examples',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
+  rows={},ready=false,supportedDungeonCount=#(FC.SupportedDungeons or {}),coveredDungeonCount=covered,
+  metrics='Public report examples',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
  local entry=key and choices[key]
- if entry then
+ if entry and entry.unavailable then
+  model.metrics=entry.instance..' / awaiting public reports'
+  model.status=entry.instance..' is supported. No public-report example is loaded for this spec yet. Fights are still being logged; this does not mean the dungeon or spec is unsupported.'
+ elseif entry then
   model.ready=true;model.rows=entry.rows;model.scenario=entry.scenario
   model.metrics=entry.spec..' / '..entry.instance..' / '..entry.encounter
   model.status=entry.player..' / '..entry.role..(entry.performance and (' / recorded '..string.format('%.1f %s',entry.performance,entry.metric:upper())) or '')..
@@ -425,6 +460,7 @@ function W:GetPublicReportModel()
    (entry.excerpt and ' / spell counts cover the recorded excerpt.' or '.')..(not entry.complete and ' Partial event stream.' or '')..
    '\nExamples cover supplied public reports, not every log on Warcraft Logs.'
  end
+ if model.supportedDungeonCount>0 then model.status=model.status..'\nExamples loaded for '..covered..' of '..model.supportedDungeonCount..' supported dungeons for this spec.'end
  return model
 end
 function W:Select(offset)

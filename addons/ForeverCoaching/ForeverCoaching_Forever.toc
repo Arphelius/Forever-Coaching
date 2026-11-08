@@ -17,6 +17,7 @@ Data\TalentBorderStyles.lua
 Data\ForeverLogsReview.lua
 Data\CompanionReviews.lua
 Data\PublicReportCatalog.lua
+Data\SupportedDungeons.lua
 Data\ForeverLogsStatistics.lua
 Core\BuildPlanner.lua
 Core\GuideSources.lua

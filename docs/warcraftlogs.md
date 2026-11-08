@@ -2,6 +2,23 @@
 
 ## Current mode: public examples, comparisons paused
 
+The supported pre-raid scope is the 35 dungeons/wings in
+[`data/forever-dungeons.json`](../data/forever-dungeons.json). The addon loads the
+matching generated `Data/SupportedDungeons.lua`; tests verify JS/Lua parity.
+No Warcraft Logs instance/encounter IDs are invented from the names. Source IDs
+remain the actual report metadata. Scarlet Monastery, Dire Maul, Stratholme and
+Blackrock Spire wings remain separate. Generic parent names without an explicit
+wing are not silently assigned to a wing. Common spelling/punctuation aliases
+are resolved in both the collector and addon.
+
+Both tabs list every supported dungeon for the selected spec. A dungeon without
+supplied examples is selectable as **awaiting reports for this spec** and shows
+no invented actions/output. Loaded coverage is counted separately from supported
+scope. Choosing another spec retains the dungeon where possible. The public
+collector skips raids and unsupported/ambiguous instance names before downloading
+their combat events, with a coverage note. Raid support is deferred until a later
+scope update after raids unlock.
+
 Optimization and Scenarios now use `ForeverCoaching.PublicReportCatalog`.
 The normal pages do not read personal comparison rows, show a **You** column,
 give mistake verdicts, or offer a next-fight comparison goal. Automatic companion
@@ -23,8 +40,9 @@ excerpt counts, not extrapolated to full-fight cast rates. Scenarios shows the
 same selected run's bounded spell sequence, self-applied buffs and explicit item
 uses. These are observed actions, not an optimal APL or a ranking.
 
-The bundled catalog currently contains one real cached Shadowfang Keep example
-from `gFd1CVbHJqkKwfMN`. No additional records were fabricated. To populate every
+The initial bundled catalog contains a real cached Shadowfang Keep example
+from `gFd1CVbHJqkKwfMN`; local refreshes can contain further retrieved entries.
+No additional records are fabricated. To populate every
 player/spec/dungeon segment from the two supplied public reports, run the new
 developer collector in the authenticated terminal:
 

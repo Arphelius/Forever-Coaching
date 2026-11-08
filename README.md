@@ -10,8 +10,13 @@ source's spell usage, timing, explicit item uses and logged output. The catalog
 includes only supplied, retrieved public reports, not every log on the service.
 Fights are still being logged and combat is still being tested: these examples
 are not guaranteed to be the best possible outcome. Use them at your discretion.
-The bundled starting entry is a real cached Shadowfang Keep excerpt; refresh the
-two known reports to collect all their recorded dungeon/spec combinations.
+The catalog starts with a real cached Shadowfang Keep excerpt and expands as
+supplied public reports are retrieved. Refresh the source reports for new data.
+
+Optimization and Scenarios support the **35 pre-raid dungeons/wings** in
+[the dungeon roster](data/forever-dungeons.json). Missing report data is labeled
+**awaiting reports for this spec**; supported scope is not presented as populated
+coverage. Raids are excluded from the current public-report collector.
 See [public report data and limitations](docs/warcraftlogs.md).
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
