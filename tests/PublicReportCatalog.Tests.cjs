@@ -1,5 +1,8 @@
 const assert=require('assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
 const {collectPublicReports,writePublicCatalog}=require('../tools/Build-PublicReportCatalog.cjs');
+const {extractReportCodes,readReportPages}=require('../tools/saved-report-pages.cjs');
+assert.deepEqual(extractReportCodes(`<a href='/reports/PublicReport0001?fight=1'>one</a><a href="https://forever.warcraftlogs.com/reports/PublicReport0001">duplicate</a><a href="https://example.com/reports/PublicReport0002">foreign</a><script>/reports/PublicReport0003</script>`),['PublicReport0001'],'Only valid Forever report hyperlinks, deduplicated; never execute saved scripts');
+const pageTemp=fs.mkdtempSync(path.join(os.tmpdir(),'saved-report-pages-'));try{fs.writeFileSync(path.join(pageTemp,'dungeon.html'),`<a href='/reports/PublicReport0001'>run</a>`);assert.deepEqual(readReportPages(pageTemp),{codes:['PublicReport0001'],pages:1});fs.writeFileSync(path.join(pageTemp,'next.html'),`<a href='/reports/PublicReport0002'>run</a>`);assert.equal(readReportPages(pageTemp).codes.length,2);}finally{fs.rmSync(pageTemp,{recursive:true,force:true});}
 assert.throws(()=>writePublicCatalog({examples:[],scan:{reports:0,rankedCandidates:0},notes:['Fixture authentication failure']},'unused'),/Examined 0 reports; scored 0 candidates\.[\s\S]*Fixture authentication failure/,'Empty scans must explain the actual failure before preserving the catalog');
 const {toLua}=require('../tools/foreverlogs-review.cjs');
 const {dungeons,resolveDungeon}=require('../tools/forever-dungeons.cjs');

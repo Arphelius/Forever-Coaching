@@ -6,13 +6,14 @@ const {addonDirectory}=require('./coaching-delivery.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
 const {encounterRotations,isDungeonRun}=require('./combat-rotations.cjs');
 const {scanReports}=require('./public-report-scan.cjs');
+const {readReportPages}=require('./saved-report-pages.cjs');
 const KNOWN_REPORTS=['bcVxQRyHF6qjXhLk','gFd1CVbHJqkKwfMN','ZT329XazM8GAphBf'];
 function spellsFromActions(actions){
  const counts=new Map();for(const e of actions){if(!e.spellID)continue;const row=counts.get(e.spellID)||{spellID:e.spellID,name:e.name,count:0};row.count++;counts.set(e.spellID,row);}
  return [...counts.values()].sort((a,b)=>b.count-a.count||a.spellID-b.spellID).slice(0,20);
 }
 async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient(),discover=true,maxReports=500,maxPages=100}={}){
- const codes=[...new Set(reports.map(reportCode))];if(!codes.length||codes.length>100)throw Error('Supply one to one hundred public report codes.');
+ const codes=[...new Set(reports.map(reportCode))];if(!codes.length||codes.length>5000)throw Error('Supply one to five thousand public report codes.');
  const found=await scanReports(client,codes,{discover,maxReports,maxPages,zoneIDs:[3000]});
  const examples=[],notes=[...found.notes],coverage=[],candidates=new Map(),streams=new Map();
  for(const report of found.reports){
@@ -87,9 +88,10 @@ function writePublicCatalog(catalog,destination){
  try{fs.writeFileSync(tmp,'-- Public Warcraft Logs examples. No credentials or personal comparisons.\nForeverCoaching=ForeverCoaching or {}\nForeverCoaching.PublicReportCatalog='+toLua(catalog)+'\n',{flag:'wx'});fs.renameSync(tmp,destination);}finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}
 }
 if(require.main===module){
- const args=process.argv.slice(2);let reports=KNOWN_REPORTS,gameRoot;const limits={};
+ const args=process.argv.slice(2);let reports=KNOWN_REPORTS,gameRoot,reportPages;const limits={};
  try{
-  for(let i=0;i<args.length;i+=2){if(args[i]==='--reports'&&args[i+1])reports=args[i+1].split(',');else if(args[i]==='--game-root'&&args[i+1])gameRoot=args[i+1];else if(['--max-pages','--max-reports'].includes(args[i])&&args[i+1])limits[args[i]==='--max-pages'?'maxPages':'maxReports']=Number(args[i+1]);else throw Error('Use --reports CODE,CODE, optional --game-root PATH, --max-pages N and --max-reports N.');}
+  for(let i=0;i<args.length;i+=2){if(args[i]==='--reports'&&args[i+1])reports=args[i+1].split(',');else if(args[i]==='--report-pages'&&args[i+1])reportPages=args[i+1];else if(args[i]==='--game-root'&&args[i+1])gameRoot=args[i+1];else if(['--max-pages','--max-reports'].includes(args[i])&&args[i+1])limits[args[i]==='--max-pages'?'maxPages':'maxReports']=Number(args[i+1]);else throw Error('Use --reports CODE,CODE, --report-pages HTML_FILE_OR_FOLDER, optional --game-root PATH, --max-pages N and --max-reports N.');}
+  if(reportPages){const saved=readReportPages(reportPages);reports=[...new Set([...reports,...saved.codes])];console.log(`Loaded ${saved.codes.length} report links from ${saved.pages} saved pages. Only links present in those pages are included; additional website pages may exist.`);}
   collectPublicReports({reports,...limits}).then(catalog=>{
    const destination=path.resolve(__dirname,'../addons/ForeverCoaching/Data/PublicReportCatalog.lua');
    writePublicCatalog(catalog,destination);
