@@ -475,7 +475,8 @@ function W:GetPublicReportModel()
  if current and selection.publicLiveSpec~=current then selection.publicSpec=current;selection.publicEncounter=nil;selection.publicLiveSpec=current end
  local selected=selection.publicSpec or current or specs[1] and specs[1].value
  if selected~=current and not seen[selected]then selected=specs[1] and specs[1].value;selection.publicSpec=selected end
- local choices,encounters,groups={},{},{}
+ local choices,encounters,groups,allDungeons={},{},{},{}
+ for _,entry in ipairs(examples)do allDungeons[entry.dungeonKey or entry.instance]=true end
  for _,entry in ipairs(examples)do if entry.specKey==selected then
   local groupKey=entry.dungeonKey or entry.instance;groups[groupKey]=groups[groupKey] or {};groups[groupKey][#groups[groupKey]+1]=entry
  end end
@@ -553,9 +554,9 @@ function W:GetPublicReportModel()
  local firstAvailable,covered=nil,0
  for _,dungeon in ipairs(roster)do
   local rows,sections=rotationRows(groups[dungeon.key]);local key='dungeon:'..dungeon.key
-  choices[key]={instance=dungeon.name,rows=rows,sections=sections,hasReports=groups[dungeon.key]~=nil}
+  choices[key]={instance=dungeon.name,rows=rows,sections=sections,hasReports=groups[dungeon.key]~=nil,otherSpecs=allDungeons[dungeon.key]}
   if #rows>0 then covered=covered+1;firstAvailable=firstAvailable or key end
-  encounters[#encounters+1]={value=key,dungeonKey=dungeon.key,label=dungeon.name..(#rows>0 and '' or groups[dungeon.key] and ' / awaiting encounter rotations' or ' / awaiting reports for this spec')}
+  encounters[#encounters+1]={value=key,dungeonKey=dungeon.key,label=dungeon.name..(#rows>0 and '' or groups[dungeon.key] and ' / awaiting encounter rotations' or allDungeons[dungeon.key] and ' / other specs available' or ' / no reports loaded')}
  end
  local key=selection.publicEncounter
  if not key or not choices[key]then key=selection.publicDungeon and ('dungeon:'..selection.publicDungeon);if not key or not choices[key]then key=firstAvailable or encounters[1] and encounters[1].value end;selection.publicEncounter=key end
@@ -566,7 +567,8 @@ function W:GetPublicReportModel()
  if entry and #entry.rows==0 then
   model.metrics=entry.instance..' / awaiting public reports'
   model.status=entry.hasReports and 'Public logs are loaded, but complete ranked dungeon rotations are not available yet. Refresh the public catalog to collect full sequences and output scores.' or
-   entry.instance..' is supported. No public-report example is loaded for this spec yet. Fights are still being logged; this does not mean the dungeon or spec is unsupported.'
+   entry.otherSpecs and (entry.instance..' has public reports for other specs. Choose another spec to see its recorded examples. No example is loaded for the selected spec.') or
+   entry.instance..' is supported. No public-report example is loaded for this dungeon yet. The current scan did not retrieve usable runs; public reports may still exist on the website.'
  elseif entry then
   model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / full recorded combat rotations'
   model.status='Highest recorded output for the selected class/spec, role and difficulty. Combat casts retain their timing and repetitions.'

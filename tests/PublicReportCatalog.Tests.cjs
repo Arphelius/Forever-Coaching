@@ -101,6 +101,11 @@ local savedSpell=sample.rotations[1].opener[1].spellID
 sample.rotations[1].opener[1].spellID=6603;assert(not w:PreparePublicExample(sample),'Reject automatic attacks in supplied rotation summaries');sample.rotations[1].opener[1].spellID=savedSpell
 local savedEnd=sample.rotations[1]['end'];sample.rotations[1]['end']=sample.duration+1;assert(not w:PreparePublicExample(sample),'Reject summaries outside the recorded run');sample.rotations[1]['end']=savedEnd
 sample.player='Fixture |cffff0000 markup';local clean=assert(w:PreparePublicExample(sample));assert(clean.player:find('||c',1,true))
+local partial={schema=1,source='Warcraft Logs',examples={}}
+for _,e in ipairs(TestCatalog.examples)do if not (e.class=='SHAMAN' and e.spec=='Enhancement' and e.dungeonKey=='shadowfang-keep')then partial.examples[#partial.examples+1]=e end end
+fc.PublicReportCatalog=partial;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:shadowfang-keep'))
+assert(w:GetPublicReportModel().status:find('other specs',1,true),'Distinguish other-spec reports from missing dungeon data')
+local otherLabel=false;for _,option in ipairs(w:GetPublicReportModel().encounters)do if option.value=='dungeon:shadowfang-keep'then otherLabel=option.label:find('other specs available',1,true)end end;assert(otherLabel)
 fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local full=w:GetPublicReportModel();assert(full.rows[1].reference:find('200.0 DPS',1,true),'Choose highest output, not first stored example')
 local page=fc:BuildOptimizationPage(parent)
