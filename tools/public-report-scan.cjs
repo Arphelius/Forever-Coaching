@@ -1,6 +1,6 @@
 const {reportCode}=require('./warcraftlogs-client.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
-async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=100,zoneIDs=[]}={}){
+async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=100,zoneIDs=[],onProgress=()=>{}}={}){
  if(!Number.isSafeInteger(maxReports)||maxReports<1||maxReports>5000||!Number.isSafeInteger(maxPages)||maxPages<1||maxPages>1000)throw Error('Invalid public report scan limits.');
  const queue=[...new Set(seeds.map(reportCode))],seen=new Set(queue),reports=[],scopes=[],scopeKeys=new Set(),notes=[];
  for(const zoneID of zoneIDs){if(!Number.isSafeInteger(zoneID)||zoneID<=0)throw Error('Invalid public report zone.');const key='zone:'+zoneID;if(!scopeKeys.has(key)){scopeKeys.add(key);scopes.push({gameZone:null,zoneID});}}
@@ -9,12 +9,13 @@ async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=1
   while(cursor<queue.length&&cursor<maxReports){
    const code=queue[cursor++];
    try{
+    onProgress(`Reading report ${cursor}/${Math.min(queue.length,maxReports)}: ${code}`);
     const report=await client.report(code);reports.push(report);
     for(const fight of report.fights){const dungeon=resolveDungeon(fight.gameZone?.name,fight.name);if(!dungeon||!Number.isSafeInteger(fight.gameZone?.id)||!Number.isSafeInteger(report.zone?.id))continue;
      const key=fight.gameZone.id+':'+report.zone.id+':'+report.masterData.gameVersion;
      if(!scopeKeys.has(key)){scopeKeys.add(key);scopes.push({gameZone: fight.gameZone.id,zoneID:report.zone.id});}
     }
-   }catch(error){incomplete=true;notes.push(`${code}: ${error.message}`);}
+   }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;incomplete=true;notes.push(`${code}: ${error.message}`);}
   }
  }
  await loadQueued();
@@ -31,7 +32,7 @@ async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=1
      if(added===0){incomplete=true;notes.push('Instance discovery repeated a page; scanning stopped for that scope.');break;}
      if(page===maxPages||cursor>=maxReports){incomplete=true;notes.push('Public report discovery reached a configured limit; coverage is incomplete.');break;}
     }
-   }catch(error){incomplete=true;notes.push('Instance discovery unavailable: '+error.message);}
+   }catch(error){if(error.code==='WCL_RATE_LIMIT')throw error;incomplete=true;notes.push('Instance discovery unavailable: '+error.message);}
    if(cursor>=maxReports)break;
   }
  }else if(discover){incomplete=true;notes.push('Instance discovery is unavailable; only supplied reports were examined.');}

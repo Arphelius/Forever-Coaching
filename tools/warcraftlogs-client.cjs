@@ -14,6 +14,7 @@ function reportCode(value){
 async function jsonRequest(url,options,fetcher=fetch){
  const response=await fetcher(url,{...options,redirect:'error',signal:AbortSignal.timeout(30000)});
  if(!response.ok){
+  if(response.status===429){const error=new Error('Warcraft Logs rate limit reached. Scan stopped; existing catalog preserved. Retry after the API limit resets.');error.code='WCL_RATE_LIMIT';throw error;}
   const stage=new URL(url).pathname==='/oauth/token'?'authentication':'GraphQL API';
   throw Error(response.status===429?'Warcraft Logs rate limit reached; retry later.':
    response.status===404?`Warcraft Logs ${stage} endpoint not found (404). Check the service address; this is not an invalid-credentials verdict.`:

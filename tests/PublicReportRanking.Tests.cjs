@@ -27,6 +27,12 @@ async function main(){
  const failures=await collectPublicReports({reports:[codes[0]],client:{...client,events:async code=>code===codes[2]?{complete:false,events:[]}:client.events(code)}});
  assert(failures.scan.incomplete&&failures.notes.some(n=>n.includes('incomplete')));
  assert(failures.examples.every(e=>e.code===codes[1]),'Fall back only when the higher-scored run cannot be fully retrieved, with explicit coverage warning');
+ const limited=()=>{const e=new Error('Rate limited');e.code='WCL_RATE_LIMIT';throw e;};
+ let limitedCalls=0;
+ await assert.rejects(collectPublicReports({reports:codes,client:{...client,report:async()=>{limitedCalls++;limited();}}}),e=>e.code==='WCL_RATE_LIMIT');
+ assert.equal(limitedCalls,1,'Stop immediately rather than requesting every report after throttling');
+ await assert.rejects(collectPublicReports({reports:[codes[0]],discover:false,client:{...client,observedPlayers:async()=>limited()}}),e=>e.code==='WCL_RATE_LIMIT','Scoring rate limits must abort before catalog delivery');
+ await assert.rejects(collectPublicReports({reports:[codes[0]],discover:false,client:{...client,events:async()=>limited()}}),e=>e.code==='WCL_RATE_LIMIT','Event rate limits must preserve the previous catalog');
  console.log('PASS: later-page instance discovery, all-report output scoring, DPS/HPS/tank separation, one coherent winning run, event-cache reuse, full sequences and incomplete-scan/fetch disclosure. Synthetic reports only.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
