@@ -217,7 +217,7 @@ assert(reviewButton);reviewButton.scripts.OnClick(reviewButton)
 local selector,status
 for _,f in ipairs(TestFrames)do if f:IsShown() then
  if f.text=='Instance / encounter' then selector=f end
- if f.text=='No Warcraft Logs comparison data is connected for this selection.' then status=f end
+ if type(f.text)=='string' and f.text:find('No public-report example is loaded for this spec yet.',1,true) then status=f end
  assert(not (f.title and f.title.text=='WHAT YOU DID WELL'),'Normal review no longer uses generic finding cards')
 end end
 assert(selector and status,'Comparison selectors and honest missing-data status must exist')

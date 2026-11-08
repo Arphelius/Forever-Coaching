@@ -7,6 +7,8 @@ function run(code){if(lauxlib.luaL_dostring(L,to_luastring(code))!==lua.LUA_OK)t
 run('unpack=unpack or table.unpack');
 for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Core/TalentSnapshot.lua','addons/ForeverCoaching/Data/LevelingBuilds.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Core/BuildPlanner.lua','addons/ForeverCoaching/Core/EncounterCoach.lua','addons/ForeverCoaching/Core/FightRecorder.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/ForeverCoaching.lua'])run(fs.readFileSync(file,'utf8'));
 run(fs.readFileSync('addons/ForeverCoaching/UI/EncounterLearning.lua','utf8'));
+// Retained comparison APIs/UI fallback, not the normal public-example browser.
+run('ForeverCoaching.WarcraftLogs.GetPublicReportModel=nil');
 function fixture(number){
  const actor={id:1,name:'Fixture',server:'TestRealm',subType:'Shaman',type:'Player'};
  const fight={id:number,name:'Fixture Boss '+number,encounterID:70+number,difficulty:3,gameZone:{id:30+number,name:'Fixture Dungeon '+number},startTime:0,endTime:60000,kill:true,friendlyPlayers:[1],friendlySpecs:['Enhancement']};

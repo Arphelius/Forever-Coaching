@@ -29,6 +29,7 @@ function run(code){if(lauxlib.luaL_dostring(L,to_luastring(code))!==lua.LUA_OK)t
 run(fs.readFileSync('tests/CombatReviewHarness.lua','utf8'));
 run(fs.readFileSync('addons/ForeverCoaching/Core/CombatReview.lua','utf8'));
 run(fs.readFileSync('addons/ForeverCoaching/Core/WarcraftLogs.lua','utf8'));
+run('ForeverCoaching.WarcraftLogs.GetPublicReportModel=nil'); // Legacy comparison fallback only.
 run(`UnitName=function()return 'Tester' end;GetRealmName=function()return 'Test Realm' end
 UnitClass=function()return 'Shaman','SHAMAN' end;UnitGUID=function()return 'Player-test' end
 UnitAffectingCombat=function()return false end

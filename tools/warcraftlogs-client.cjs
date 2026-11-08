@@ -136,6 +136,20 @@ function profile(report,fight,actor,stream){
  const level=Number.isSafeInteger(combatant?.level)?combatant.level:Number.isSafeInteger(actor.level)?actor.level:null;
  return {report,fight,actor,spec:specFor(report,fight,actor),level,complete:stream.complete,duration:(fight.endTime-fight.startTime)/1000,casts,counts,deaths,timeline,events,abilities};
 }
+function recordedScenario(peer,sourceURL){
+ const own=peer.events.filter(e=>e.sourceID===peer.actor.id).sort((a,b)=>a.timestamp-b.timestamp);
+ const action=e=>{const itemID=e.itemID??e.itemId;return {
+  at:(e.timestamp-peer.fight.startTime)/1000,
+  spellID:Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0?e.abilityGameID:undefined,
+  name:peer.abilities.get(e.abilityGameID)||(Number.isSafeInteger(itemID)&&itemID>0?e.itemName||'Item #'+itemID:'Spell #'+e.abilityGameID),
+  ...(Number.isSafeInteger(itemID)&&itemID>0?{itemID}:{}),
+ };};
+ const casts=own.filter(e=>e.type==='cast'&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
+ const items=own.filter(e=>['cast','useitem'].includes(e.type)&&Number.isSafeInteger(e.itemID??e.itemId)&&(e.itemID??e.itemId)>0);
+ const buffs=own.filter(e=>e.type==='applybuff'&&e.targetID===peer.actor.id&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
+ return {sourceURL,duration:peer.duration,casts:casts.slice(0,100).map(action),castCount:casts.length,
+  items:items.slice(0,50).map(action),itemCount:items.length,buffs:buffs.slice(0,50).map(action),buffCount:buffs.length};
+}
 function compare(target,references,options={}){
  const good=[],observations=[],improve=[];
  const stamp=e=>((e.timestamp-target.fight.startTime)/1000).toFixed(1)+'s';
@@ -154,20 +168,7 @@ function compare(target,references,options={}){
  // from several players' cast frequencies. Equipment alone is not item use.
  if(coaching.ready&&compatible.length){
   const peer=compatible[0],source=coaching.context.referencePlayers[0];
-  const own=peer.events.filter(e=>e.sourceID===peer.actor.id).sort((a,b)=>a.timestamp-b.timestamp);
-  const action=e=>{const itemID=e.itemID??e.itemId;return {
-   at:(e.timestamp-peer.fight.startTime)/1000,
-   spellID:Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0?e.abilityGameID:undefined,
-   name:peer.abilities.get(e.abilityGameID)||(Number.isSafeInteger(itemID)&&itemID>0?e.itemName||'Item #'+itemID:'Spell #'+e.abilityGameID),
-   ...(Number.isSafeInteger(itemID)&&itemID>0?{itemID}:{}),
-  };};
-  const casts=own.filter(e=>e.type==='cast'&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
-  const items=own.filter(e=>['cast','useitem'].includes(e.type)&&Number.isSafeInteger(e.itemID??e.itemId)&&(e.itemID??e.itemId)>0);
-  const buffs=own.filter(e=>e.type==='applybuff'&&e.targetID===peer.actor.id&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0);
-  comparison.scenario={sourceURL:source.url,duration:peer.duration,
-   casts:casts.slice(0,100).map(action),castCount:casts.length,
-   items:items.slice(0,50).map(action),itemCount:items.length,
-   buffs:buffs.slice(0,50).map(action),buffCount:buffs.length};
+  comparison.scenario=recordedScenario(peer,source.url);
  }
  // Keep multiple decision areas visible rather than filling all cards with
  // frequency checks for the first few abilities in a spell list.
@@ -188,4 +189,4 @@ function encodeReview(target,analysis){
  const fields=['FCWCL1',target.report.code,target.fight.id,target.actor.name,target.actor.server||'',target.actor.subType?.toUpperCase(),target.spec||'Unknown',target.fight.encounterID,target.fight.name,Math.round(target.report.startTime+target.fight.startTime),Math.round(target.duration*1000),analysis.good,analysis.observations,analysis.improve,analysis.timeline,analysis.references,analysis.coverage];
  const result=fields.map(v=>encodeURIComponent(String(v??''))).join('|');if(result.length>60000)throw Error('Review too large for import.');return result;
 }
-module.exports={HOST,reportCode,createClient,specFor,profile,compare,encodeReview};
+module.exports={HOST,reportCode,createClient,specFor,profile,recordedScenario,compare,encodeReview};

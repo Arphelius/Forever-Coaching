@@ -1,5 +1,53 @@
 # Warcraft Logs Optimization
 
+## Current mode: public examples, comparisons paused
+
+Optimization and Scenarios now use `ForeverCoaching.PublicReportCatalog`.
+The normal pages do not read personal comparison rows, show a **You** column,
+give mistake verdicts, or offer a next-fight comparison goal. Automatic companion
+comparison ingestion is paused while this catalog is loaded. Legacy comparison
+APIs and utilities below remain for future work, not the normal player flow.
+
+Both pages always show:
+
+> Fights are still being logged and combat is still being tested. These public-report examples are not guaranteed to be the best possible outcome. Use them at your discretion.
+
+The spec selector lists specs actually recorded in the catalog. The readable
+current spec is also available as an explicit empty state if no example exists.
+The encounter selector lists all supplied player/run examples for the selected
+spec, across all recorded dungeons; it does not discard entries because they are
+slower, have deaths, or lack a matching personal fight. Source-reported roles
+remain visible; missing roles/output stay unknown. Unsuccessful and partial
+segments are labeled. Spell counts from cached/truncated data are labeled as
+excerpt counts, not extrapolated to full-fight cast rates. Scenarios shows the
+same selected run's bounded spell sequence, self-applied buffs and explicit item
+uses. These are observed actions, not an optimal APL or a ranking.
+
+The bundled catalog currently contains one real cached Shadowfang Keep example
+from `gFd1CVbHJqkKwfMN`. No additional records were fabricated. To populate every
+player/spec/dungeon segment from the two supplied public reports, run the new
+developer collector in the authenticated terminal:
+
+```powershell
+node tools/Build-PublicReportCatalog.cjs --game-root "D:\World of Warcraft\_forever_"
+```
+
+Default sources are `bcVxQRyHF6qjXhLk` and `gFd1CVbHJqkKwfMN`.
+`--reports CODE,CODE` supplies a different explicit public report list. No
+character selection, percentile, personal comparison or public-search feature
+is required. Each report segment's events are downloaded once and reused for
+all its players. Missing output tables do not discard recorded spell examples.
+The source `Data/PublicReportCatalog.lua` and optional installed copy are
+updated; zero collected examples preserve the previous catalog. API failures
+and metadata omissions are reported. Adding a new report later expands coverage;
+no complete/live index of every report on Warcraft Logs is claimed.
+
+This public-only module is intentionally included in releases. Personal review
+files remain excluded. First installation adds a TOC entry and requires a game
+restart; later catalog refreshes can use `/reload`.
+
+## Retained comparison implementation (paused)
+
 The Optimization tab replaces Combat Review. Choose **Spec** and
 **Instance / encounter** to compare your actions with matching references,
 followed by one **Next fight** practice goal. Scenarios shares this selection

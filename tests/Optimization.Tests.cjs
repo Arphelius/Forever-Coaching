@@ -97,6 +97,7 @@ async function main(){
  run('unpack=unpack or table.unpack');
  for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
  run('Payload='+toLua(results[0].analysis.comparison)+';Code='+toLua(results[0].importCode));
+ run('ForeverCoaching.WarcraftLogs.GetPublicReportModel=nil'); // Compare API retained while the player browser pauses comparisons.
  const deathAnalysis=compare(target,[{...peer,deaths:[{timestamp:50000}]}],{mode:'observed'});
  run('DeathPayload='+toLua(deathAnalysis.comparison)+';DeathCode='+toLua(encodeReview(target,deathAnalysis)));
  run(`

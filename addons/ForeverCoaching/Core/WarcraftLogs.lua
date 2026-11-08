@@ -11,6 +11,7 @@ local function saved()
  local db=ForeverCoachingDB.warcraftLogs;db.reviews=db.reviews or {};return db
 end
 function W:LoadCompanionReviews()
+ if FC.PublicReportCatalog then return 0 end -- Personal comparisons are paused in public-example mode.
  if safe(UnitAffectingCombat,'player')==true then return end
  local db=saved();db.companionReceipts=db.companionReceipts or {ids={},order={}}
  local receipts=db.companionReceipts
@@ -336,6 +337,95 @@ function W:GetReviews()
  local guid=safe(UnitGUID,'player');local result={}
  for _,review in ipairs(saved().reviews) do if guid and review.character==guid then result[#result+1]=review end end
  return result
+end
+W.publicNotice='Fights are still being logged and combat is still being tested. These public-report examples are not guaranteed to be the best possible outcome. Use them at your discretion.'
+function W:PreparePublicExample(raw)
+ if type(raw)~='table' or type(raw.code)~='string' or #raw.code~=16 or not raw.code:match('^%w+$') then return end
+ for _,value in ipairs({raw.fightID or false,raw.actorID or false,raw.instanceId or false,raw.encounterId or false})do if not finite(value) or value<=0 or value%1~=0 then return end end
+ if type(raw.class)~='string' or not raw.class:match('^[A-Z]+$') or type(raw.spec)~='string' or raw.spec=='' or
+  type(raw.player)~='string' or raw.player=='' or not finite(raw.duration) or raw.duration<=0 or raw.duration>86400 or
+  not finite(raw.difficulty) or not finite(raw.recordedDeaths) or raw.recordedDeaths<0 or raw.recordedDeaths%1~=0 or
+  not ({dps=true,healer=true,tank=true,unknown=true})[raw.role] or type(raw.complete)~='boolean' or type(raw.kill)~='boolean' or
+  type(raw.spellCountsComplete)~='boolean' or type(raw.scenario)~='table' or type(raw.spells)~='table' or #raw.spells>20 then return end
+ if raw.started~=nil and (not finite(raw.started) or raw.started<=0)then return end
+ if raw.metric~=nil and (raw.metric~=(raw.role=='healer' and 'hps' or 'dps') or raw.role=='unknown')then return end
+ if raw.performance~=nil and (not raw.metric or not finite(raw.performance) or raw.performance<0)then return end
+ local url='https://forever.warcraftlogs.com/reports/'..raw.code..'#fight='..raw.fightID..'&source='..raw.actorID
+ if raw.scenario.sourceURL~=url or raw.scenario.duration~=raw.duration then return end
+ local scenario={player=displayText(raw.player,100),url=url,duration=raw.duration,basis='public report example'}
+ for _,kind in ipairs({'casts','items','buffs'})do
+  local countKey=kind=='casts' and 'castCount' or kind=='items' and 'itemCount' or 'buffCount'
+  local list,count=raw.scenario[kind],raw.scenario[countKey];local limit=kind=='casts' and 100 or 50
+  if type(list)~='table' or #list>limit or not finite(count) or count%1~=0 or count<#list then return end
+  scenario[kind]={};scenario[countKey]=count;local last=-1
+  for _,event in ipairs(list)do
+   if type(event)~='table' or not finite(event.at) or event.at<0 or event.at<last or event.at>raw.duration then return end
+   local spell=finite(event.spellID) and event.spellID>0 and event.spellID%1==0 and event.spellID
+   local item=finite(event.itemID) and event.itemID>0 and event.itemID%1==0 and event.itemID
+   local name=displayText(event.name,180)
+   if not name or name=='' or kind=='items' and not item or kind~='items' and not spell then return end
+   last=event.at;scenario[kind][#scenario[kind]+1]={at=event.at,name=name,spellID=spell,itemID=item}
+  end
+ end
+ local rows,seen={},{}
+ for _,spell in ipairs(raw.spells)do
+  if type(spell)~='table' or not finite(spell.spellID) or spell.spellID<=0 or spell.spellID%1~=0 or seen[spell.spellID] or
+   not finite(spell.count) or spell.count<1 or spell.count%1~=0 or spell.count>scenario.castCount or type(spell.name)~='string' or spell.name=='' then return end
+  seen[spell.spellID]=true
+  rows[#rows+1]={action=displayText(spell.name,180),reference=raw.spellCountsComplete and (spell.count..' uses / '..string.format('%.1f casts/min',spell.count*60/raw.duration)) or (spell.count..' uses in recorded excerpt')}
+ end
+ return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
+  instance=displayText(raw.instance,120) or 'Instance',encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
+  role=raw.role,metric=raw.metric,performance=raw.performance,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
+  started=raw.started or 0,rows=rows,scenario=scenario,excerpt=not raw.spellCountsComplete}
+end
+function W:PublicExamples()
+ local source=FC.PublicReportCatalog
+ if source==self.publicSource then return self.publicExamples or {}end
+ self.publicSource=source;self.publicExamples={}
+ if type(source)~='table' or source.schema~=1 or source.source~='Warcraft Logs' or type(source.examples)~='table' then return self.publicExamples end
+ local seen={}
+ for _,raw in ipairs(source.examples)do
+  local ok,entry=pcall(self.PreparePublicExample,self,raw)
+  if ok and entry and not seen[entry.key] then seen[entry.key]=true;self.publicExamples[#self.publicExamples+1]=entry end
+ end
+ return self.publicExamples
+end
+function W:SetPublicSpec(key)
+ local model=self:GetPublicReportModel()
+ for _,option in ipairs(model.specs)do if option.value==key then local selection=comparisonSelection();selection.publicSpec=key;selection.publicEncounter=nil;if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
+ return false
+end
+function W:SetPublicEncounter(key)
+ for _,entry in ipairs(self:PublicExamples())do if entry.key==key and entry.specKey==self:GetPublicReportModel().selectedSpec then comparisonSelection().publicEncounter=key;if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
+ return false
+end
+function W:GetPublicReportModel()
+ local examples=self:PublicExamples();local specs,seen={},{};local selection=comparisonSelection();local current,class=liveSpec()
+ for _,entry in ipairs(examples)do if not seen[entry.specKey]then seen[entry.specKey]=true;specs[#specs+1]={value=entry.specKey,label=entry.class:sub(1,1)..entry.class:sub(2):lower()..' / '..entry.spec..(entry.specKey==current and ' (current)' or '')}end end
+ table.sort(specs,function(a,b)return a.label<b.label end)
+ if current and not seen[current]then table.insert(specs,1,{value=current,label=(class or 'Current')..' / Current spec (no public example yet)'})end
+ if current and selection.publicLiveSpec~=current then selection.publicSpec=current;selection.publicEncounter=nil;selection.publicLiveSpec=current end
+ local selected=selection.publicSpec or current or specs[1] and specs[1].value
+ if selected~=current and not seen[selected]then selected=specs[1] and specs[1].value;selection.publicSpec=selected end
+ local choices,encounters={},{}
+ for _,entry in ipairs(examples)do if entry.specKey==selected then
+  choices[entry.key]=entry;encounters[#encounters+1]={value=entry.key,label=entry.instance..' / '..entry.player..' / '..entry.role..' / fight '..entry.key:match(':(%d+):')}
+ end end
+ table.sort(encounters,function(a,b)return a.label==b.label and a.value<b.value or a.label<b.label end)
+ local key=selection.publicEncounter;if not key or not choices[key]then key=encounters[1] and encounters[1].value;selection.publicEncounter=key end
+ local model={referenceOnly=true,notice=self.publicNotice,specs=specs,selectedSpec=selected,encounters=encounters,selectedEncounter=key,
+  rows={},ready=false,metrics='Public report examples',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
+ local entry=key and choices[key]
+ if entry then
+  model.ready=true;model.rows=entry.rows;model.scenario=entry.scenario
+  model.metrics=entry.spec..' / '..entry.instance..' / '..entry.encounter
+  model.status=entry.player..' / '..entry.role..(entry.performance and (' / recorded '..string.format('%.1f %s',entry.performance,entry.metric:upper())) or '')..
+   '\n'..(entry.kill and 'Completed encounter' or 'Attempt ended without a kill')..' / '..entry.recordedDeaths..' recorded deaths'..
+   (entry.excerpt and ' / spell counts cover the recorded excerpt.' or '.')..(not entry.complete and ' Partial event stream.' or '')..
+   '\nExamples cover supplied public reports, not every log on Warcraft Logs.'
+ end
+ return model
 end
 function W:Select(offset)
  local list=self:GetReviews();if #list==0 then return end

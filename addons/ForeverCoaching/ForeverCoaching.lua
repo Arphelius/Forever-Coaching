@@ -300,7 +300,7 @@ end
 local pages = {
     Rotation = {
         heading = "Optimization",
-        description = "Compare your actions with matching damage, healing or tank references.",
+        description = "Browse recorded spells and output from public dungeon reports. Comparisons are paused.",
         cards = {},
     },
     Talents = {
@@ -309,7 +309,7 @@ local pages = {
         cards = {},
     },
     Scenarios = {
-        heading = "Reference Scenarios",
+        heading = "Public Report Scenarios",
         description = "Recorded spells, timing and item uses for your chosen spec and encounter.",
         cards = {},
     },

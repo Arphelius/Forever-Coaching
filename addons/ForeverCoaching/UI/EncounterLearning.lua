@@ -5,21 +5,22 @@ function FC:BuildParserScenarioPage(parent)
  local W=self.WarcraftLogs;local Theme=self.ClassicTheme
  local document=Theme:Document(parent,Theme.METRICS.documentTop)
  local toolbar=Theme:Toolbar(parent,Theme.METRICS.toolbarTop,14)
- local spec=self:GuidePicker(parent,0,0,240,function(key)W:SetComparisonSpec(key)end)
- local encounter=self:GuidePicker(parent,0,0,360,function(key)W:SetComparisonEncounter(key)end)
+ local spec=self:GuidePicker(parent,0,0,240,function(key)if W.GetPublicReportModel then W:SetPublicSpec(key)else W:SetComparisonSpec(key)end end)
+ local encounter=self:GuidePicker(parent,0,0,360,function(key)if W.GetPublicReportModel then W:SetPublicEncounter(key)else W:SetComparisonEncounter(key)end end)
  toolbar:Add(spec,0);toolbar:Add(encounter,12);toolbar:SetFlexible(encounter,160)
  local function draw()
-  local model=W:GetComparisonModel();document:Reset()
+  local model=W.GetPublicReportModel and W:GetPublicReportModel() or W:GetComparisonModel();document:Reset()
   spec:SetOptions(model.specs,model.selectedSpec,'Choose spec')
   encounter:SetOptions(model.encounters,model.selectedEncounter,'Choose instance / encounter')
   local replay=model.scenario
+  if model.notice then document:Line(model.notice,false,'caution')end
   if not replay then
-   document:Line(model.ready and 'This comparison has no recorded reference sequence yet.' or 'No matching reference scenario data is connected for this selection.')
+   document:Line(model.referenceOnly and model.status or model.ready and 'This comparison has no recorded reference sequence yet.' or 'No matching reference scenario data is connected for this selection.')
   else
    document:Line(model.metrics,true)
    document:Line(replay.player..' / '..(replay.basis or '100 percentile')..' / '..string.format('%.1fs',replay.duration))
    document:Line(model.status)
-   document:Line('Follow the recorded spell order and timing for this encounter. Adapt to your assignments and available abilities; this is one player\'s run.')
+   document:Line('This is one recorded sequence, not a guaranteed optimal rotation. Adapt to your assignments and available abilities.')
    local function actions(title,kind,countKey)
     document:Line(title..' ('..#replay[kind]..' / '..replay[countKey]..' recorded)',true)
     if #replay[kind]==0 then

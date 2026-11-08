@@ -4,14 +4,15 @@ Forever Coaching combines talent builds, class guides, combat recording and figh
 reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
-Optimization shows player actions beside matching observed DPS, healer or tank
-damage references. It can work without percentiles, using the highest observed
-output in the scanned report sample; verified 100-parse data remains a separate
-supported source. Scenarios uses recorded spell order, timing and logged item uses.
-Both pages share spec and encounter selectors. The developer API connection has
-retrieved a real report; observed-reference discovery still needs live validation.
-No real rankings are bundled or automatically fetched by the addon.
-See [Warcraft Logs data and limitations](docs/warcraftlogs.md).
+Optimization and Scenarios currently browse **public report examples**; personal
+comparisons are paused. Select a recorded spec and dungeon/player run to see the
+source's spell usage, timing, explicit item uses and logged output. The catalog
+includes only supplied, retrieved public reports, not every log on the service.
+Fights are still being logged and combat is still being tested: these examples
+are not guaranteed to be the best possible outcome. Use them at your discretion.
+The bundled starting entry is a real cached Shadowfang Keep excerpt; refresh the
+two known reports to collect all their recorded dungeon/spec combinations.
+See [public report data and limitations](docs/warcraftlogs.md).
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
 specialization and role. Practical summaries are checked against current tuning;
