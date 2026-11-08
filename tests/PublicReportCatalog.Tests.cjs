@@ -50,6 +50,7 @@ async function main(){
  const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.scenario.castCount=44;
  winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
  winner.rotations[0].damage=[{spellID:101,name:'Trash damage ability',amount:300}];
+ winner.rotations[1].damage=[{spellID:101,name:'Boss damage ability',amount:150},{spellID:6603,name:'Melee',amount:50}];
  winner.rotations.push({...structuredClone(winner.rotations[0]),start:1,end:19,damage:[{spellID:101,name:'Trash damage ability',amount:200}]});
  run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner]}));
  run(`
@@ -109,6 +110,7 @@ assert(#page.model.sections==2 and page.model.selectedSection=='trash','Trash an
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Winner boss',1,true),'Trash view must not dump boss casts')end
 assert(w:SetPublicSection('boss:winner boss'))
 assert(page.model.sectionLabel=='Winner boss')
+local bossTotal,bossAbility=false,false;for _,row in ipairs(page.model.rows)do if row.reference:find('200 total damage',1,true)then bossTotal=true end;if row.reference:find('Boss damage ability / 150 damage / 75.0%%')then bossAbility=true end;assert(not row.reference:find('Trash damage ability',1,true),'Boss damage excludes trash')end;assert(bossTotal and bossAbility,'Boss sections show encounter damage totals and percentages')
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Trash mobs',1,true),'Boss view must not dump trash casts')end
 assert(not w:SetPublicSection('boss:invented'),'Reject missing encounters')
 assert(w:SetPublicSection('trash'))
@@ -119,7 +121,7 @@ assert(#page.model.rows==0 and page.model.selectedSection==nil,'Dungeon changes 
 assert(w:SetPublicSpec('SHAMAN:enhancement') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local tail,boss=false,false
 for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
-assert(not tail and boss and #full.rows==4,'Keep bosses separate and summarize trash once')
+assert(not tail and boss and #full.rows==6,'Keep bosses separate and summarize trash once')
 local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()

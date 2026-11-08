@@ -521,6 +521,17 @@ function W:GetPublicReportModel()
      end
     else
     if r.kind=='boss' and not r.kill then title=title..' / attempt'end
+    if r.damage then
+     local spells,total={},0
+     for _,spell in ipairs(r.damage)do spells[#spells+1]=spell;total=total+spell.amount end
+     table.sort(spells,function(a,b)return a.amount>b.amount end)
+     addRow({action=title..' / total damage',reference=string.format('%.0f total damage during this encounter.',total)})
+     for first=1,#spells,8 do
+      local lines={}
+      for i=first,math.min(first+7,#spells)do local spell=spells[i];lines[#lines+1]=string.format('%s / %.0f damage / %.1f%%',spell.name,spell.amount,total>0 and spell.amount*100/total or 0)end
+      addRow({action='Damage by ability',reference=table.concat(lines,'\n')})
+     end
+    else addRow({action=title..' / damage',reference='Refresh public reports to load damage by ability for this encounter.'})end
     if #r.steps==0 then addRow({action=title,reference='No qualifying combat ability casts were identified for this encounter.'})end
     for first=1,#r.steps,8 do
      local lines={}
