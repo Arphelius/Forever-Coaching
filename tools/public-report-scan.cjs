@@ -1,8 +1,9 @@
 const {reportCode}=require('./warcraftlogs-client.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
-async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=100}={}){
+async function scanReports(client,seeds,{discover=true,maxReports=500,maxPages=100,zoneIDs=[]}={}){
  if(!Number.isSafeInteger(maxReports)||maxReports<1||maxReports>5000||!Number.isSafeInteger(maxPages)||maxPages<1||maxPages>1000)throw Error('Invalid public report scan limits.');
  const queue=[...new Set(seeds.map(reportCode))],seen=new Set(queue),reports=[],scopes=[],scopeKeys=new Set(),notes=[];
+ for(const zoneID of zoneIDs){if(!Number.isSafeInteger(zoneID)||zoneID<=0)throw Error('Invalid public report zone.');const key='zone:'+zoneID;if(!scopeKeys.has(key)){scopeKeys.add(key);scopes.push({gameZone:null,zoneID});}}
  let cursor=0,pages=0,incomplete=false;
  async function loadQueued(){
   while(cursor<queue.length&&cursor<maxReports){

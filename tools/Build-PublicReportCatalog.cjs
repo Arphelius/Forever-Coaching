@@ -13,7 +13,7 @@ function spellsFromActions(actions){
 }
 async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient(),discover=true,maxReports=500,maxPages=100}={}){
  const codes=[...new Set(reports.map(reportCode))];if(!codes.length||codes.length>100)throw Error('Supply one to one hundred public report codes.');
- const found=await scanReports(client,codes,{discover,maxReports,maxPages});
+ const found=await scanReports(client,codes,{discover,maxReports,maxPages,zoneIDs:[3000]});
  const examples=[],notes=[...found.notes],coverage=[],candidates=new Map(),streams=new Map();
  for(const report of found.reports){
   const code=report.code;

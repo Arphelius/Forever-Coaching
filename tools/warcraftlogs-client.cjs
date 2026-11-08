@@ -83,7 +83,7 @@ function createClient({clientId=process.env.WCL_CLIENT_ID,clientSecret=process.e
   return rows;
  }
  async function instanceReports(gameZoneID,page=1,{zoneID,startTime,endTime}={}){
-  const data=await query('query($zone:Int!,$page:Int!,$rankingZone:Int,$start:Float,$end:Float){reportData{reports(gameZoneID:$zone,zoneID:$rankingZone,startTime:$start,endTime:$end,page:$page,limit:10){data{code} has_more_pages}}}',{zone:gameZoneID,page,rankingZone:zoneID,start:startTime,end:endTime});
+  const data=await query('query($zone:Int,$page:Int!,$rankingZone:Int,$start:Float,$end:Float){reportData{reports(gameZoneID:$zone,zoneID:$rankingZone,startTime:$start,endTime:$end,page:$page,limit:10){data{code} has_more_pages}}}',{zone:gameZoneID??null,page,rankingZone:zoneID,start:startTime,end:endTime});
   const reports=data.reportData?.reports;
   if(!Array.isArray(reports?.data))throw Error('Public instance report discovery is unavailable.');
   return {codes:reports.data.map(r=>reportCode(r.code)),hasMore:reports.has_more_pages===true};

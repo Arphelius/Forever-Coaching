@@ -8,11 +8,12 @@ const make=code=>({code,startTime:1793900000000,zone:{id:3000},masterData:{gameV
  fights:[{id:1,name:'Ruins of Lordaeron',encounterID:12999,difficulty:10,gameZone:{id:2999,name:'Ruins of Lordaeron'},startTime:0,endTime:60000,kill:true,inProgress:false,friendlyPlayers:[1,2,3],friendlySpecs:['Enhancement','Holy','Protection'],dungeonPulls:[{id:1,name:'Trash',encounterID:0,startTime:0,endTime:25000,kill:true},{id:2,name:'Fixture boss',encounterID:999,startTime:26000,endTime:60000,kill:true}]}]});
 async function main(){
  const eventCalls=[],scoreCalls=[],pageCalls=[];
- const client={report:async code=>make(code),instanceReports:async(zone,page,scope)=>{assert.equal(zone,2999);assert.deepEqual(scope,{zoneID:3000},'Scan historical instance reports without a seven-day cutoff');pageCalls.push(page);return {codes:[codes[page===1?1:2]],hasMore:page===1};},
+ const client={report:async code=>make(code),instanceReports:async(zone,page,scope)=>{assert(zone===null||zone===2999);assert.deepEqual(scope,{zoneID:3000},'Scan historical instance reports without a seven-day cutoff');if(zone===null){assert.equal(page,1);return {codes:[codes[1]],hasMore:false};}pageCalls.push(page);return {codes:[codes[page===1?1:2]],hasMore:page===1};},
  observedPlayers:async(code,fight,metric)=>{scoreCalls.push(code+':'+metric);const index=codes.indexOf(code);return actors.map(a=>({id:a.id,role:a.id===2?'healer':a.id===3?'tank':'dps',total:(a.id===2?[3000,9000,6000]:[3000,6000,12000])[index]}));},
  events:async(code)=>{eventCalls.push(code);const index=codes.indexOf(code);return {complete:true,events:actors.flatMap(a=>Array.from({length:index===0?12:4},(_,i)=>{const timestamp=i<2?1000+i*1000:28000+i*1000;return [{timestamp,type:'cast',sourceID:a.id,abilityGameID:index===2?102:101},{timestamp:timestamp+1,type:'damage',sourceID:a.id,abilityGameID:index===2?102:101}];}).flat())};}};
  const result=await collectPublicReports({reports:[codes[0]],client});
  assert.deepEqual(pageCalls,[1,2]);assert.equal(result.scan.reports,3);assert.equal(result.scan.incomplete,false);
+ assert.equal(result.scan.discoveryPages,3,'Scan the zone-wide report listing as well as known dungeon scopes');
  assert.equal(result.examples.length,3);
  assert.equal(result.scan.rankedCandidates,9,'Count every scored class/spec run across the discovered reports');
  const dps=result.examples.find(e=>e.role==='dps'),healer=result.examples.find(e=>e.role==='healer'),tank=result.examples.find(e=>e.role==='tank');

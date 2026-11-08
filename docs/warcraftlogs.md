@@ -399,3 +399,13 @@ Primary API references:
 - https://www.warcraftlogs.com/v2-api-docs/warcraft/encounter.doc.html
 - https://br.warcraftlogs.com/v2-api-docs/warcraft/reportfight.doc.html
 - https://ru.warcraftlogs.com/v2-api-docs/warcraft/gamezone.doc.html
+# Public dungeon discovery
+
+The public catalog collector scans the zone-wide report listing for Forever zone
+3000, as well as dungeon scopes learned from retrieved reports. This lets reports
+from dungeons absent from the initial seed links enter the candidate pool. Only
+supported, identifiable dungeons with usable completion, spec and output metadata
+are included. Pagination and report limits still apply; this is not a verified
+global ranking. Re-run `tools/Build-PublicReportCatalog.cjs` in the authenticated
+terminal to refresh the installed catalog, then reload WoW.
+
