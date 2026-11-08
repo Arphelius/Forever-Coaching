@@ -6,7 +6,7 @@ const {addonDirectory}=require('./coaching-delivery.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
 const {encounterRotations,isDungeonRun}=require('./combat-rotations.cjs');
 const {scanReports}=require('./public-report-scan.cjs');
-const KNOWN_REPORTS=['bcVxQRyHF6qjXhLk','gFd1CVbHJqkKwfMN'];
+const KNOWN_REPORTS=['bcVxQRyHF6qjXhLk','gFd1CVbHJqkKwfMN','ZT329XazM8GAphBf'];
 function spellsFromActions(actions){
  const counts=new Map();for(const e of actions){if(!e.spellID)continue;const row=counts.get(e.spellID)||{spellID:e.spellID,name:e.name,count:0};row.count++;counts.set(e.spellID,row);}
  return [...counts.values()].sort((a,b)=>b.count-a.count||a.spellID-b.spellID).slice(0,20);

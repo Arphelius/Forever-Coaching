@@ -1,6 +1,34 @@
 local FC=ForeverCoaching
 local CreateFrame=FC.CreateLocalizedFrame or CreateFrame
 
+function FC:BuildOptimizationPage(parent)
+ local W=self.WarcraftLogs;local Theme=self.ClassicTheme;local M=Theme.METRICS
+ local document=Theme:Document(parent,M.documentTop)
+ local toolbar=Theme:Toolbar(parent,M.toolbarTop,M.pagePadding)
+ local spec=self:GuidePicker(parent,0,0,220,function(key)W:SetPublicSpec(key)end)
+ local dungeon=self:GuidePicker(parent,0,0,235,function(key)W:SetPublicEncounter(key)end)
+ local encounter=self:GuidePicker(parent,0,0,235,function(key)W:SetPublicSection(key)end)
+ toolbar:Add(spec,0);toolbar:Add(dungeon,8);toolbar:Add(encounter,8);toolbar:SetFlexible(encounter,150)
+ local view={parent=parent,document=document,specPicker=spec,dungeonPicker=dungeon,sectionPicker=encounter,toolbar=toolbar}
+ function view.refresh()
+  local model=W:GetOptimizationModel();view.model=model;document:Reset()
+  spec:SetOptions(model.specs,model.selectedSpec,'Choose spec')
+  dungeon:SetOptions(model.encounters,model.selectedEncounter,'Choose dungeon')
+  encounter:SetOptions(model.sections,model.selectedSection,'Choose encounter')
+  document:Line(model.notice,false,'caution')
+  document:Line(model.metrics,true)
+  document:Line(model.status,false,'muted')
+  if model.sectionLabel then document:Line(model.sectionLabel,true)end
+  for _,row in ipairs(model.rows)do document:Group(row.action,row.reference)end
+  document:Finish()
+ end
+ self.optimizationView=view;view.refresh()
+ local listener=CreateFrame('Frame',nil,parent)
+ for _,event in ipairs({'PLAYER_TALENT_UPDATE','TRAIT_CONFIG_UPDATED','ACTIVE_TALENT_GROUP_CHANGED','PLAYER_SPECIALIZATION_CHANGED'})do pcall(listener.RegisterEvent,listener,event)end
+ listener:SetScript('OnEvent',function()if parent:IsShown()then view.refresh()end end)
+ return view
+end
+
 function FC:BuildWarcraftLogsPanel(parent,width)
  if not self.WarcraftLogs then return end
  local panel=CreateFrame('Frame',nil,parent)

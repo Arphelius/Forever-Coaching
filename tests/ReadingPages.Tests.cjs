@@ -216,11 +216,12 @@ run(`local reviewButton;for _,f in ipairs(TestFrames)do if f.navigationIndex==3 
 assert(reviewButton);reviewButton.scripts.OnClick(reviewButton)
 local selector,status
 for _,f in ipairs(TestFrames)do if f:IsShown() then
- if f.text=='Dungeon' then selector=f end
+ if f==ForeverCoaching.optimizationView.dungeonPicker then selector=f end
  if type(f.text)=='string' and f.text:find('No public-report example is loaded for this spec yet.',1,true) then status=f end
  assert(not (f.title and f.title.text=='WHAT YOU DID WELL'),'Normal review no longer uses generic finding cards')
 end end
 assert(selector and status,'Comparison selectors and honest missing-data status must exist')
+assert(ForeverCoaching.optimizationView.document and ForeverCoaching.optimizationView.sectionPicker,'Optimization uses the same reading document as Learn and Scenarios with an encounter picker')
 local ancestor=selector.parent;while ancestor and ancestor~=ForeverCoachingFrame do ancestor=ancestor.parent end
 assert(ancestor==ForeverCoachingFrame,'Comparison controls belong to the main dashboard')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No standalone Warcraft Logs window remains')

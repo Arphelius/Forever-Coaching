@@ -1,5 +1,6 @@
 const assert=require('assert/strict');
-const {collectPublicReports}=require('../tools/Build-PublicReportCatalog.cjs');
+const {collectPublicReports,KNOWN_REPORTS}=require('../tools/Build-PublicReportCatalog.cjs');
+assert(KNOWN_REPORTS.includes('ZT329XazM8GAphBf'),'Include the supplied boss-rotation example in seed report collection');
 const {scanReports}=require('../tools/public-report-scan.cjs');
 const codes=['RankReport000001','RankReport000002','RankReport000003'];
 const actors=[{id:1,type:'Player',name:'Anonymous DPS',subType:'Shaman'},{id:2,type:'Player',name:'Anonymous Healer',subType:'Priest'},{id:3,type:'Player',name:'Anonymous Tank',subType:'Warrior'}];

@@ -398,6 +398,8 @@ end
 
 function FC:RefreshCombatReview()
     UpdateReviewText()
+    local view=self.optimizationView
+    if view and view.parent:IsShown() then view.refresh() end
 end
 
 local function ShowTab(tabName)
@@ -447,6 +449,12 @@ local function ShowTab(tabName)
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
 
     if tabName == "Rotation" then
+        if FC.BuildOptimizationPage and FC.WarcraftLogs and FC.WarcraftLogs.GetPublicReportModel then
+            FC:BuildOptimizationPage(currentPage)
+            if frame:IsShown() and FC.CombatReview then FC.CombatReview:MarkLatestViewed()end
+            UpdateCharacterInfo()
+            return
+        end
         local comparisonView=FC.WarcraftLogs and FC.BuildWarcraftLogsPanel
         if not comparisonView then
             local toolbar=Theme:Toolbar(currentPage,M.toolbarTop)

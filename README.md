@@ -5,12 +5,15 @@ reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
 Optimization shows **full combat rotations from the highest-output matching dungeon run**; personal
-comparisons are paused. Select a recorded spec and dungeon to follow the selected
+comparisons are paused. Select **Spec → Dungeon → Encounter** to follow the selected
 class/spec winner's entire trash and boss sequences, with timing and repeat counts.
 The collector scores available runs by dungeon DPS, healer HPS, or tank DPS;
 it follows discovery pages and keeps each winning run coherent across encounters.
 Player names and non-combat actions are hidden. Search limits and unavailable
 reports are disclosed; this is not a verified ranking across every log on the service.
+Optimization uses the same scrollable reading panel and highlighted cards as Learn
+and Scenarios. The encounter picker separates **Trash mobs** and each named boss;
+only the chosen section is displayed, with its complete sequence.
 Fights are still being logged and combat is still being tested: these examples
 are not guaranteed to be the best possible outcome. Use them at your discretion.
 The catalog starts with a real cached Shadowfang Keep excerpt and expands as

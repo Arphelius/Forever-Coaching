@@ -1,5 +1,28 @@
 # Warcraft Logs Optimization
 
+## Encounter picker and shared reading layout
+
+Optimization now uses the same `ClassicTheme:Document` reading panel, wrapped
+cards and scroll behavior as Learn and Scenarios. The toolbar has three selectors:
+**Spec → Dungeon → Encounter**. The encounter menu lists **Trash mobs** and each
+named boss from the selected winning run. Trash shows all its recorded pulls;
+selecting a boss shows only that boss's full sequence and any recorded attempts.
+Long sequences continue through additional cards without dropping later casts.
+Names of source players remain hidden. The ongoing-testing/discretion notice is
+retained above the selected encounter. Scenarios keeps its restored class guides.
+
+Encounter selection is saved per character and reset when spec/dungeon changes
+or a catalog refresh removes the selected boss. Stale content is hidden. If a
+run has named bosses but no supplied trash boundaries, Trash mobs shows an explicit
+unavailable state instead of invented casts.
+
+The supplied report `ZT329XazM8GAphBf` is included alongside the two existing seed
+reports for the next authenticated refresh. The user's example points to fight
+1, source 5, phase 1; no boss name, phase timing or winning score is invented from
+the URL alone. Its source-provided pull data is processed through the normal
+candidate scoring and full-sequence extraction. Refresh with the existing
+`Build-PublicReportCatalog.cjs` command to import it.
+
 ## Full rotations and highest-output run selection
 
 Optimization now displays the **entire qualifying combat-cast sequence** from

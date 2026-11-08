@@ -99,6 +99,21 @@ local savedEnd=sample.rotations[1]['end'];sample.rotations[1]['end']=sample.dura
 sample.player='Fixture |cffff0000 markup';local clean=assert(w:PreparePublicExample(sample));assert(clean.player:find('||c',1,true))
 fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local full=w:GetPublicReportModel();assert(full.rows[1].reference:find('200.0 DPS',1,true),'Choose highest output, not first stored example')
+local page=fc:BuildOptimizationPage(parent)
+fc.RefreshCombatReview=function(self)self.testPanel.refresh();if self.optimizationView and self.optimizationView.parent:IsShown()then self.optimizationView.refresh()end end
+assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker,'Use the shared Learn/Scenarios document layout with three direct selectors')
+assert(#page.model.sections==2 and page.model.selectedSection=='trash','Trash and each named boss are separate selectable sections')
+for _,row in ipairs(page.model.rows)do assert(not row.action:find('Winner boss',1,true),'Trash view must not dump boss casts')end
+assert(w:SetPublicSection('boss:winner boss'))
+assert(page.model.sectionLabel=='Winner boss')
+for _,row in ipairs(page.model.rows)do assert(not row.action:find('Trash mobs',1,true),'Boss view must not dump trash casts')end
+assert(not w:SetPublicSection('boss:invented'),'Reject missing encounters')
+assert(w:SetPublicSection('trash'))
+local last=false;for _,row in ipairs(page.model.rows)do if row.reference:find('Tail combat action',1,true)then last=true end end
+assert(last,'Selecting one encounter retains its entire rotation, including later chunks')
+assert(w:SetPublicEncounter('dungeon:shapers-terrace'))
+assert(#page.model.rows==0 and page.model.selectedSection==nil,'Dungeon changes clear stale encounter content')
+assert(w:SetPublicSpec('SHAMAN:enhancement') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local tail,boss=false,false
 for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
 assert(tail and boss and #full.rows==7,'Render the entire winner sequence beyond opener and chunk boundaries')

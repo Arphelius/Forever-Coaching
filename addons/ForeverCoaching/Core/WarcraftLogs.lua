@@ -482,16 +482,22 @@ function W:GetPublicReportModel()
   end
   local list={};for _,entry in pairs(best)do list[#list+1]=entry end
   table.sort(list,function(a,b)return a.role..a.difficulty..a.gameVersion<b.role..b.difficulty..b.gameVersion end)
-  local rows={}
+  local rows,sections,sectionMap={},{},{}
   for _,entry in ipairs(list)do
-   rows[#rows+1]={action='Highest observed '..entry.role..' run',reference=string.format('%.1f %s / same recorded difficulty and game version. All encounter sequences below follow this one run.',entry.performance,entry.metric:upper())}
+   local reference={action='Highest observed '..entry.role..' run',reference=string.format('%.1f %s / same recorded difficulty and game version. All encounter sequences below follow this one run.',entry.performance,entry.metric:upper())}
+   rows[#rows+1]=reference
    local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
    local trash=0
    for _,r in ipairs(rotations)do
     if r.kind=='trash' then trash=trash+1 end
     local title=r.kind=='trash' and ('Trash mobs / pull '..trash) or r.name
+    local sectionKey=r.kind=='trash' and 'trash' or 'boss:'..r.name:lower()
+    local section=sectionMap[sectionKey]
+    if not section then section={value=sectionKey,label=r.kind=='trash' and 'Trash mobs' or r.name,rows={},sources={}};sectionMap[sectionKey]=section;sections[#sections+1]=section end
+    if not section.sources[entry.key]then section.sources[entry.key]=true;section.rows[#section.rows+1]=reference end
+    local function addRow(row)rows[#rows+1]=row;section.rows[#section.rows+1]=row end
     if r.kind=='boss' and not r.kill then title=title..' / attempt'end
-    if #r.steps==0 then rows[#rows+1]={action=title,reference='No qualifying combat ability casts were identified for this encounter.'}end
+    if #r.steps==0 then addRow({action=title,reference='No qualifying combat ability casts were identified for this encounter.'})end
     for first=1,#r.steps,8 do
      local lines={}
      for i=first,math.min(first+7,#r.steps)do
@@ -499,24 +505,26 @@ function W:GetPublicReportModel()
       if step['end']>step.at then time=time..string.format('-%.1fs',step['end'])end
       lines[#lines+1]=time..'  '..step.name..(step.count>1 and (' x'..step.count) or '')
      end
-     rows[#rows+1]={action=first==1 and title or (title..' (continued)'),reference=table.concat(lines,'\n')}
+     addRow({action=first==1 and title or (title..' (continued)'),reference=table.concat(lines,'\n')})
     end
    end
   end
-  return rows
+  if #sections>0 and not sectionMap.trash then sections[#sections+1]={value='trash',label='Trash mobs',rows={{action='Trash mobs',reference='No trash-pull data is available for the selected run.'}}}end
+  table.sort(sections,function(a,b)if a.value==b.value then return false end;if a.value=='trash' or b.value=='trash'then return a.value=='trash'end;return a.label<b.label end)
+  return rows,sections
  end
  local roster=FC.SupportedDungeons or {};if not FC.SupportedDungeons then for key,entries in pairs(groups)do roster[#roster+1]={key=key,name=entries[1].instance}end;table.sort(roster,function(a,b)return a.name<b.name end)end
  local firstAvailable,covered=nil,0
  for _,dungeon in ipairs(roster)do
-  local rows=rotationRows(groups[dungeon.key]);local key='dungeon:'..dungeon.key
-  choices[key]={instance=dungeon.name,rows=rows,hasReports=groups[dungeon.key]~=nil}
+  local rows,sections=rotationRows(groups[dungeon.key]);local key='dungeon:'..dungeon.key
+  choices[key]={instance=dungeon.name,rows=rows,sections=sections,hasReports=groups[dungeon.key]~=nil}
   if #rows>0 then covered=covered+1;firstAvailable=firstAvailable or key end
   encounters[#encounters+1]={value=key,dungeonKey=dungeon.key,label=dungeon.name..(#rows>0 and '' or groups[dungeon.key] and ' / awaiting encounter rotations' or ' / awaiting reports for this spec')}
  end
  local key=selection.publicEncounter
  if not key or not choices[key]then key=selection.publicDungeon and ('dungeon:'..selection.publicDungeon);if not key or not choices[key]then key=firstAvailable or encounters[1] and encounters[1].value end;selection.publicEncounter=key end
  local model={referenceOnly=true,notice=self.publicNotice,specs=specs,selectedSpec=selected,encounters=encounters,selectedEncounter=key,
-  rows={},ready=false,rotationView=true,supportedDungeonCount=#roster,coveredDungeonCount=covered,
+  rows={},sections={},ready=false,rotationView=true,supportedDungeonCount=#roster,coveredDungeonCount=covered,
   metrics='Observed encounter rotations',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
  local entry=key and choices[key]
  if entry and #entry.rows==0 then
@@ -524,12 +532,28 @@ function W:GetPublicReportModel()
   model.status=entry.hasReports and 'Public logs are loaded, but complete ranked dungeon rotations are not available yet. Refresh the public catalog to collect full sequences and output scores.' or
    entry.instance..' is supported. No public-report example is loaded for this spec yet. Fights are still being logged; this does not mean the dungeon or spec is unsupported.'
  elseif entry then
-  model.ready=true;model.rows=entry.rows;model.metrics=entry.instance..' / full recorded combat rotations'
-  model.status='The highest-output matching class/spec run is selected for each role and recorded difficulty. Full combat sequences retain timing and repeated casts; source player names are hidden.'
+  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / full recorded combat rotations'
+  model.status='Highest recorded output for the selected class/spec, role and difficulty. Combat casts retain their timing and repetitions.'
  end
  local scan=FC.PublicReportCatalog and FC.PublicReportCatalog.scan
  if type(scan)=='table' and finite(scan.reports) then model.status=model.status..'\n'..scan.reports..' available public reports examined'..(finite(scan.rankedCandidates) and (' / '..scan.rankedCandidates..' class/spec runs scored.') or '.')..(scan.incomplete and ' Search coverage is incomplete.' or ' Available discovery pages were exhausted.')..' This is not a verified ranking across every log on Warcraft Logs.'end
  if model.supportedDungeonCount>0 then model.status=model.status..'\nExamples loaded for '..covered..' of '..model.supportedDungeonCount..' supported dungeons for this spec.'end
+ return model
+end
+function W:SetPublicSection(key)
+ local model=self:GetPublicReportModel()
+ for _,section in ipairs(model.sections or {})do if section.value==key then local selection=comparisonSelection();selection.publicSection=key;selection.publicSectionContext=(model.selectedSpec or '')..'@'..(model.selectedEncounter or '');if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
+ return false
+end
+function W:GetOptimizationModel()
+ local model=self:GetPublicReportModel();local selection=comparisonSelection()
+ local context=(model.selectedSpec or '')..'@'..(model.selectedEncounter or '')
+ if selection.publicSectionContext~=context then selection.publicSection=nil;selection.publicSectionContext=context end
+ local selected
+ for _,section in ipairs(model.sections or {})do if section.value==selection.publicSection then selected=section end end
+ selected=selected or model.sections and model.sections[1]
+ selection.publicSection=selected and selected.value;model.selectedSection=selection.publicSection
+ model.rows=selected and selected.rows or {};model.sectionLabel=selected and selected.label
  return model
 end
 function W:Select(offset)
