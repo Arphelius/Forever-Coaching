@@ -25,7 +25,13 @@ depends on incoming damage and assignments.
 
 References match class, spec, logged role, encounter, instance, difficulty, game
 version, known player level, dates within seven days and duration within 20%.
-The reference must survive a completed kill. Self-references are excluded.
+The reference must come from a complete event stream and completed kill.
+Observed whole-run references can include deaths: the recorded death count is
+displayed and sustained cast-frequency/aura-coverage coaching is withheld if
+either player died. Opener examples require three recorded casts before the
+first death in both runs. Whole-run output and recorded actions remain visible;
+they are not converted into automatic mistakes. Percentile references retain
+the separate surviving-player requirement. Self-references are excluded.
 Gear and talent allocations do not filter observed references or appear in the
 comparison; their effects on output still prevent a causal rotation verdict.
 The old exact-100 path remains separately validated for when rankings exist.

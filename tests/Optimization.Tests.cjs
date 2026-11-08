@@ -29,7 +29,15 @@ for(const [className,specs]of Object.entries(classes))for(const spec of specs){
  assert(result.coverage.includes('not compared, but still affect output'));
  if(role==='tank')assert(result.comparison.findings.some(f=>f.comparison?.action==='Tank DPS (threat unavailable)'));
  assert.equal(compare(target,peers).mentoring.ready,false,'Observed output must never pass as 100 percentile');
- for(const invalid of [{role:role==='tank'?'dps':'tank'},{level:60},{spec:'Other'},{complete:false},{performance:NaN},{deaths:[{}]}])assert(!compatible(target,{...peers[1],...invalid},100,'observed'));
+ for(const invalid of [{role:role==='tank'?'dps':'tank'},{level:60},{spec:'Other'},{complete:false},{performance:NaN}])assert(!compatible(target,{...peers[1],...invalid},100,'observed'));
+ const deadPeer={...peers[1],deaths:[{timestamp:50000}]};
+ const withDeath=compare(target,[deadPeer],{mode:'observed'});
+ assert(withDeath.mentoring.ready,'Completed observed runs remain usable when a reference died');
+ assert.equal(withDeath.comparison.context.referencePlayers[0].recordedDeaths,1);
+ assert(!withDeath.mentoring.findings.some(f=>['ability-use','aura-coverage'].includes(f.topic)),'Reference death withholds sustained coaching');
+ assert(withDeath.mentoring.findings.some(f=>f.topic==='opener'),'Pre-death opener remains an observed example');
+ assert(!compare(target,[{...deadPeer,deaths:[{timestamp:1500}]}],{mode:'observed'}).mentoring.findings.some(f=>f.topic==='opener'),'Do not combine casts across a death into an opener');
+ assert.equal(compare(target,[{...deadPeer,percentile:100}]).mentoring.ready,false,'Legacy percentile qualification stays strict');
  assert.equal(compare(target,[target],{mode:'observed'}).mentoring.ready,false,'Never compare to yourself');
 }
 async function main(){
@@ -89,6 +97,8 @@ async function main(){
  run('unpack=unpack or table.unpack');
  for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/Core/CombatReview.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
  run('Payload='+toLua(results[0].analysis.comparison)+';Code='+toLua(results[0].importCode));
+ const deathAnalysis=compare(target,[{...peer,deaths:[{timestamp:50000}]}],{mode:'observed'});
+ run('DeathPayload='+toLua(deathAnalysis.comparison)+';DeathCode='+toLua(encodeReview(target,deathAnalysis)));
  run(`
 UnitName=function()return 'Learner'end;GetRealmName=function()return 'Forever'end;UnitClass=function()return 'Shaman','SHAMAN'end;UnitGUID=function()return 'Player-fixture'end
 local fc=ForeverCoaching;local w=fc.WarcraftLogs
@@ -102,6 +112,12 @@ assert(model.nextFight:find('Fixture followup',1,true),'Action-linked next-fight
 local parent=CreateFrame('Frame');parent:SetSize(780,440);local panel=fc:BuildWarcraftLogsPanel(parent,728)
 fc:BuildEncounterLearningPage(parent,'Scenarios')
 assert(fc.parserScenarioView)
+assert(w:Import(DeathCode,DeathPayload))
+local deathModel=w:GetComparisonModel()
+assert(deathModel.status:find('1 recorded deaths',1,true) and deathModel.status:find('Sustained-rotation coaching withheld',1,true),'Display reference death caveat')
+for _,row in ipairs(deathModel.rows)do assert(not row.you:find('casts/min',1,true),'Do not render sustained-frequency grading from a dead reference')end
+DeathPayload.context.referencePlayers[1].recordedDeaths=-1;assert(not w:Import(DeathCode,DeathPayload),'Reject invalid death metadata')
+assert(w:Import(Code,Payload))
 Payload.context.referencePlayers[1].role='healer';assert(not w:Import(Code,Payload),'Reject role mixing');Payload.context.referencePlayers[1].role='dps'
 Payload.context.referencePlayers[1].percentile=100;assert(not w:Import(Code,Payload),'Observed is never relabeled a percentile');Payload.context.referencePlayers[1].percentile=nil
 UnitName=function()return 'Other player'end;UnitGUID=function()return 'Player-other'end

@@ -154,6 +154,7 @@ function W:PrepareComparison(payload,review)
  for _,peer in ipairs(context.referencePlayers or {})do
   if type(peer)~='table' or type(peer.player)~='string' or type(peer.realm)~='string' or (not observed and peer.percentile~=100) or
    (observed and (peer.percentile~=nil or peer.role~=context.role or peer.metric~=context.metric or not finite(peer.performance) or peer.performance<0)) or
+   (observed and peer.recordedDeaths~=nil and (not finite(peer.recordedDeaths) or peer.recordedDeaths<0 or peer.recordedDeaths%1~=0)) or
    peer.class~=context.class or peer.spec~=context.spec or peer.instanceId~=context.instanceId or
    peer.encounterId~=context.encounterId or peer.difficulty~=context.difficulty or peer.gameVersion~=context.gameVersion or
    type(peer.url)~='string' or not peer.url:match('^https://forever%.warcraftlogs%.com/reports/%w+#fight=%d+&source=%d+$') then
@@ -162,7 +163,7 @@ function W:PrepareComparison(payload,review)
   local code=peer.url:match('/reports/(%w+)');if #code~=16 then return nil,'Invalid reference report.' end
   local key=normalize(peer.player)..'@'..normalize(peer.realm)
   if key==normalize(review.player)..'@'..normalize(review.realm) or seen[key] then return nil,'Reference players must be independent.' end
-  seen[key]=true;peers[#peers+1]={player=displayText(peer.player,100),percentile=not observed and 100 or nil,url=peer.url,role=observed and context.role or nil,performance=observed and peer.performance or nil}
+  seen[key]=true;peers[#peers+1]={player=displayText(peer.player,100),percentile=not observed and 100 or nil,url=peer.url,role=observed and context.role or nil,performance=observed and peer.performance or nil,recordedDeaths=observed and peer.recordedDeaths or nil}
  end
  if #peers<(observed and 1 or 3) or observed and #peers~=1 then return nil,'The required matching reference sample is missing.' end
  local rows,nextFight={},nil
@@ -326,6 +327,7 @@ function W:GetComparisonModel()
   model.referenceHeading=entry.referenceMode=='observed' and (entry.role=='healer' and 'TOP OBSERVED HEALER' or entry.role=='tank' and 'TOP OBSERVED TANK DPS' or 'TOP OBSERVED DPS') or '100-PARSE PLAYERS'
   model.status='Typical values from '..entry.peerCount..' matching 100 parses / saved comparison'
   if entry.referenceMode=='observed' then model.status='Highest observed '..entry.role..' '..entry.metric:upper()..' in the scanned sample / '..entry.references[1].player..'. Not a percentile or global ranking.\nTalents and gear are not compared, but affect output.'..(entry.role=='tank' and ' Threat data is unavailable; this compares tank damage.' or entry.role=='healer' and ' Healing depends on incoming damage and assignments.' or '')end
+  if entry.referenceMode=='observed' and (entry.references[1].recordedDeaths or 0)>0 then model.status=model.status..'\nReference: '..entry.references[1].recordedDeaths..' recorded deaths. Sustained-rotation coaching withheld.'end
   model.metrics=entry.spec..' / '..entry.instance..' / '..entry.encounter
  end
  return model

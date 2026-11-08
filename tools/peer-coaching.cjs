@@ -8,7 +8,7 @@ const link=p=>`${HOST}/reports/${p.report.code}#fight=${p.fight.id}&source=${p.a
 const stamp=(p,event)=>((event.timestamp-p.fight.startTime)/1000).toFixed(1)+'s';
 function compatible(target,ref,minPercentile=100,mode='percentile'){
  const targetTalents=talentKey(target),referenceTalents=talentKey(ref);
- return (mode==='observed' ? ['dps','healer','tank'].includes(target.role)&&ref.role===target.role&&Number.isFinite(ref.performance)&&ref.performance>=0 : minPercentile===100&&ref.percentile===100)&&ref.complete&&!ref.deaths.length&&ref.fight.kill&&
+ return (mode==='observed' ? ['dps','healer','tank'].includes(target.role)&&ref.role===target.role&&Number.isFinite(ref.performance)&&ref.performance>=0 : minPercentile===100&&ref.percentile===100&&!ref.deaths.length)&&ref.complete&&ref.fight.kill&&
   typeof target.spec==='string'&&!['unknown','none',''].includes(normal(target.spec))&&ref.spec===target.spec&&
   typeof target.actor.subType==='string'&&ref.actor.subType===target.actor.subType&&
   ref.fight.encounterID===target.fight.encounterID&&target.fight.difficulty!=null&&ref.fight.difficulty===target.fight.difficulty&&
@@ -36,7 +36,10 @@ function castRows(p){
  }
  return rows;
 }
-function opening(p){return [...p.casts].sort((a,b)=>a.timestamp-b.timestamp).slice(0,3).map(e=>({name:spell(p,e.abilityGameID),time:stamp(p,e)}));}
+function opening(p,beforeDeath=false){
+ const cutoff=beforeDeath&&p.deaths.length?Math.min(...p.deaths.map(e=>Number.isFinite(e.timestamp)?e.timestamp:p.fight.startTime)):Infinity;
+ return [...p.casts].filter(e=>e.timestamp<cutoff).sort((a,b)=>a.timestamp-b.timestamp).slice(0,3).map(e=>({name:spell(p,e.abilityGameID),time:stamp(p,e)}));
+}
 function talentKey(p){
  const info=p.events.find(e=>e.type==='combatantinfo'&&e.sourceID===p.actor.id);
  if(!Array.isArray(info?.talents)||!info.talents.length)return null;
@@ -102,7 +105,7 @@ function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}
  const context={class:typeof target.actor.subType==='string'?target.actor.subType.toUpperCase():null,spec:target.spec,instanceId:target.fight.gameZone?.id,instance:target.fight.gameZone?.name,rankingZone:target.report.zone?.id,encounterId:target.fight.encounterID,encounter:target.fight.name,difficulty:target.fight.difficulty,
   gameVersion:target.report.masterData.gameVersion,minPercentile:observed?null:minPercentile,referenceMode:mode,role:observed?target.role:undefined,metric:observed?target.metric:undefined,peerCount:peers.length,
   talentMatches:sameBuild,talentSamples:known.length,targetTalentsKnown:!!targetTalents,
-  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server||'',class:p.actor.subType.toUpperCase(),spec:p.spec,percentile:observed?undefined:p.percentile,role:observed?p.role:undefined,metric:observed?p.metric:undefined,performance:observed?p.performance:undefined,instanceId:p.fight.gameZone.id,encounterId:p.fight.encounterID,difficulty:p.fight.difficulty,gameVersion:p.report.masterData.gameVersion,url:link(p)}))};
+  referencePlayers:peers.map(p=>({player:p.actor.name,realm:p.actor.server||'',class:p.actor.subType.toUpperCase(),spec:p.spec,percentile:observed?undefined:p.percentile,role:observed?p.role:undefined,metric:observed?p.metric:undefined,performance:observed?p.performance:undefined,recordedDeaths:observed?p.deaths.length:undefined,instanceId:p.fight.gameZone.id,encounterId:p.fight.encounterID,difficulty:p.fight.difficulty,gameVersion:p.report.masterData.gameVersion,url:link(p)}))};
  const eligible=target.complete&&target.fight.kill&&!!target.spec&&peers.length>=minPeers;
  if(!eligible){
   add('unavailable','coverage','Peer coaching not ready',`${peers.length}/${minPeers} independent compatible reference players available for ${target.spec||'an unknown spec'} on ${target.fight.name}.`,
@@ -118,7 +121,9 @@ function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}
   {action:target.role==='tank'?'Tank DPS (threat unavailable)':target.metric.toUpperCase(),you:target.performance,reference:peers[0].performance,unit:target.metric});
  const ownRows=castRows(target),peerRows=peers.map(castRows);
  // Deaths change opportunity. Do not interpret lost time as poor rotation.
- if(!target.deaths.length){
+ const referenceDied=observed&&peers.some(p=>p.deaths.length>0);
+ const sustained=!target.deaths.length&&!referenceDied;
+ if(sustained){
   const keys=new Set(peerRows.flatMap(rows=>[...rows.keys()]));
   for(const key of keys){
    const users=peerRows.filter(rows=>rows.has(key));if(users.length<minPeers||users.length/peers.length<.6)continue;
@@ -138,11 +143,11 @@ function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}
   }
  }
  const patterns=new Map();
- for(const peer of peers){const sequence=opening(peer);if(sequence.length!==3||new Set(sequence.map(s=>s.name)).size<2)continue;
+ for(const peer of peers){const sequence=opening(peer,observed);if(sequence.length!==3||new Set(sequence.map(s=>s.name)).size<2)continue;
   const key=JSON.stringify(sequence.map(s=>normal(s.name))),group=patterns.get(key)||{sequence,count:0};group.count++;patterns.set(key,group);}
  const pattern=[...patterns.values()].sort((a,b)=>b.count-a.count)[0];
- if(pattern&&pattern.count>=minPeers&&pattern.count/peers.length>=.6){
-  const own=opening(target),expected=pattern.sequence.map(s=>s.name).join(' -> '),actual=own.map(s=>s.name).join(' -> ')||'no cast events';
+ if(pattern&&pattern.count>=minPeers&&pattern.count/peers.length>=.6&&(!observed||opening(target,true).length===3)){
+  const own=opening(target,observed),expected=pattern.sequence.map(s=>s.name).join(' -> '),actual=own.map(s=>s.name).join(' -> ')||'no cast events';
   const matches=JSON.stringify(own.map(s=>normal(s.name)))===JSON.stringify(pattern.sequence.map(s=>normal(s.name)));
   add(matches?'good':'change','opener',matches?'Opening sequence matched peers':'A reference opener to practice',
    `Your first casts: ${actual}. ${pattern.count}/${peers.length} peers opened with ${expected}.`,
@@ -150,7 +155,7 @@ function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}
    matches?'Keep the opening order on equivalent pulls, adapting it when mechanics require.':
     `Before the next comparable pull, rehearse ${expected} if it fits your learned toolkit and assignment. Then compare the opening casts again.`,own.map(s=>`${s.time} ${s.name}`),{action:'Opening sequence',you:actual,reference:expected,unit:'sequence'});
  }
- if(!target.deaths.length){
+ if(sustained){
   const ownAuras=auraRows(target),peerAuras=peers.map(auraRows);
   for(const [key,row] of ownAuras){
    // Starting late can be a deliberate phase or target assignment. Restrict
@@ -177,6 +182,10 @@ function mentor(target,references,{minPercentile=100,minPeers,mode='percentile'}
   'Ability-frequency and aura-coverage coaching were withheld because this fight includes your death.',
   'Time spent dead is not equivalent to choosing the wrong rotation.',
   'Review the death first, then compare a surviving pull to assess your sustained rotation.');
+ if(referenceDied)add('context','opportunity','Reference includes recorded deaths',
+  'The reference completed the encounter but includes death-related downtime. Its observed output and spell sequence remain available; sustained cast-frequency and aura-coverage coaching were withheld.',
+  'Full-run output includes downtime. A reference death does not establish a rotation mistake by you.',
+  'Use only the recorded pre-death opener as a practice example; find a surviving reference before judging sustained rotation.');
  if(!findings.length)add('context','coverage','No stable rotation pattern established',
   'Compatible peers were found, but these checks did not establish a consistent opener, usage or coverage pattern.',
   'The absence of a difference is not a complete rotation grade.',

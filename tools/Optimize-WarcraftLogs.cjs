@@ -81,7 +81,7 @@ async function collectObserved({report:input,player,sourceID,referenceReports=[]
       if(examined>=maxProfiles){notes.push('Player-event scan limit reached for this encounter.');reject('player scan limit');break;}examined++;
       const ref=await load(report,other,who,metric,row);
       if(compatible(target,ref,100,'observed'))peers.push(ref);
-      else reject(ref.level!=null&&target.level!=null&&ref.level!==target.level?'different player level':!ref.complete?'partial events':ref.deaths.length?'reference player died':'other incompatible context');
+      else reject(ref.level!=null&&target.level!=null&&ref.level!==target.level?'different player level':!ref.complete?'partial events':'other incompatible context');
      }
     }
    }catch(error){reject('candidate fetch failed');notes.push('A candidate report was unavailable: '+error.message);}
@@ -124,6 +124,7 @@ if(require.main===module){
     for(const r of results){
      const context=r.analysis?.mentoring?.context,peer=context?.referencePlayers?.[0];
      console.log(`${r.encounter} / fight ${r.fightID}: ${r.analysis?.mentoring?.ready?`${context.role} reference ready / ${peer.player} / ${peer.performance.toFixed(1)} ${context.metric.toUpperCase()}`:'no compatible reference'}`);
+     if(peer?.recordedDeaths>0)console.log(`  Reference has ${peer.recordedDeaths} recorded deaths; sustained-rotation coaching withheld.`);
      if(context?.scan){console.log(`  Checked ${context.scan.reports} reports from ${context.scan.pages} discovery pages; examined ${context.scan.profiles} candidate player profiles.`);for(const [reason,count]of Object.entries(context.scan.rejected))console.log(`  Excluded ${count}: ${reason}.`);}
      for(const note of context?.scan?.notes||r.unavailable||[])console.log('  '+note);
     }
