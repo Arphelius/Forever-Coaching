@@ -18,7 +18,10 @@ function sample(advanced){
  line(5,'ENCOUNTER_START,99,"Fixture boss",1,5,48');
  line(6,event('SPELL_DAMAGE',guid,'0x511',[403,'"Lightning Bolt"',8,...fields]));
  line(7,event('SWING_DAMAGE',guid,'0x511',fields));line(7,event('SWING_DAMAGE_LANDED',guid,'0x511',fields));
- line(8,event('SPELL_HEAL',guid,'0x511',[331,'"Healing Wave"',8,...(advanced?Array(19).fill(0):[]),200,200,50,0]));
+ const friendly=value=>value.replace(enemy+',"Enemy",0x10a48',guid+',"Fixture",0x511');
+ line(8,friendly(event('SPELL_HEAL',guid,'0x511',[331,'"Healing Wave"',8,...(advanced?Array(19).fill(0):[]),200,200,50,0])));
+ line(8,friendly(event('SPELL_ABSORBED',enemy,'0x10a48',[guid,'"Fixture"','0x511',0,17,'"Power Word: Shield"',2,25,30,'nil'])));
+ line(8,friendly(event('SPELL_ABSORBED',enemy,'0x10a48',[403,'"Enemy spell"',8,guid,'"Fixture"','0x511',0,17,'"Power Word: Shield"',2,35,40,'nil'])));
  line(9,event('SPELL_CAST_SUCCESS',guid,'0x511',[403,'"Lightning Bolt"',8]));
  line(10,'ENCOUNTER_END,99,"Fixture boss",1,5,1,5000');
  line(12,event('SPELL_DAMAGE',guid,'0x511',[403,'"Lightning Bolt"',8,...fields]));
@@ -29,7 +32,7 @@ for(const advanced of [false,true]){
  const data=sample(advanced);assert.equal(data.malformedDamageEvents,0);assert.equal(data.fights.length,2,'One combined trash entry and one boss');
  assert(data.fights.every(v=>v.guid===guid),'Never import other group members');
  const boss=data.fights.find(v=>v.kind==='boss'),trash=data.fights.find(v=>v.kind==='trash');
- assert.equal(boss.damage.reduce((n,s)=>n+s.amount,0),200,'Exclude overkill and duplicate SWING_DAMAGE_LANDED');assert.equal(boss.healing,150);assert(boss.kill);assert.equal(boss.duration,5);
+ assert.equal(boss.damage.reduce((n,s)=>n+s.amount,0),200,'Exclude overkill and duplicate SWING_DAMAGE_LANDED');assert.equal(boss.healing,210,'Effective healing includes consumed shields from both absorbed-event layouts');assert(boss.kill);assert.equal(boss.duration,5);
  assert.equal(trash.damage.reduce((n,s)=>n+s.amount,0),300,'Trash excludes boss damage and other players');assert.equal(trash.duration,4,'Separate trash intervals exclude boss and downtime');
 }
 assert.throws(()=>logParser().consume('11/8/2026 15:00:00.000  COMBAT_LOG_VERSION,21,ADVANCED_LOG_ENABLED,1'),/not supported/);
@@ -47,11 +50,11 @@ for _,case in ipairs(cases)do
  ForeverCoachingDB={};fc.ForeverSpellCatalog={classes={[class]={spells={['Fixture class ability']={}}}}}
  local fight={id='1',guid='target-fixture',dungeonKey='blackfathom-deeps',kind='boss',name='Fixture boss',difficulty=1,started=1,duration=60,kill=true,deaths=0,healing=1200,damage={{spellID=1,name='Fixture class ability',amount=6000}},casts={{spellID=1,name='Fixture class ability',count=2}}}
  fc.PersonalCombatLog={schema=1,fights={fight,{id='alien',guid='other-character',duration=60,difficulty=1,damage={},casts={}}}}
- local peer={specKey=class..':fixture',spec=spec,class=class,dungeonKey='blackfathom-deeps',difficulty=10,role=role,complete=true,kill=true,rankingScope='dungeon',performance=200,rotations={{kind='boss',name='Fixture boss',fullSequence=true,complete=true,kill=true,start=0,['end']=60,damage={{amount=12000}},steps={{name='Fixture class ability',count=10}}}}}
+ local peer={specKey=class..':fixture',spec=spec,class=class,dungeonKey='blackfathom-deeps',difficulty=10,role=role,complete=true,kill=true,rankingScope='dungeon',performance=200,rotations={{kind='boss',name='Fixture boss',fullSequence=true,complete=true,kill=true,start=0,['end']=60,damage={{amount=12000}},healing={{amount=12000}},steps={{name='Fixture class ability',count=10}}}}}
  fc.WarcraftLogs={PublicExamples=function()return {peer}end,GetPublicReportModel=function()return {selectedSpec=class..':fixture'}end,GetLogging=function()return false end}
  local model=fc.MyLogs:GetModel();assert(#model.fights==1 and model.reference==peer and model.difficultyNotice:find('cannot be verified',1,true),'Match character/spec/encounter and disclose the separate difficulty namespaces')
  assert(model.review:find('2.0 uses/min',1,true) and model.next:find('Fixture class ability',1,true),'Coaching must explain measured cast-frequency differences')
- assert(model.yourOutput:find('100 DPS',1,true) and model.referenceOutput:find('200 DPS',1,true))
+ if role=='healer'then assert(model.outputHeading=='Healing done' and model.yourOutput:find('20 HPS',1,true) and model.referenceOutput:find('200 HPS',1,true) and not model.yourOutput:find('DPS',1,true),'Healers compare healing and HPS, not damage')else assert(model.yourOutput:find('100 DPS',1,true) and model.referenceOutput:find('200 DPS',1,true))end
  assert(model.message:find('does not verify',1,true),'Selected spec must not be presented as recorded fact')
  fight.character='Fixture-Normal-EU';peer.player='Fixture';assert(fc.MyLogs:GetModel().missing,'Skip a reference identifiable as the same character');fight.character=nil;peer.player=nil
  fc.MyLogs:SetRole(role=='tank' and 'healer' or 'tank');assert(fc.MyLogs:GetModel().missing,'Reference must match the selected role');fc.MyLogs:SetRole(role)

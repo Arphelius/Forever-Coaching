@@ -1,5 +1,17 @@
 # Warcraft Logs Optimization
 
+## Healer output
+
+Healer runs show **Healing done**, **HPS** and **Healing by ability** for Overall,
+trash and each boss. DPS and tank runs retain damage and DPS. Whole-run healing
+uses Warcraft Logs' healing total. Encounter breakdowns include effective heals
+and consumed shields to friendly players and identified friendly summons; overheal
+is not included. Warcraft Logs' `heal.amount` already excludes overheal, so it is
+not subtracted again. Missing healing data is shown as unavailable rather than
+replacing it with damage. My Logs likewise uses personal effective healing and
+HPS for healer-role comparisons. The local version-22 importer counts consumed
+shields attributed to the player from both raw `SPELL_ABSORBED` layouts.
+
 ## Overall and all scored logs
 
 Optimization now has a fourth picker, **Log**, for every eligible scored player-run
@@ -15,8 +27,8 @@ events have not been downloaded, its measured overall output remains available;
 boss/trash views explicitly say their details are unavailable. Another player's
 details are never substituted. Whole-run output comes from Warcraft Logs' player
 totals where available; per-ability bars show recorded direct effects and can omit
-pet attribution. Healer ranking uses HPS, while the Overall damage card uses the
-separate damage total; missing damage totals are not inferred from healing.
+pet attribution. Healer runs use healing totals and HPS throughout; other roles use
+damage totals and DPS. Neither metric is inferred from the other.
 
 ## My Logs: import your own fights
 
@@ -39,9 +51,8 @@ not the client difficulty ID; the tab explicitly discloses that exact reference
 difficulty cannot be verified. Heroic client runs are not substituted. The highest dungeon-output
 run with a usable matching section supplies the example; unrelated encounters and
 unfinished boss attempts are not substituted. Recorded direct damage, elapsed
-encounter DPS and class casts per minute are compared. Effective personal healing
-is also shown for healers, but encounter-specific reference healing is not yet in
-the catalog. Pet damage, gear, talents, buff uptime, threat and mechanic decisions
+encounter DPS and class casts per minute are compared for damage roles. Healers
+compare effective healing and HPS instead. Pet attribution, gear, talents, buff uptime, threat and mechanic decisions
 are not graded. Frequency differences prompt review; they are not proven mistakes.
 
 The private `Data/PersonalCombatLog.lua` contains at most 200 recent summaries from

@@ -22,6 +22,10 @@ function FC:BuildOptimizationPage(parent)
   document:Line(model.status,false,'muted')
   if model.sectionLabel then document:Line(model.sectionLabel,true)end
   for _,row in ipairs(model.rows)do
+   if row.totalHealing then
+    local total=row.totalHealing;local value=total>=1000000 and string.format('%.1fm',total/1000000) or total>=1000 and string.format('%.1fk',total/1000) or string.format('%.0f',total)
+    document:Group('Healing done',value..string.format(' healing - %.0f HPS',row.totalHPS),true)
+   end
    if row.totalDamage then
     local total=row.totalDamage;local value=total>=1000000 and string.format('%.1fm',total/1000000) or total>=1000 and string.format('%.1fk',total/1000) or string.format('%.0f',total)
     document:Group('Overall damage and DPS',value..string.format(' dmg - %.0f DPS',row.totalDPS),true)

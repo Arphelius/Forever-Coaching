@@ -25,6 +25,17 @@ assert.deepEqual(rows[1].opener.map(e=>e.name),['Stormstrike','Lightning Bolt','
 assert.deepEqual(rows[1].repeated.map(e=>e.name),['Stormstrike','Lightning Bolt']);assert.equal(rows[1].repeats,2);
 const damageProfile={...p,events:[...events,{timestamp:5000,type:'damage',sourceID:1,abilityGameID:6603,amount:50},{timestamp:6000,type:'damage',sourceID:2,abilityGameID:403,amount:999},{timestamp:21000,type:'damage',sourceID:1,abilityGameID:403,amount:100}]};
 assert.deepEqual(encounterRotations(damageProfile)[0].damage,[{spellID:6603,name:'Melee',amount:50}],'Trash damage includes auto attacks, excludes other actors and boss damage');
+const healingProfile=profile({...report,masterData:{...report.masterData,abilities:[...abilities,{gameID:331,name:'Healing Wave'},{gameID:17,name:'Power Word: Shield'}]}},fight,actor,{complete:true,events:[
+ {timestamp:1000,type:'heal',sourceID:1,targetID:1,abilityGameID:331,amount:120,overheal:80,absorbed:10},
+ {timestamp:2000,type:'absorbed',sourceID:1,targetID:1,abilityGameID:17,amount:50},
+ {timestamp:3000,type:'heal',sourceID:1,targetID:1,abilityGameID:331,amount:0,overheal:500},
+ {timestamp:3500,type:'summon',sourceID:1,targetID:20},
+ {timestamp:4000,type:'heal',sourceID:1,targetID:20,abilityGameID:331,amount:20},
+ {timestamp:5000,type:'heal',sourceID:1,targetID:99,abilityGameID:331,amount:9999},
+ {timestamp:6000,type:'heal',sourceID:2,targetID:1,abilityGameID:331,amount:9999},
+ {timestamp:22000,type:'heal',sourceID:1,targetID:1,abilityGameID:331,amount:700},
+]});
+assert.deepEqual(encounterRotations(healingProfile)[0].healing,[{spellID:331,name:'Healing Wave',amount:150},{spellID:17,name:'Power Word: Shield',amount:50}],'Effective healing includes friendly pets and consumed shields, excludes overheal, enemy targets, other sources and boss events');
 assert(rows.every(r=>!JSON.stringify(r).includes(actor.name)));
 assert(rows.every(r=>r.fullSequence&&r.steps.reduce((n,s)=>n+s.count,0)===r.combatCasts),'Full sequences account for every filtered combat cast');
 const long=profile(report,fight,actor,{complete:true,events:Array.from({length:30},(_,i)=>cast(21000+i*100,i%2?403:17364))});

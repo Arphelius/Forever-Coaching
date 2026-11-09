@@ -57,19 +57,21 @@ function M:GetModel()
  end end
  if selected.kind=='boss' and not selected.kill then chosen=nil end
  local yourDamage=0;for _,spell in ipairs(selected.damage)do if finite(spell.amount) and spell.amount>=0 then yourDamage=yourDamage+spell.amount end end
- model.yourOutput=amount(yourDamage)..' dmg - '..string.format('%.0f DPS',yourDamage/selected.duration)..' / '..string.format('%.1fs',selected.duration)..' / '..tostring(selected.deaths or 0)..' deaths'
- if model.selectedRole=='healer'then model.yourOutput=model.yourOutput..'\n'..amount(selected.healing or 0)..' effective healing - '..string.format('%.0f HPS',(selected.healing or 0)/selected.duration)end
+ local healing=model.selectedRole=='healer';local yourTotal=healing and (selected.healing or 0) or yourDamage
+ model.outputHeading=healing and 'Healing done' or 'Overall damage and DPS'
+ model.yourOutput=amount(yourTotal)..(healing and ' healing - ' or ' dmg - ')..string.format('%.0f %s',yourTotal/selected.duration,healing and 'HPS' or 'DPS')..' / '..string.format('%.1fs',selected.duration)..' / '..tostring(selected.deaths or 0)..' deaths'
  if not chosen then model.missing=selected.kill and 'No complete reference matches this spec, dungeon, encounter and difficulty in the current catalog.' or 'This attempt was unfinished. Choose a completed boss attempt for a full-fight comparison.';return model end
  model.difficultyNotice='The catalog uses a general dungeon category; the reference\'s exact client difficulty cannot be verified.'
- local referenceDamage,referenceTime,last=0,0,0;local referenceCasts={}
+ local referenceDamage,referenceTime,last=0,0,0;local referenceCasts={};local healingAvailable=true
  table.sort(chosenRotations,function(a,b)return a.start<b.start end)
  for _,r in ipairs(chosenRotations)do
   referenceTime=referenceTime+math.max(0,r['end']-math.max(r.start,last));last=math.max(last,r['end'])
-  for _,spell in ipairs(r.damage or {})do referenceDamage=referenceDamage+spell.amount end
+  if healing and not r.healing then healingAvailable=false end
+  for _,spell in ipairs((healing and r.healing or not healing and r.damage) or {})do referenceDamage=referenceDamage+spell.amount end
   for _,step in ipairs(r.steps or {})do local key=normal(step.name);local count=referenceCasts[key] or {name=step.name,count=0};count.count=count.count+step.count;referenceCasts[key]=count end
  end
  if referenceTime<=0 then model.missing='The reference encounter duration is unavailable.';return model end
- model.referenceOutput=amount(referenceDamage)..' dmg - '..string.format('%.0f DPS',referenceDamage/referenceTime)..' / '..string.format('%.1fs',referenceTime)
+ model.referenceOutput=healing and not healingAvailable and 'Healing totals are not available for this reference encounter.' or amount(referenceDamage)..(healing and ' healing - ' or ' dmg - ')..string.format('%.0f %s',referenceDamage/referenceTime,healing and 'HPS' or 'DPS')..' / '..string.format('%.1fs',referenceTime)
  local book=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes[class];local known={}
  local racial={bloodfury=true,berserking=true,warstomp=true,stoneform=true,devouringplague=true,starshards=true,feedback=true,hexofweakness=true,shadowguard=true,touchofweakness=true,desperateprayer=true,elunesgrace=true,willoftheforsaken=true}
  for name,spell in pairs(book and book.spells or {})do if not spell.passive and not racial[normal(name)]then known[normal(name)]=name end end

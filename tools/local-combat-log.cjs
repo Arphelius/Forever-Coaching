@@ -29,9 +29,16 @@ function logParser(){
   if(trash&&at-trash.end>15000)closeTrash();
   const damage=['SWING_DAMAGE','SPELL_DAMAGE','SPELL_PERIODIC_DAMAGE','RANGE_DAMAGE','SPELL_BUILDING_DAMAGE'].includes(type);
   const hostile=!!((Number(p[3])|Number(p[7]))&0x40);
-  if(!boss&&hostile&&(damage||type==='SPELL_CAST_SUCCESS')){if(!trash)trash=segment('trash',at,'Trash mobs');trash.end=at;}
+  if(!boss&&hostile&&(damage||type==='SPELL_CAST_SUCCESS'||type==='SPELL_ABSORBED')){if(!trash)trash=segment('trash',at,'Trash mobs');trash.end=at;}
   const current=boss||trash;if(!current)return;
   if(type==='UNIT_DIED'&&identities.has(p[5]))actor(current,p[5]).deaths++;
+  if(type==='SPELL_ABSORBED'){
+   const caster=p[9]?.startsWith('Player-')?9:12;
+   if(p[caster]?.startsWith('Player-')&&/^0x/i.test(p[caster+2]||'')&&(Number(p[caster+2])&1)&&(Number(p[7])&0x10)){
+    identities.set(p[caster],p[caster+1]);const absorbed=Number(p[caster+7]);
+    if(Number.isFinite(absorbed)&&absorbed>=0)actor(current,p[caster]).healing+=absorbed;
+   }return;
+  }
   if(!identities.has(p[1]))return;
   if(type==='SPELL_CAST_SUCCESS'){
    const id=Number(p[9]);if(!Number.isSafeInteger(id)||id<=0)return;
@@ -39,7 +46,7 @@ function logParser(){
   }
   if(type==='SPELL_HEAL'||type==='SPELL_PERIODIC_HEAL'){
    const index=12+(advanced?19:0),amount=Number(p[index]),overheal=Number(p[index+2]);
-   if(Number.isFinite(amount)&&amount>=0&&Number.isFinite(overheal))actor(current,p[1]).healing+=Math.max(0,amount-Math.max(0,overheal));
+   if((Number(p[7])&0x10)&&Number.isFinite(amount)&&amount>=0&&Number.isFinite(overheal))actor(current,p[1]).healing+=Math.max(0,amount-Math.max(0,overheal));
   }
   if(damage){
    const swing=type==='SWING_DAMAGE',base=swing?9:12,index=base+(advanced?19:0);

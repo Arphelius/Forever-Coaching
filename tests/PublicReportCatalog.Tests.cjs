@@ -24,6 +24,8 @@ async function main(){
   ...[1000,2000,3000,4000,22000,23000,24000,25000].flatMap((timestamp,i)=>[{timestamp,type:'cast',sourceID:a.id,abilityGameID:i%2?102:101},{timestamp:timestamp+10,type:'damage',sourceID:a.id,abilityGameID:i%2?102:101}]),
   {timestamp:4000,type:'applybuff',sourceID:a.id,targetID:a.id,abilityGameID:102},
   {timestamp:5000,type:'useitem',sourceID:a.id,itemID:900,itemName:'Fixture item'},
+  {timestamp:8000,type:'heal',sourceID:a.id,targetID:a.id,abilityGameID:101,amount:code==='PublicReport0002'?400:200,overheal:99},
+  {timestamp:30000,type:'heal',sourceID:a.id,targetID:a.id,abilityGameID:101,amount:code==='PublicReport0002'?800:400},
  ])};},observedPlayers:async(code,fight,metric)=>actors.map(a=>({id:a.id,role:['Holy','Restoration','Discipline'].includes(a.spec)?'healer':a.spec==='Protection'?'tank':'dps',total:(metric==='hps'?600:1200)*(code==='PublicReport0002'?2:1)}))};
  const catalog=await collectPublicReports({reports:['PublicReport0001','PublicReport0002'],client});
  assert.equal(catalog.examples.length,54,'Highest-output class/spec/role run in each supplied dungeon');
@@ -48,7 +50,8 @@ async function main(){
  run('unpack=unpack or table.unpack');
  for(const file of ['tests/CombatReviewHarness.lua','addons/ForeverCoaching/Data/SpecScenarios.lua','addons/ForeverCoaching/Data/SupportedDungeons.lua','addons/ForeverCoaching/Data/PublicReportCatalog.lua','addons/ForeverCoaching/Core/WarcraftLogs.lua','addons/ForeverCoaching/UI/GuideSelectors.lua','addons/ForeverCoaching/UI/ClassicTheme.lua','addons/ForeverCoaching/UI/WarcraftLogs.lua','addons/ForeverCoaching/UI/EncounterLearning.lua'])run(fs.readFileSync(file,'utf8'));
  run(`assert(#ForeverCoaching.WarcraftLogs:PublicExamples()>0,'Bundled real public excerpt must validate')`);
- run('TestCatalog='+toLua(catalog)+';ExpectedDungeons='+toLua(dungeons));
+ const offRole={...catalog.runs.find(e=>e.class==='SHAMAN'&&e.spec==='Restoration'&&e.dungeonKey==='ruins-of-lordaeron'),actorID:77777,role:'dps',metric:'dps',performance:99999,totalDamage:5999940};
+ run('TestCatalog='+toLua({...catalog,runs:[...catalog.runs,offRole]})+';ExpectedDungeons='+toLua(dungeons));
  const winner=structuredClone(catalog.examples.find(e=>e.class==='SHAMAN'&&e.spec==='Enhancement'&&e.dungeonKey==='ruins-of-lordaeron'));
  const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.totalDamage=12000;winner.scenario.castCount=44;
  winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
@@ -98,6 +101,11 @@ assert(w:SetPublicSpec('SHAMAN:enhancement'))
 assert(w:GetPublicReportModel().selectedEncounter=='dungeon:shapers-terrace','Preserve dungeon selection across spec changes')
 assert(w:SetPublicEncounter('dungeon:shadowfang-keep'))
 assert(not w:SetPublicEncounter('invented') and not w:SetPublicSpec('MAGE:invented'))
+assert(w:SetPublicSpec('SHAMAN:restoration') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
+local healer=w:GetOptimizationModel();assert(healer.metrics:find('healing overview',1,true) and healer.rows[1].action=='Healing by ability' and healer.rows[1].totalHealing==1200 and healer.rows[1].totalHPS==20 and not healer.rows[1].totalDamage,'Whole-dungeon healer view uses effective healing/HPS')
+local healerPage=fc:BuildOptimizationPage(parent);assert(healerPage.document.groups[1].heading.text=='Healing done' and healerPage.document.groups[2].heading.text=='Healing by ability' and healerPage.document.groups[1].body.text:find('HPS',1,true) and not healerPage.document.groups[1].body.text:find('DPS',1,true),'Real healer UI renders healing headings and HPS')
+assert(w:SetPublicSection('trash'));healer=w:GetOptimizationModel();assert(healer.rows[1].totalHealing==400 and healer.rows[1].totalHPS==20 and healer.rows[1].reference:find('HPS',1,true) and not healer.rows[1].reference:find('DPS',1,true),'Trash healing is independent of boss healing')
+assert(w:SetPublicSpec('SHAMAN:enhancement'))
 local sample=TestCatalog.examples[1];local original=sample.scenario.sourceURL
 local originalInstance=sample.instanceId;sample.instanceId=0;assert(w:PreparePublicExample(sample),'An unknown numeric zone ID is allowed only when supported dungeon names identify it');sample.instanceId=originalInstance
 sample.scenario.sourceURL='https://example.com/fake';assert(not w:PreparePublicExample(sample));sample.scenario.sourceURL=original

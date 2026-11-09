@@ -24,9 +24,10 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
    for(const fight of report.fights.filter(f=>f.encounterID>=0&&!f.inProgress&&f.endTime>f.startTime&&f.kill&&isDungeonRun(f))){
     const dungeon=resolveDungeon(fight.gameZone?.name,fight.name);
     if(!dungeon){notes.push(`${code}, fight ${fight.id}: unsupported or ambiguous dungeon/wing; skipped. Raids are outside the current scope.`);continue;}
-    const outputs=new Map(),damageTotals=new Map();
+    const outputs=new Map(),damageTotals=new Map(),healingTotals=new Map();
     for(const metric of ['dps','hps']){try{for(const row of await client.observedPlayers(code,fight,metric)){
      if(metric==='dps')damageTotals.set(row.id,row.total);
+     if(metric==='hps')healingTotals.set(row.id,row.total);
      if((row.role==='healer'&&metric==='hps')||(row.role!=='healer'&&metric==='dps'))outputs.set(row.id,{...row,metric});
     }}catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
     for(const actor of report.masterData.actors.filter(a=>a.type==='Player'&&fight.friendlyPlayers?.includes(a.id))){
@@ -35,7 +36,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      const performance=output.total/((fight.endTime-fight.startTime)/1000);
      const key=[dungeon.key,actor.subType.toUpperCase(),spec.toLowerCase(),output.role,fight.difficulty,report.masterData.gameVersion].join(':');
      if(!candidates.has(key))candidates.set(key,[]);
-     candidates.get(key).push({report,fight,actor,spec,output,dungeon,performance,totalDamage:damageTotals.get(actor.id)});
+     candidates.get(key).push({report,fight,actor,spec,output,dungeon,performance,totalDamage:damageTotals.get(actor.id),totalHealing:healingTotals.get(actor.id)});
      recorded++;
     }
    }
@@ -58,7 +59,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
     const url=`${HOST}/reports/${code}#fight=${fight.id}&source=${actor.id}`;
     examples.push({code,fightID:fight.id,actorID:actor.id,player:actor.name,class:actor.subType.toUpperCase(),spec,
      dungeonKey:dungeon.key,instanceId:fight.gameZone.id,instance:fight.gameZone.name,encounterId:fight.encounterID,encounter:fight.name,difficulty:fight.difficulty,gameVersion:report.masterData.gameVersion,rankingScope:'dungeon',
-     started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,totalDamage:candidate.totalDamage,recordedDeaths:p.deaths.length,complete:true,kill:true,
+     started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,totalDamage:candidate.totalDamage,totalHealing:candidate.totalHealing,recordedDeaths:p.deaths.length,complete:true,kill:true,
      scenario:recordedScenario(p,url),rotations,spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:true});
     break;
    }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
@@ -67,8 +68,8 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
  const runs=[],winnerKeys=new Set(examples.map(e=>`${e.code}:${e.fightID}:${e.actorID}`)),extraExamples=[];
  const scoredCount=[...candidates.values()].reduce((n,rows)=>n+rows.length,0);
  for(const rows of candidates.values())for(const candidate of rows){
-  const {report,fight,actor,spec,output,dungeon,performance,totalDamage}=candidate,code=report.code,key=`${code}:${fight.id}:${actor.id}`;
-  const common={code,fightID:fight.id,actorID:actor.id,class:actor.subType.toUpperCase(),spec,dungeonKey:dungeon.key,instance:dungeon.name,difficulty:fight.difficulty,gameVersion:report.masterData.gameVersion,started:report.startTime+fight.startTime,duration:(fight.endTime-fight.startTime)/1000,role:output.role,metric:output.metric,performance,totalDamage,complete:true,kill:true,rankingScope:'dungeon'};
+  const {report,fight,actor,spec,output,dungeon,performance,totalDamage,totalHealing}=candidate,code=report.code,key=`${code}:${fight.id}:${actor.id}`;
+  const common={code,fightID:fight.id,actorID:actor.id,class:actor.subType.toUpperCase(),spec,dungeonKey:dungeon.key,instance:dungeon.name,difficulty:fight.difficulty,gameVersion:report.masterData.gameVersion,started:report.startTime+fight.startTime,duration:(fight.endTime-fight.startTime)/1000,role:output.role,metric:output.metric,performance,totalDamage,totalHealing,complete:true,kill:true,rankingScope:'dungeon'};
   runs.push({...common,encounters:[...new Map((fight.dungeonPulls||[]).map(s=>{const section={kind:s.encounterID===0?'trash':'boss',name:s.encounterID===0?'Trash mobs':s.name};return [section.kind+':'+section.name,section];})).values()]});
   if(runs.length%250===0)onProgress(`Exporting scored logs ${runs.length}/${scoredCount}; ${extraExamples.length} additional cached breakdowns prepared.`);
   const stream=streams.get(code+':'+fight.id);

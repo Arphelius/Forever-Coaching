@@ -59,7 +59,19 @@ function summarize(p,segment){
  return {combatOnly:true,kind:segment.encounterID===0?'trash':'boss',name:segment.encounterID===0?'Trash mobs':segment.name,
   start:(segment.startTime-p.fight.startTime)/1000,end:(segment.endTime-p.fight.startTime)/1000,
   opener:compact.filter(e=>e.chain===compact[0]?.chain).slice(0,6).map(action),repeated:repeated?repeated.events.map(action):[],repeats:repeated?.count||0,
-  damage:[...damage.values()],steps,fullSequence:true,combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
+  damage:[...damage.values()],healing:healingBySegment(p,segment),steps,fullSequence:true,combatCasts:casts.length,complete:p.complete,kill:segment.kill===true};
+}
+function healingBySegment(p,segment){
+ if(!p.friendlyTargets){p.friendlyTargets=new Set([p.actor.id,...(p.fight.friendlyPlayers||[])]);for(const e of p.events)if(e.type==='summon'&&p.friendlyTargets.has(e.sourceID))p.friendlyTargets.add(e.targetID);}
+ if(!p.healingEvents)p.healingEvents=p.events.filter(e=>e.sourceID===p.actor.id&&(e.type==='heal'||e.type==='absorbed'));
+ const spells=new Map();
+ for(const e of p.healingEvents)if(e.timestamp>=segment.startTime&&e.timestamp<segment.endTime&&e.targetIsFriendly!==false&&(p.friendlyTargets.has(e.targetID)||e.targetIsFriendly===true)&&Number.isFinite(e.amount)&&e.amount>=0&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0){
+  // WCL heal.amount already excludes overheal. Heal absorbs and consumed shields
+  // contribute to effective healing; never subtract overheal a second time.
+  const amount=e.amount+(e.type==='heal'&&Number.isFinite(e.absorbed)?Math.max(0,e.absorbed):0);
+  if(amount>0){const row=spells.get(e.abilityGameID)||{spellID:e.abilityGameID,name:p.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID,amount:0};row.amount+=amount;spells.set(e.abilityGameID,row);}
+ }
+ return [...spells.values()];
 }
 function isDungeonRun(fight){
  const dungeon=resolveDungeon(fight.gameZone?.name,fight.name),normal=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -76,7 +88,7 @@ function encounterDamageSummaries(p){
  const own={...p,events:p.events.filter(e=>e.sourceID===p.actor.id)};
  return encounterSegments(p).map(s=>{
   const damage=new Map();for(const e of own.events)if(e.type==='damage'&&e.timestamp>=s.startTime&&e.timestamp<s.endTime&&Number.isFinite(e.amount)&&e.amount>0&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0){const row=damage.get(e.abilityGameID)||{spellID:e.abilityGameID,name:p.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID,amount:0};row.amount+=e.amount;damage.set(e.abilityGameID,row);}
-  return {combatOnly:true,summaryOnly:true,kind:s.encounterID===0?'trash':'boss',name:s.encounterID===0?'Trash mobs':s.name,start:(s.startTime-p.fight.startTime)/1000,end:(s.endTime-p.fight.startTime)/1000,opener:[],repeated:[],repeats:0,combatCasts:combatCasts(own,s.startTime,s.endTime).length,complete:p.complete,kill:s.kill===true,damage:[...damage.values()]};
+  return {combatOnly:true,summaryOnly:true,kind:s.encounterID===0?'trash':'boss',name:s.encounterID===0?'Trash mobs':s.name,start:(s.startTime-p.fight.startTime)/1000,end:(s.endTime-p.fight.startTime)/1000,opener:[],repeated:[],repeats:0,combatCasts:combatCasts(own,s.startTime,s.endTime).length,complete:p.complete,kill:s.kill===true,damage:[...damage.values()],healing:healingBySegment(p,s)};
  });
 }
 module.exports={encounterRotations,encounterDamageSummaries,combatCasts,nonCombat,isDungeonRun};

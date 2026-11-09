@@ -427,17 +427,18 @@ function W:PreparePublicExample(raw)
     end
     if total~=rotation.combatCasts then return end
    elseif rotation.fullSequence~=nil then return end
-   local damage={}
-   if rotation.damage~=nil then
-    if type(rotation.damage)~='table' then return end
-    local seenDamage={}
-    for _,spell in ipairs(rotation.damage)do
-     if type(spell)~='table' or not finite(spell.spellID) or spell.spellID<=0 or spell.spellID%1~=0 or seenDamage[spell.spellID] or type(spell.name)~='string' or spell.name=='' or not finite(spell.amount) or spell.amount<0 then return end
-     seenDamage[spell.spellID]=true;damage[#damage+1]={spellID=spell.spellID,name=displayText(spell.name,180),amount=spell.amount}
+   local output={}
+   for _,field in ipairs({'damage','healing'})do if rotation[field]~=nil then
+    if type(rotation[field])~='table' then return end
+    local values,seenOutput={},{}
+    for _,spell in ipairs(rotation[field])do
+     if type(spell)~='table' or not finite(spell.spellID) or spell.spellID<=0 or spell.spellID%1~=0 or seenOutput[spell.spellID] or type(spell.name)~='string' or spell.name=='' or not finite(spell.amount) or spell.amount<0 then return end
+     seenOutput[spell.spellID]=true;values[#values+1]={spellID=spell.spellID,name=displayText(spell.name,180),amount=spell.amount}
     end
-   end
+    output[field]=values
+   end end
    if rotation.summaryOnly~=nil and rotation.summaryOnly~=true then return end
-   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=rotation.damage and damage,summaryOnly=rotation.summaryOnly==true,
+   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=output.damage,healing=output.healing,summaryOnly=rotation.summaryOnly==true,
     opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill,
     steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start,['end']=rotation['end']}
   end
@@ -445,7 +446,7 @@ function W:PreparePublicExample(raw)
  return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
   instance=dungeon and dungeon.name or displayText(raw.instance,120) or 'Instance',dungeonKey=dungeon and dungeon.key,
   encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
-  role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
+  role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,totalHealing=finite(raw.totalHealing) and raw.totalHealing>=0 and raw.totalHealing or nil,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
   started=raw.started or 0,rows=rows,scenario=scenario,rotations=rotations,excerpt=not raw.spellCountsComplete,
   difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope=raw.rankingScope}
 end
@@ -471,7 +472,7 @@ function W:PublicRuns()
   if type(raw)=='table' and type(raw.code)=='string' and raw.code:match('^%w+$') and #raw.code==16 and finite(raw.fightID) and raw.fightID>0 and raw.fightID%1==0 and finite(raw.actorID) and raw.actorID>0 and raw.actorID%1==0 and type(raw.class)=='string' and raw.class:match('^[A-Z]+$') and type(raw.spec)=='string' and raw.spec~='' and finite(raw.duration) and raw.duration>0 and finite(raw.performance) and raw.performance>=0 and finite(raw.difficulty) and finite(raw.gameVersion) and raw.complete==true and raw.kill==true and (raw.role=='dps' or raw.role=='healer' or raw.role=='tank') and raw.metric==(raw.role=='healer' and 'hps' or 'dps') then
    local dungeon=self:ResolvePublicDungeon(raw.instance,'');local key=raw.code..':'..raw.fightID..':'..raw.actorID
    if dungeon and dungeon.key==raw.dungeonKey and not seen[key]then
-    local entry=details[key] or {key=key,class=raw.class,spec=displayText(raw.spec,100),specKey=comparisonKey(raw.class,raw.spec),dungeonKey=dungeon.key,instance=dungeon.name,role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope='dungeon',complete=true,kill=true,started=raw.started or 0,rotations={},encounters=raw.encounters}
+    local entry=details[key] or {key=key,class=raw.class,spec=displayText(raw.spec,100),specKey=comparisonKey(raw.class,raw.spec),dungeonKey=dungeon.key,instance=dungeon.name,role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,totalHealing=finite(raw.totalHealing) and raw.totalHealing>=0 and raw.totalHealing or nil,difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope='dungeon',complete=true,kill=true,started=raw.started or 0,rotations={},encounters=raw.encounters}
     runs[#runs+1]=entry;seen[key]=true
    end
   end
@@ -508,7 +509,8 @@ function W:GetPublicReportModel()
  end end
  local function rotationRows(entries)
   local list={};for _,entry in ipairs(entries or {})do if entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric and entry.role~='unknown'then list[#list+1]=entry end end
-  table.sort(list,function(a,b)if a.role~=b.role then return a.role<b.role end;if a.performance~=b.performance then return a.performance>b.performance end;return a.key<b.key end)
+  local preferHealer=selected and (selected:match(':restoration$') or selected:match(':holy$') or selected=='PRIEST:discipline')
+  table.sort(list,function(a,b)if a.role~=b.role then if preferHealer and (a.role=='healer' or b.role=='healer')then return a.role=='healer'end;return a.role<b.role end;if a.performance~=b.performance then return a.performance>b.performance end;return a.key<b.key end)
   local options={};for i,entry in ipairs(list)do options[#options+1]={value=entry.key,label=string.format('Log %d / %s / %.1f %s / %.1f min%s',i,entry.role,entry.performance,entry.metric:upper(),(entry.duration or entry.scenario and entry.scenario.duration or 0)/60,#entry.rotations==0 and ' / overall only' or '')}end
   local chosen=list[1]
   local context=(selected or '')..'@dungeon:'..(entries and entries[1] and entries[1].dungeonKey or '')
@@ -516,6 +518,7 @@ function W:GetPublicReportModel()
   list=chosen and {chosen} or {}
   local rows,sections,sectionMap={},{},{}
   for _,entry in ipairs(list)do
+   local healing=entry.role=='healer';local outputField=healing and 'healing' or 'damage';local rateLabel=healing and 'HPS' or 'DPS'
    local function optionalSource(name)
     local n=name:lower()
     if n:find('blood fury',1,true) or n:find('berserking',1,true) or n:find('war stomp',1,true) or n:find('stoneform',1,true) or n:find('will of the forsaken',1,true) or n:find('escape artist',1,true) or n:find('cannibalize',1,true) or n:find('shadowmeld',1,true) or n:find('perception',1,true) or n:find('devouring plague',1,true) or n:find('starshards',1,true) or n:find('feedback',1,true) or n:find('hex of weakness',1,true) or n:find('shadowguard',1,true) or n:find('touch of weakness',1,true) or n:find('desperate prayer',1,true) or n:find('elune',1,true) then return 'Racial'end
@@ -534,19 +537,22 @@ function W:GetPublicReportModel()
      if not category and not classNames[spell.name:lower()] and otherClassNames[spell.name:lower()]then category='Proc / other effect'end
      local label=spell.name..(category and (' ['..category..']') or '')
      local dps=duration>0 and spell.amount/duration or 0;local share=total>0 and spell.amount*100/total or 0
-     local value=string.format('%s dmg - %.0f DPS (%.1f%%)',shortDamage(spell.amount),dps,share)
-     lines[#lines+1]=label..'  '..value;meter[#meter+1]={name=label,value=value,share=share,amount=spell.amount,dps=dps}
+     local value=string.format('%s %s - %.0f %s (%.1f%%)',shortDamage(spell.amount),healing and 'healing' or 'dmg',dps,rateLabel,share)
+     lines[#lines+1]=label..'  '..value;meter[#meter+1]={name=label,value=value,share=share,amount=spell.amount,dps=not healing and dps or nil,hps=healing and dps or nil}
     end
-    return {action='Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or 'No damage recorded.',meter=meter,totalDamage=total,totalDPS=duration>0 and total/duration or 0}
+    local row={action=healing and 'Healing by ability' or 'Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or (healing and 'No healing recorded.' or 'No damage recorded.'),meter=meter}
+    if healing then row.totalHealing=total;row.totalHPS=duration>0 and total/duration or 0 else row.totalDamage=total;row.totalDPS=duration>0 and total/duration or 0 end
+    return row
    end
    local overallSpells,overallMap,overallTotal={},{},0
-   for _,r in ipairs(entry.rotations)do for _,spell in ipairs(r.damage or {})do local old=overallMap[spell.spellID] or {spellID=spell.spellID,name=spell.name,amount=0};old.amount=old.amount+spell.amount;overallMap[spell.spellID]=old;overallTotal=overallTotal+spell.amount end end
+   for _,r in ipairs(entry.rotations)do for _,spell in ipairs(r[outputField] or {})do local old=overallMap[spell.spellID] or {spellID=spell.spellID,name=spell.name,amount=0};old.amount=old.amount+spell.amount;overallMap[spell.spellID]=old;overallTotal=overallTotal+spell.amount end end
    for _,spell in pairs(overallMap)do overallSpells[#overallSpells+1]=spell end
    local duration=entry.duration or entry.scenario and entry.scenario.duration or 0
    local overall=damageRow(overallSpells,overallTotal,duration)
-   local total=entry.totalDamage or entry.metric=='dps' and entry.performance*duration
-   if total then overall.totalDamage=total;overall.totalDPS=duration>0 and total/duration or 0 end
+   local total=healing and (entry.totalHealing or entry.performance*duration) or entry.totalDamage or entry.metric=='dps' and entry.performance*duration
+   if total then if healing then overall.totalHealing=total;overall.totalHPS=duration>0 and total/duration or 0 else overall.totalDamage=total;overall.totalDPS=duration>0 and total/duration or 0 end end
    if #entry.rotations==0 then overall.reference='Encounter details are not cached for this log. Overall output comes from the recorded dungeon totals.';overall.meter=nil end
+   if healing then for _,r in ipairs(entry.rotations)do if not r.healing then overall.meter=nil;overall.reference='Healing by ability is not cached for this log.';break end end end
    if not total and #entry.rotations==0 then overall.totalDamage=nil;overall.totalDPS=nil;overall.reference='Damage totals are unavailable for this healer log; the recorded ranking metric is HPS.'end
    local overallSection={value='overall',label='Overall',rows={overall},sources={}}
    rows[#rows+1]=overall;sections[#sections+1]=overallSection;sectionMap.overall=overallSection
@@ -554,12 +560,12 @@ function W:GetPublicReportModel()
    local trashDamage,trashTotal,trashAvailable,trashDuration,trashEnd={},0,true,0,0
    for _,r in ipairs(rotations)do if r.kind=='trash' then
     trashDuration=trashDuration+math.max(0,r['end']-math.max(r.start,trashEnd));trashEnd=math.max(trashEnd,r['end'])
-    if not r.damage then trashAvailable=false end
-    for _,spell in ipairs(r.damage or {})do local row=trashDamage[spell.spellID] or {name=spell.name,amount=0};row.amount=row.amount+spell.amount;trashDamage[spell.spellID]=row;trashTotal=trashTotal+spell.amount end
+    if not r[outputField] then trashAvailable=false end
+    for _,spell in ipairs(r[outputField] or {})do local row=trashDamage[spell.spellID] or {name=spell.name,amount=0};row.amount=row.amount+spell.amount;trashDamage[spell.spellID]=row;trashTotal=trashTotal+spell.amount end
    end end
    local trashShown=false
    for _,r in ipairs(rotations)do
-    local title=r.kind=='trash' and 'Overall trash damage' or r.name
+    local title=r.kind=='trash' and (healing and 'Overall trash healing' or 'Overall trash damage') or r.name
     local sectionKey=r.kind=='trash' and 'trash' or 'boss:'..r.name:lower()
     local section=sectionMap[sectionKey]
     if not section then section={value=sectionKey,label=r.kind=='trash' and 'Trash mobs' or r.name,rows={},sources={}};sectionMap[sectionKey]=section;sections[#sections+1]=section end
@@ -568,7 +574,7 @@ function W:GetPublicReportModel()
     if r.kind=='trash' then
      if not trashShown then
       trashShown=true
-      if not trashAvailable then addRow({action=title,reference='Refresh public reports to load overall trash damage. Individual pulls are hidden.'})
+      if not trashAvailable then addRow({action=title,reference='The '..outputField..' breakdown is not available for this log. Individual pulls are hidden.'})
       else
        local spells={};for _,spell in pairs(trashDamage)do spells[#spells+1]=spell end
        addRow(damageRow(spells,trashTotal,trashDuration))
@@ -576,11 +582,11 @@ function W:GetPublicReportModel()
      end
     else
     if r.kind=='boss' and not r.kill then title=title..' / attempt'end
-    if r.damage then
+    if r[outputField] then
      local spells,total={},0
-     for _,spell in ipairs(r.damage)do spells[#spells+1]=spell;total=total+spell.amount end
+     for _,spell in ipairs(r[outputField])do spells[#spells+1]=spell;total=total+spell.amount end
      addRow(damageRow(spells,total,r['end']-r.start))
-    else addRow({action=title..' / damage',reference='Refresh public reports to load damage by ability for this encounter.'})end
+    else addRow({action=title..' / '..outputField,reference='The '..outputField..' breakdown is not available for this encounter.'})end
     end
    end
    for _,encounter in ipairs(entry.encounters or {})do if type(encounter)=='table' and (encounter.kind=='boss' or encounter.kind=='trash') and type(encounter.name)=='string'then local key=encounter.kind=='trash' and 'trash' or 'boss:'..encounter.name:lower();if not sectionMap[key]then local section={value=key,label=encounter.kind=='trash' and 'Trash mobs' or displayText(encounter.name,180),rows={{action='Encounter data unavailable',reference='Combat details for this log have not been cached. No other player\'s encounter data is substituted.'}}};sections[#sections+1]=section;sectionMap[key]=section end end end
@@ -601,7 +607,7 @@ function W:GetPublicReportModel()
  if not key or not choices[key]then key=selection.publicDungeon and ('dungeon:'..selection.publicDungeon);if not key or not choices[key]then key=firstAvailable or encounters[1] and encounters[1].value end;selection.publicEncounter=key end
  local model={referenceOnly=true,notice=self.publicNotice,specs=specs,selectedSpec=selected,encounters=encounters,selectedEncounter=key,
   rows={},sections={},ready=false,rotationView=true,supportedDungeonCount=#roster,coveredDungeonCount=covered,
-  metrics='Observed dungeon damage',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
+  metrics='Recorded dungeon output',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
  local entry=key and choices[key]
  if entry and #entry.rows==0 then
   model.metrics=entry.instance..' / awaiting public reports'
@@ -609,7 +615,7 @@ function W:GetPublicReportModel()
    entry.otherSpecs and (entry.instance..' has public reports for other specs. Choose another spec to see its recorded examples. No example is loaded for the selected spec.') or
    entry.instance..' is supported. No public-report example is loaded for this dungeon yet. The current scan did not retrieve usable runs; public reports may still exist on the website.'
  elseif entry then
-  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.runs=entry.runs;model.selectedRun=entry.selectedRun;model.metrics=entry.instance..' / damage overview'
+  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.runs=entry.runs;model.selectedRun=entry.selectedRun;model.metrics=entry.instance..(entry.rows[1] and entry.rows[1].totalHealing~=nil and ' / healing overview' or ' / damage overview')
   model.status='This is not a verified ranking across every log on Warcraft Logs.'
  end
  return model

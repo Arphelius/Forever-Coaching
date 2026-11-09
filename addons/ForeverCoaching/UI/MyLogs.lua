@@ -31,10 +31,10 @@ function FC:BuildMyLogsPage(parent)
    archon:Show();document:AddWidget(archon,28)
   else document:Line('Recommended: Archon for logging and uploading your runs. Select Import logs for setup.',false,'muted')end
   if model.ready then
-   document:Group('Overall damage and DPS','You: '..model.yourOutput..(model.referenceOutput and ('\nCatalog example: '..model.referenceOutput) or ''),true)
+   document:Group(model.outputHeading,'You: '..model.yourOutput..(model.referenceOutput and ('\nCatalog example: '..model.referenceOutput) or ''),true)
    if model.missing then document:Line(model.missing,false,'caution')else
     document:Line(model.difficultyNotice,false,'caution')
-    document:Line('This is not a verified ranking across every log on Warcraft Logs. Level, gear, talents, group composition and fight conditions affect results. Only recorded direct damage and class-ability counts are compared; pet damage, buff uptime and mechanic decisions are not graded. Trash covers the recorded portion, with pulls separated by 15-second gaps in combat activity.',false,'muted')
+    document:Line('This is not a verified ranking across every log on Warcraft Logs. Level, gear, talents, group composition and fight conditions affect results. Only recorded output and class-ability counts are compared; pet attribution, buff uptime and mechanic decisions are not graded. Healing also depends on incoming damage and assignments. Trash covers the recorded portion, with pulls separated by 15-second gaps in combat activity.',false,'muted')
     document:Group('What you did well',model.good,true);document:Group('What to review',model.review,true);document:Group('Try next fight',model.next,true)
     document:Group('Class ability use',model.abilityUse,true)
    end
