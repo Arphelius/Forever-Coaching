@@ -42,12 +42,14 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
    coverage.push({code,rankedCandidates:recorded});
   }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
  }
+ let candidateGroup=0;
  for(const rows of candidates.values()){
+  candidateGroup++;
   rows.sort((a,b)=>b.performance-a.performance||(b.report.startTime+b.fight.startTime)-(a.report.startTime+a.fight.startTime));
   for(const candidate of rows){
    const {report,fight,actor,spec,output,dungeon,performance}=candidate,code=report.code;
    try{
-    onProgress(`Reading selected combat events: ${code}, fight ${fight.id}`);
+    onProgress(`Preparing example ${candidateGroup}/${candidates.size}: ${dungeon.name} / ${actor.subType} ${spec} / ${output.role}. ${examples.length} examples complete. Reading ${code}, fight ${fight.id}.`);
     const key=code+':'+fight.id;if(!streams.has(key))streams.set(key,await client.events(code,fight));
     const stream=streams.get(key);if(!stream.complete){found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: top candidate events were incomplete; trying the next scored run.`);continue;}
     const p=profile(report,fight,actor,stream),rotations=encounterRotations(p);
@@ -104,7 +106,7 @@ if(require.main===module){
    console.log(`Selected ${catalog.examples.length} highest-output class/spec/role runs after examining ${catalog.scan.reports} available public reports and ${catalog.scan.discoveryPages} discovery pages. ${catalog.scan.incomplete?'Coverage is incomplete.':'Available discovery pages were exhausted.'} This is not a verified global ranking.`);
    for(const note of catalog.notes)console.log(note);
    console.log('Catalog saved. Reload WoW after updating; a first installation with a changed TOC requires restarting the game.');
-  }).catch(e=>{console.error(e.message);console.log(`${client.requestStats.network} new API requests; ${client.requestStats.cached} cached responses reused.`);if(e.code==='WCL_RATE_LIMIT')console.log('Completed responses are cached. Wait for the API limit to reset, then run the same command again.');process.exitCode=e.code==='WCL_REQUEST_BUDGET'?0:1;});
+  }).catch(e=>{console.error(e.message);console.log(`${client.requestStats.network} new API requests; ${client.requestStats.cached} cached responses reused.`);if(e.code==='WCL_RATE_LIMIT')console.log('Completed responses are cached. Wait for the API limit to reset, then run the same command again.');process.exitCode=e.code==='WCL_REQUEST_BUDGET'?75:1;});
  }catch(e){console.error(e.message);process.exitCode=1;}
 }
 module.exports={KNOWN_REPORTS,collectPublicReports,fromSavedComparisons,writePublicCatalog};

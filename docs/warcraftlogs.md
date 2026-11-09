@@ -16,8 +16,10 @@ Successful GraphQL responses, including individual event pages, are immediately
 cached in `.local/warcraftlogs/api-cache`. Tokens, secrets and headers are never
 cached. The cache is local and excluded from addon ZIPs and Git.
 
-After **Request batch complete**, run the same command again. Cached responses do
-not consume the next batch's budget. After a rate limit, wait for the service's
+After **Request batch complete**, the PowerShell launcher continues automatically.
+Use `-SingleBatch` to pause after one batch. The Node collector returns exit code
+75 on a budget pause, 1 on a failure or rate limit, and 0 on successful delivery.
+Cached responses do not consume the next batch's budget. After a rate limit, wait for the service's
 limit to reset before retrying. The scan rebuilds its selection from cached data
 and resumes network requests at the missing responses. Incomplete event streams
 are not delivered. The existing addon catalog is preserved during batch pauses
