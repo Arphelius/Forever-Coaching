@@ -39,6 +39,11 @@ the bundled local import helper is a separate step.
 
 ## Compact damage meters and class rotations
 
+Optimization no longer displays timestamped boss cast-sequence cards. The raw
+cast data remains available for My Logs comparisons. Damage belonging to another
+class is marked `[Proc / other effect]` unless a more specific optional source is
+known; this does not claim that a particular weapon caused the event.
+
 Each encounter shows its complete damage breakdown in one meter with larger
 single-line rows, abbreviated damage (`17.0k dmg`) and per-ability DPS. Boss DPS
 uses that encounter's duration. Overall trash DPS uses the union of recorded trash

@@ -502,13 +502,16 @@ function W:GetPublicReportModel()
    end
    local book=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes and FC.ForeverSpellCatalog.classes[entry.class]
    local classNames={};for name in pairs(book and book.spells or {})do classNames[name:lower()]=true end
-   local function classAction(name)return not optionalSource(name) and (not book or classNames[name:lower()])end
+   local otherClassNames={}
+   for class,other in pairs(FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes or {})do if class~=entry.class then for name in pairs(other.spells or {})do otherClassNames[name:lower()]=true end end end
    local function shortDamage(amount)if amount>=1000000 then return string.format('%.1fm',amount/1000000)elseif amount>=1000 then return string.format('%.1fk',amount/1000)end;return string.format('%.0f',amount)end
    local function damageRow(spells,total,duration)
     table.sort(spells,function(a,b)return a.amount>b.amount end)
     local lines,meter={},{}
     for _,spell in ipairs(spells)do
-     local category=optionalSource(spell.name);local label=spell.name..(category and (' ['..category..']') or '')
+     local category=optionalSource(spell.name)
+     if not category and not classNames[spell.name:lower()] and otherClassNames[spell.name:lower()]then category='Proc / other effect'end
+     local label=spell.name..(category and (' ['..category..']') or '')
      local dps=duration>0 and spell.amount/duration or 0;local share=total>0 and spell.amount*100/total or 0
      local value=string.format('%s dmg - %.0f DPS (%.1f%%)',shortDamage(spell.amount),dps,share)
      lines[#lines+1]=label..'  '..value;meter[#meter+1]={name=label,value=value,share=share,amount=spell.amount,dps=dps}
@@ -546,17 +549,6 @@ function W:GetPublicReportModel()
      for _,spell in ipairs(r.damage)do spells[#spells+1]=spell;total=total+spell.amount end
      addRow(damageRow(spells,total,r['end']-r.start))
     else addRow({action=title..' / damage',reference='Refresh public reports to load damage by ability for this encounter.'})end
-    local classSteps={};for _,step in ipairs(r.steps)do if classAction(step.name)then classSteps[#classSteps+1]=step end end
-    if #classSteps==0 then addRow({action=title,reference='No qualifying class ability casts were identified for this encounter.'})end
-    for first=1,#classSteps,8 do
-     local lines={}
-     for i=first,math.min(first+7,#classSteps)do
-      local step=classSteps[i];local time=string.format('%.1fs',step.at)
-      if step['end']>step.at then time=time..string.format('-%.1fs',step['end'])end
-      lines[#lines+1]=time..'  '..step.name..(step.count>1 and (' x'..step.count) or '')
-     end
-     addRow({action=first==1 and title or (title..' (continued)'),reference=table.concat(lines,'\n')})
-    end
     end
    end
   end
@@ -576,7 +568,7 @@ function W:GetPublicReportModel()
  if not key or not choices[key]then key=selection.publicDungeon and ('dungeon:'..selection.publicDungeon);if not key or not choices[key]then key=firstAvailable or encounters[1] and encounters[1].value end;selection.publicEncounter=key end
  local model={referenceOnly=true,notice=self.publicNotice,specs=specs,selectedSpec=selected,encounters=encounters,selectedEncounter=key,
   rows={},sections={},ready=false,rotationView=true,supportedDungeonCount=#roster,coveredDungeonCount=covered,
-  metrics='Observed encounter rotations',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
+  metrics='Observed dungeon damage',status='No public-report example is loaded for this spec yet. Coverage is still expanding.'}
  local entry=key and choices[key]
  if entry and #entry.rows==0 then
   model.metrics=entry.instance..' / awaiting public reports'
@@ -584,7 +576,7 @@ function W:GetPublicReportModel()
    entry.otherSpecs and (entry.instance..' has public reports for other specs. Choose another spec to see its recorded examples. No example is loaded for the selected spec.') or
    entry.instance..' is supported. No public-report example is loaded for this dungeon yet. The current scan did not retrieve usable runs; public reports may still exist on the website.'
  elseif entry then
-  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / full recorded combat rotations'
+  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / damage overview'
   model.status='This is not a verified ranking across every log on Warcraft Logs.'
  end
  return model

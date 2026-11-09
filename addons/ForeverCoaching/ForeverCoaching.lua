@@ -305,7 +305,7 @@ local pages = {
     },
     Rotation = {
         heading = "Optimization",
-        description = "Observed combat rotations for trash pulls and named dungeon bosses.",
+        description = "Recorded damage for trash mobs and named dungeon bosses.",
         cards = {},
     },
     Talents = {
