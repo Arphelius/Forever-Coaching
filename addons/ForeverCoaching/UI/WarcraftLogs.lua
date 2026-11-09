@@ -19,7 +19,7 @@ function FC:BuildOptimizationPage(parent)
   document:Line(model.metrics,true)
   document:Line(model.status,false,'muted')
   if model.sectionLabel then document:Line(model.sectionLabel,true)end
-  for _,row in ipairs(model.rows)do document:Group(row.action,row.reference)end
+  for _,row in ipairs(model.rows)do if row.meter and #row.meter>0 then document:Meter(row.action,row.meter)else document:Group(row.action,row.reference,true)end end
   document:Finish()
  end
  self.optimizationView=view;view.refresh()

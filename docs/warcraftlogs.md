@@ -1,5 +1,17 @@
 # Warcraft Logs Optimization
 
+## Compact damage meters and class rotations
+
+Each encounter shows its complete damage breakdown in one meter with larger
+single-line rows, abbreviated damage (`17.0k dmg`) and per-ability DPS. Boss DPS
+uses that encounter's duration. Overall trash DPS uses the union of recorded trash
+pull intervals, excluding boss time and time between pulls. Damage shares retain
+automatic attacks and optional contributions so percentages still describe the
+recorded total. Recognized racial and profession/item contributions carry bracket
+labels. Racial and item actions are excluded from the class rotation; the UI
+filters existing saved timelines without requiring an API refresh. The technical
+run-description card and eight-ability damage-card splitting have been removed.
+
 ## Resume large public-report imports
 
 Run the following in the terminal holding your Warcraft Logs credentials:

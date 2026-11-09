@@ -2,6 +2,7 @@ const fs=require('fs'),path=require('path');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
 const AUTOMATIC=new Set([1,75,5019,6603]);
 const RACIAL_BUFFS=new Set(['blood fury','berserking','stoneform','will of the forsaken','escape artist']);
+const optionalAbility=name=>RACIAL_BUFFS.has(name.toLowerCase())||/war stomp|cannibalize|shadowmeld|perception|devouring plague|starshards|feedback|hex of weakness|shadowguard|touch of weakness|desperate prayer|elune|grenade|dynamite|sapper|bomb|dragonling|battle chicken|potion/i.test(name);
 const nonCombat=name=>/^(melee|attack|auto attack|auto shot|shoot|shoot wand|resurrection|ancestral spirit|redemption|revive)$/i.test(name)||/^(teleport|portal|track|find|sense)\b|astral recall|hearthstone|fishing|eagle eye|far sight|beast lore|feed pet|revive pet|dismiss pet|conjure (food|water|mana)|create (healthstone|soulstone|firestone|spellstone)|ritual of|summon (warhorse|charger|felsteed|dreadsteed)/i.test(name);
 let classSpells;
 function knownSpells(){
@@ -22,7 +23,7 @@ function combatCasts(p,start,end){
  for(const event of own)if(event.type==='applybuff'&&event.targetID===p.actor.id&&RACIAL_BUFFS.has((p.abilities.get(event.abilityGameID)||'').toLowerCase()))evidence.add(event.abilityGameID);
  const learned=knownSpells().get(p.actor.subType.toUpperCase())||new Set();
  return p.casts.filter(e=>e.timestamp>=start&&e.timestamp<=end&&!AUTOMATIC.has(e.abilityGameID)&&
-  Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0&&!nonCombat(p.abilities.get(e.abilityGameID)||'')&&
+  Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0&&!nonCombat(p.abilities.get(e.abilityGameID)||'')&&!optionalAbility(p.abilities.get(e.abilityGameID)||'')&&
   (evidence.has(e.abilityGameID)||learned.has(e.abilityGameID))).sort((a,b)=>a.timestamp-b.timestamp);
 }
 function summarize(p,segment){

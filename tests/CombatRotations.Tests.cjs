@@ -38,6 +38,6 @@ const earlyDeath=encounterRotations({...p,deaths:[{timestamp:21500}]});assert.de
 assert.equal(earlyDeath[1].repeats,0,'Do not construct a repeated rotation across death downtime');
 const noEvidence=profile(report,fight,actor,{complete:true,events:[cast(1000,902)]});assert(encounterRotations(noEvidence).every(r=>r.combatCasts===0),'Keep known encounter boundaries, with no invented ability casts');
 const racial=profile(report,fight,actor,{complete:true,events:[cast(1000,904),{timestamp:1001,type:'applybuff',sourceID:1,targetID:1,abilityGameID:904}]});
-assert.equal(encounterRotations(racial)[0].opener[0].name,'Blood Fury','Observed self-applied racial combat cooldowns remain available');
+assert.equal(encounterRotations(racial)[0].combatCasts,0,'Racial cooldowns do not enter the class rotation');
 assert(encounterRotations(profile(report,fight,actor,{complete:true,events:[cast(1000,904)]})).every(r=>r.combatCasts===0),'An unclassified racial name alone is not effect evidence');
 console.log('PASS: dungeon pull boundaries, real boss/trash labels, compact opener/repeated sequence, class combat buffs, non-combat/automatic exclusions, out-of-pull casts and death/gap limits. Synthetic event fixtures only.');

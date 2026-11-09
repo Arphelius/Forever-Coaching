@@ -53,7 +53,8 @@ async function main(){
  const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.scenario.castCount=44;
  winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
  winner.rotations[0].damage=[{spellID:101,name:'Trash damage ability',amount:300}];
- winner.rotations[1].damage=[{spellID:101,name:'Boss damage ability',amount:150},{spellID:6603,name:'Melee',amount:50}];
+ winner.rotations[1].damage=[{spellID:101,name:'Boss damage ability',amount:15000},{spellID:6603,name:'Melee',amount:5000},...Array.from({length:7},(_,i)=>({spellID:200+i,name:i===0?'Blood Fury':i===1?'Solid Dynamite':'Fixture effect '+i,amount:0}))];
+ winner.rotations[1].steps[0].name='Blood Fury';
  winner.rotations.push({...structuredClone(winner.rotations[0]),start:1,end:19,damage:[{spellID:101,name:'Trash damage ability',amount:200}]});
  run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner]}));
  run(`
@@ -73,8 +74,7 @@ assert(model.supportedDungeonCount==35 and model.coveredDungeonCount==2,'Support
 assert(model.status=='This is not a verified ranking across every log on Warcraft Logs.','Ready view shows only the ranking disclaimer, without scan statistics or technical status')
 assert(model.selectedSpec=='SHAMAN:enhancement')
 assert(model.nextFight==nil and model.rows[1].you==nil)
-assert(model.rows[1].action:find('Highest observed',1,true) and model.rows[1].reference:find('40.0 DPS',1,true))
-assert(model.rows[2].action=='Overall trash damage')
+assert(model.rows[1].action=='Damage by ability','One compact damage section replaces technical run descriptions')
 local foundBoss=false;for _,row in ipairs(model.rows)do if row.action:find('Fixture Boss',1,true)then foundBoss=true end end;assert(foundBoss)
 for _,option in ipairs(model.encounters)do assert(not option.label:find('Fixture ',1,true),'Dropdown contains dungeons, never players')end
 local parent=CreateFrame('Frame');parent:SetSize(800,440);parent:Show()
@@ -85,7 +85,7 @@ assert(visible('ENCOUNTER') and visible('OBSERVED ROTATION'))
 for _,label in ipairs({'YOU','NEXT FIGHT','DO NOT DISPLAY PERSONAL DATA','No matching fight','100-PARSE PLAYERS'})do assert(not visible(label),'Comparison UI must be paused: '..label)end
 assert(fc.testPanel.status.text:find(w.publicNotice,1,true))
 assert(w:SetPublicEncounter('dungeon:shadowfang-keep'))
-assert(w:GetPublicReportModel().rows[1].reference:find('40.0 DPS',1,true))
+assert(w:GetPublicReportModel().rows[1].action=='Damage by ability')
 assert(not w:GetPublicReportModel().status:find('Fixture Shaman',1,true),'Player names are not displayed')
 assert(w:SetPublicSpec('MAGE:fire'))
 assert(fc.testPanel.model.selectedSpec=='MAGE:fire')
@@ -111,7 +111,7 @@ fc.PublicReportCatalog=partial;assert(w:SetPublicSpec('SHAMAN:enhancement'));ass
 assert(w:GetPublicReportModel().status:find('other specs',1,true),'Distinguish other-spec reports from missing dungeon data')
 local otherLabel=false;for _,option in ipairs(w:GetPublicReportModel().encounters)do if option.value=='dungeon:shadowfang-keep'then otherLabel=option.label:find('other specs available',1,true)end end;assert(otherLabel)
 fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
-local full=w:GetPublicReportModel();assert(full.rows[1].reference:find('200.0 DPS',1,true),'Choose highest output, not first stored example')
+local full=w:GetPublicReportModel();assert(full.rows[1].meter[1].amount==500,'Choose highest output, not first stored example')
 local page=fc:BuildOptimizationPage(parent)
 fc.RefreshCombatReview=function(self)self.testPanel.refresh();if self.optimizationView and self.optimizationView.parent:IsShown()then self.optimizationView.refresh()end end
 assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker,'Use the shared Learn/Scenarios document layout with three direct selectors')
@@ -119,18 +119,18 @@ assert(#page.model.sections==2 and page.model.selectedSection=='trash','Trash an
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Winner boss',1,true),'Trash view must not dump boss casts')end
 assert(w:SetPublicSection('boss:winner boss'))
 assert(page.model.sectionLabel=='Winner boss')
-local bossTotal,bossAbility=false,false;for _,row in ipairs(page.model.rows)do if row.reference:find('200 total damage',1,true)then bossTotal=true end;if row.reference:find('Boss damage ability / 150 damage / 75.0%%')then bossAbility=true end;assert(not row.reference:find('Trash damage ability',1,true),'Boss damage excludes trash')end;assert(bossTotal and bossAbility,'Boss sections show encounter damage totals and percentages')
+local bossAbility,meterCount=false,0;for _,row in ipairs(page.model.rows)do if row.meter then meterCount=meterCount+1;bossAbility=row.meter[1].amount==15000 and row.meter[1].share==75 and row.meter[1].value:find('15.0k dmg - 385 DPS',1,true);assert(#row.meter==9,'A ninth ability remains in the same meter');assert(row.reference:find('Blood Fury [Racial]',1,true) and row.reference:find('Solid Dynamite [Profession / item]',1,true),'Optional contributions have bracket labels')else assert(not row.reference:find('Blood Fury',1,true),'Racial casts are hidden from existing catalog timelines')end;assert(not row.reference:find('Trash damage ability',1,true),'Boss damage excludes trash')end;assert(bossAbility and meterCount==1,'One boss meter shows abbreviated damage, encounter DPS and percentages')
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Trash mobs',1,true),'Boss view must not dump trash casts')end
 assert(not w:SetPublicSection('boss:invented'),'Reject missing encounters')
 assert(w:SetPublicSection('trash'))
-local total,ability=false,false;for _,row in ipairs(page.model.rows)do if row.reference:find('500 total damage',1,true)then total=true end;if row.reference:find('Trash damage ability / 500 damage / 100.0%%')then ability=true end;assert(not row.action:find('pull ',1,true) and not row.reference:find('Tail combat action',1,true),'Hide individual trash timelines')end
-assert(total and ability and #page.model.rows==3,'Aggregate all trash pulls by ability')
+assert(#page.model.rows==1 and page.model.rows[1].meter[1].amount==500 and page.model.rows[1].meter[1].dps==25,'One meter aggregates trash damage with DPS over the union of pull durations')
+assert(page.document.groups[1].meterRows[1]:IsShown(),'Render damage as compact meter bars')
 assert(w:SetPublicEncounter('dungeon:shapers-terrace'))
 assert(#page.model.rows==0 and page.model.selectedSection==nil,'Dungeon changes clear stale encounter content')
 assert(w:SetPublicSpec('SHAMAN:enhancement') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local tail,boss=false,false
 for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
-assert(not tail and boss and #full.rows==6,'Keep bosses separate and summarize trash once')
+assert(not tail and boss and #full.rows==3,'Keep bosses separate and summarize trash once')
 local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()

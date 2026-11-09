@@ -184,7 +184,16 @@ function Theme:Document(parent,top)
    end
    local widget=row.widget;widget:ClearAllPoints();widget:SetPoint('TOPLEFT',0,-offset);widget:SetWidth(width)
    local height=row.height
-   if row.group then
+   if row.meter then
+    widget.heading:SetWidth(width-28)
+    local top=12+math.max(20,widget.heading:GetStringHeight())+8
+    for i,bar in ipairs(widget.meterRows)do if i<=#row.meter then
+     bar:ClearAllPoints();bar:SetPoint('TOPLEFT',14,-top-(i-1)*27);bar:SetSize(width-28,25)
+     bar.fill:SetWidth(math.max(1,(width-28)*row.meter[i].share/100))
+     bar.name:SetWidth((width-28)*.48);bar.value:SetWidth((width-28)*.51)
+    end end
+    height=top+#row.meter*27+10;widget:SetHeight(height)
+   elseif row.group then
     widget.heading:SetWidth(width-28);widget.body:SetWidth(width-28)
     local titleHeight=math.max(20,widget.heading:GetStringHeight())
     widget.body:ClearAllPoints();widget.body:SetPoint('TOPLEFT',14,-12-titleHeight-10)
@@ -197,7 +206,7 @@ function Theme:Document(parent,top)
   self.content:SetHeight(math.max(1,offset))
  end
  function doc:Reset()self.rows={};self.used=0;self.groupCount=0 end
- function doc:Group(title,body)
+ function doc:Group(title,body,large)
   self.groupCount=self.groupCount+1
   local group=self.groups[self.groupCount]
   if not group then
@@ -213,8 +222,27 @@ function Theme:Document(parent,top)
    end
    self.groups[self.groupCount]=group
   end
+  for _,bar in ipairs(group.meterRows or {})do bar:Hide()end
+  group.body:Show();group.body:SetFontObject(large and 'GameFontHighlightLarge' or 'GameFontHighlight')
+  if group.body.SetSpacing then group.body:SetSpacing(large and 1 or 2)end
   group.heading:SetText(title or '');group.body:SetText(body or '');group:Show()
   self.rows[#self.rows+1]={widget=group,group=true}
+  return group
+ end
+ function doc:Meter(title,entries)
+  local group=self:Group(title,'',true);group.body:Hide();group.meterRows=group.meterRows or {}
+  for i,entry in ipairs(entries)do
+   local bar=group.meterRows[i]
+   if not bar then
+    bar=CreateFrame('Frame',nil,group)
+    bar.fill=bar:CreateTexture(nil,'BACKGROUND');bar.fill:SetPoint('TOPLEFT');bar.fill:SetPoint('BOTTOMLEFT');bar.fill:SetTexture('Interface\\Buttons\\WHITE8X8');bar.fill:SetVertexColor(.48,.35,.12,.65)
+    bar.name=bar:CreateFontString(nil,'OVERLAY','GameFontHighlightLarge');bar.name:SetPoint('LEFT',5,0);bar.name:SetJustifyH('LEFT');bar.name:SetWordWrap(false)
+    bar.value=bar:CreateFontString(nil,'OVERLAY','GameFontHighlightLarge');bar.value:SetPoint('RIGHT',-5,0);bar.value:SetJustifyH('RIGHT');bar.value:SetWordWrap(false)
+    group.meterRows[i]=bar
+   end
+   bar.name:SetText(entry.name);bar.value:SetText(entry.value);bar:Show()
+  end
+  self.rows[#self.rows].meter=entries
  end
  function doc:Line(value,title,tone)
   self.used=self.used+1

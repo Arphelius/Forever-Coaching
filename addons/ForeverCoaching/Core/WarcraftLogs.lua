@@ -436,7 +436,7 @@ function W:PreparePublicExample(raw)
    end
    rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=rotation.damage and damage,
     opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill,
-    steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start}
+    steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start,['end']=rotation['end']}
   end
  end
  return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
@@ -494,11 +494,30 @@ function W:GetPublicReportModel()
   table.sort(list,function(a,b)return a.role..a.difficulty..a.gameVersion<b.role..b.difficulty..b.gameVersion end)
   local rows,sections,sectionMap={},{},{}
   for _,entry in ipairs(list)do
-   local reference={action='Highest observed '..entry.role..' run',reference=string.format('%.1f %s / same recorded difficulty and game version. All encounter sequences below follow this one run.',entry.performance,entry.metric:upper())}
-   rows[#rows+1]=reference
+   local function optionalSource(name)
+    local n=name:lower()
+    if n:find('blood fury',1,true) or n:find('berserking',1,true) or n:find('war stomp',1,true) or n:find('stoneform',1,true) or n:find('will of the forsaken',1,true) or n:find('escape artist',1,true) or n:find('cannibalize',1,true) or n:find('shadowmeld',1,true) or n:find('perception',1,true) or n:find('devouring plague',1,true) or n:find('starshards',1,true) or n:find('feedback',1,true) or n:find('hex of weakness',1,true) or n:find('shadowguard',1,true) or n:find('touch of weakness',1,true) or n:find('desperate prayer',1,true) or n:find('elune',1,true) then return 'Racial'end
+    if n:find('grenade',1,true) or n:find('dynamite',1,true) or n:find('sapper',1,true) or n:find('bomb',1,true) or n:find('dragonling',1,true) or n:find('battle chicken',1,true) or n:find('potion',1,true) then return 'Profession / item'end
+   end
+   local book=FC.ForeverSpellCatalog and FC.ForeverSpellCatalog.classes and FC.ForeverSpellCatalog.classes[entry.class]
+   local classNames={};for name in pairs(book and book.spells or {})do classNames[name:lower()]=true end
+   local function classAction(name)return not optionalSource(name) and (not book or classNames[name:lower()])end
+   local function shortDamage(amount)if amount>=1000000 then return string.format('%.1fm',amount/1000000)elseif amount>=1000 then return string.format('%.1fk',amount/1000)end;return string.format('%.0f',amount)end
+   local function damageRow(spells,total,duration)
+    table.sort(spells,function(a,b)return a.amount>b.amount end)
+    local lines,meter={},{}
+    for _,spell in ipairs(spells)do
+     local category=optionalSource(spell.name);local label=spell.name..(category and (' ['..category..']') or '')
+     local dps=duration>0 and spell.amount/duration or 0;local share=total>0 and spell.amount*100/total or 0
+     local value=string.format('%s dmg - %.0f DPS (%.1f%%)',shortDamage(spell.amount),dps,share)
+     lines[#lines+1]=label..'  '..value;meter[#meter+1]={name=label,value=value,share=share,amount=spell.amount,dps=dps}
+    end
+    return {action='Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or 'No damage recorded.',meter=meter}
+   end
    local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
-   local trashDamage,trashTotal,trashAvailable={},0,true
+   local trashDamage,trashTotal,trashAvailable,trashDuration,trashEnd={},0,true,0,0
    for _,r in ipairs(rotations)do if r.kind=='trash' then
+    trashDuration=trashDuration+math.max(0,r['end']-math.max(r.start,trashEnd));trashEnd=math.max(trashEnd,r['end'])
     if not r.damage then trashAvailable=false end
     for _,spell in ipairs(r.damage or {})do local row=trashDamage[spell.spellID] or {name=spell.name,amount=0};row.amount=row.amount+spell.amount;trashDamage[spell.spellID]=row;trashTotal=trashTotal+spell.amount end
    end end
@@ -508,16 +527,15 @@ function W:GetPublicReportModel()
     local sectionKey=r.kind=='trash' and 'trash' or 'boss:'..r.name:lower()
     local section=sectionMap[sectionKey]
     if not section then section={value=sectionKey,label=r.kind=='trash' and 'Trash mobs' or r.name,rows={},sources={}};sectionMap[sectionKey]=section;sections[#sections+1]=section end
-    if not section.sources[entry.key]then section.sources[entry.key]=true;section.rows[#section.rows+1]=reference end
+    section.sources[entry.key]=true
     local function addRow(row)rows[#rows+1]=row;section.rows[#section.rows+1]=row end
     if r.kind=='trash' then
      if not trashShown then
       trashShown=true
       if not trashAvailable then addRow({action=title,reference='Refresh public reports to load overall trash damage. Individual pulls are hidden.'})
       else
-       addRow({action=title,reference=string.format('%.0f total damage across all recorded trash pulls.',trashTotal)})
-       local spells={};for _,spell in pairs(trashDamage)do spells[#spells+1]=spell end;table.sort(spells,function(a,b)return a.amount>b.amount end)
-       for first=1,#spells,8 do local lines={};for i=first,math.min(first+7,#spells)do local spell=spells[i];lines[#lines+1]=string.format('%s / %.0f damage / %.1f%%',spell.name,spell.amount,trashTotal>0 and spell.amount*100/trashTotal or 0)end;addRow({action='Damage by ability',reference=table.concat(lines,'\n')})end
+       local spells={};for _,spell in pairs(trashDamage)do spells[#spells+1]=spell end
+       addRow(damageRow(spells,trashTotal,trashDuration))
       end
      end
     else
@@ -525,19 +543,14 @@ function W:GetPublicReportModel()
     if r.damage then
      local spells,total={},0
      for _,spell in ipairs(r.damage)do spells[#spells+1]=spell;total=total+spell.amount end
-     table.sort(spells,function(a,b)return a.amount>b.amount end)
-     addRow({action=title..' / total damage',reference=string.format('%.0f total damage during this encounter.',total)})
-     for first=1,#spells,8 do
-      local lines={}
-      for i=first,math.min(first+7,#spells)do local spell=spells[i];lines[#lines+1]=string.format('%s / %.0f damage / %.1f%%',spell.name,spell.amount,total>0 and spell.amount*100/total or 0)end
-      addRow({action='Damage by ability',reference=table.concat(lines,'\n')})
-     end
+     addRow(damageRow(spells,total,r['end']-r.start))
     else addRow({action=title..' / damage',reference='Refresh public reports to load damage by ability for this encounter.'})end
-    if #r.steps==0 then addRow({action=title,reference='No qualifying combat ability casts were identified for this encounter.'})end
-    for first=1,#r.steps,8 do
+    local classSteps={};for _,step in ipairs(r.steps)do if classAction(step.name)then classSteps[#classSteps+1]=step end end
+    if #classSteps==0 then addRow({action=title,reference='No qualifying class ability casts were identified for this encounter.'})end
+    for first=1,#classSteps,8 do
      local lines={}
-     for i=first,math.min(first+7,#r.steps)do
-      local step=r.steps[i];local time=string.format('%.1fs',step.at)
+     for i=first,math.min(first+7,#classSteps)do
+      local step=classSteps[i];local time=string.format('%.1fs',step.at)
       if step['end']>step.at then time=time..string.format('-%.1fs',step['end'])end
       lines[#lines+1]=time..'  '..step.name..(step.count>1 and (' x'..step.count) or '')
      end
