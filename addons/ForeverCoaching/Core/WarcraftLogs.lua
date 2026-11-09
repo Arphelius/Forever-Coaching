@@ -480,11 +480,6 @@ function W:PublicRuns()
  for key,entry in pairs(details)do if not seen[key]then runs[#runs+1]=entry end end
  self.publicRunsSource=source;self.publicRuns=runs;return runs
 end
-function W:SetPublicRun(key)
- local model=self:GetPublicReportModel()
- for _,run in ipairs(model.runs or {})do if run.value==key then local selection=comparisonSelection();selection.publicRun=key;selection.publicRunContext=(model.selectedSpec or '')..'@'..(model.selectedEncounter or '');if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
- return false
-end
 function W:SetPublicSpec(key)
  local model=self:GetPublicReportModel()
  for _,option in ipairs(model.specs)do if option.value==key then local selection=comparisonSelection();selection.publicSpec=key;selection.publicEncounter=nil;if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
@@ -508,13 +503,13 @@ function W:GetPublicReportModel()
   local groupKey=entry.dungeonKey or entry.instance;groups[groupKey]=groups[groupKey] or {};groups[groupKey][#groups[groupKey]+1]=entry
  end end
  local function rotationRows(entries)
-  local list={};for _,entry in ipairs(entries or {})do if entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric and entry.role~='unknown'then list[#list+1]=entry end end
   local preferHealer=selected and (selected:match(':restoration$') or selected:match(':holy$') or selected=='PRIEST:discipline')
-  table.sort(list,function(a,b)if a.role~=b.role then if preferHealer and (a.role=='healer' or b.role=='healer')then return a.role=='healer'end;return a.role<b.role end;if a.performance~=b.performance then return a.performance>b.performance end;return a.key<b.key end)
-  local options={};for i,entry in ipairs(list)do options[#options+1]={value=entry.key,label=string.format('Log %d / %s / %.1f %s / %.1f min%s',i,entry.role,entry.performance,entry.metric:upper(),(entry.duration or entry.scenario and entry.scenario.duration or 0)/60,#entry.rotations==0 and ' / overall only' or '')}end
+  local hasDPS,hasHPS=false,false;for _,entry in ipairs(entries or {})do if entry.metric=='dps'then hasDPS=true elseif entry.metric=='hps'then hasHPS=true end end
+  preferHealer=preferHealer or hasHPS and not hasDPS
+  local metric=preferHealer and 'hps' or 'dps'
+  local list={};for _,entry in ipairs(entries or {})do if entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric==metric and entry.role~='unknown'then list[#list+1]=entry end end
+  table.sort(list,function(a,b)if a.performance~=b.performance then return a.performance>b.performance end;return a.key<b.key end)
   local chosen=list[1]
-  local context=(selected or '')..'@dungeon:'..(entries and entries[1] and entries[1].dungeonKey or '')
-  if selection.publicRunContext==context then for _,entry in ipairs(list)do if entry.key==selection.publicRun then chosen=entry;break end end end
   list=chosen and {chosen} or {}
   local rows,sections,sectionMap={},{},{}
   for _,entry in ipairs(list)do
@@ -593,7 +588,7 @@ function W:GetPublicReportModel()
   end
   if #sections>0 and not sectionMap.trash then sections[#sections+1]={value='trash',label='Trash mobs',rows={{action='Trash mobs',reference='No trash-pull data is available for the selected run.'}}}end
   table.sort(sections,function(a,b)if a.value==b.value then return false end;if a.value=='overall' or b.value=='overall'then return a.value=='overall'end;if a.value=='trash' or b.value=='trash'then return a.value=='trash'end;return a.label<b.label end)
-  return rows,sections,options,chosen and chosen.key
+  return rows,sections,nil,chosen and chosen.key
  end
  local roster=FC.SupportedDungeons or {};if not FC.SupportedDungeons then for key,entries in pairs(groups)do roster[#roster+1]={key=key,name=entries[1].instance}end;table.sort(roster,function(a,b)return a.name<b.name end)end
  local firstAvailable,covered=nil,0

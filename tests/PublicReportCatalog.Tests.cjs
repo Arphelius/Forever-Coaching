@@ -128,8 +128,8 @@ fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'))
 local full=w:GetPublicReportModel();assert(full.selectedRun:find(':999',1,true) and full.rows[1].totalDamage==12000 and full.rows[1].totalDPS==200,'Overall uses whole-dungeon output and elapsed time, with highest output selected first')
 local page=fc:BuildOptimizationPage(parent)
 fc.RefreshCombatReview=function(self)self.testPanel.refresh();if self.optimizationView and self.optimizationView.parent:IsShown()then self.optimizationView.refresh()end end
-assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker and page.runPicker,'Use the shared document with a log selector')
-assert(#page.model.sections==3 and page.model.selectedSection=='overall' and #page.model.runs==3,'Overall, trash and bosses are separate; every scored log is selectable')
+assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker and not page.runPicker,'Keep only spec, dungeon and encounter selectors')
+assert(#page.model.sections==3 and page.model.selectedSection=='overall' and not page.model.runs,'Only the highest-output log is displayed across Overall, trash and bosses')
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Winner boss',1,true),'Trash view must not dump boss casts')end
 assert(w:SetPublicSection('boss:winner boss'))
 assert(page.model.sectionLabel=='Winner boss')
@@ -149,11 +149,9 @@ for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,tr
 assert(not tail and not boss and #full.rows==3,'Keep overall and damage meters; no timestamped cast cards')
 local winnerKey=full.selectedRun
 local uncachedKey=LongCatalog.runs[1].code..':'..LongCatalog.runs[1].fightID..':8888'
-assert(w:SetPublicRun(uncachedKey) and page.model.selectedRun==uncachedKey)
-assert(page.model.selectedSection=='overall' and page.model.rows[1].totalDamage==6000,'Other logs show their own overall totals, without borrowing winner data')
-assert(w:SetPublicSection('boss:uncached boss') and page.model.rows[1].action=='Encounter data unavailable','Missing event details are explicit')
-assert(w:SetPublicRun(winnerKey) and page.model.selectedRun==winnerKey)
-assert(not w:SetPublicRun('invented'),'Reject missing log keys')
+for _,s in pairs(ForeverCoachingDB.warcraftLogs.comparisonSelections)do s.publicRun=uncachedKey;s.publicRunContext='SHAMAN:enhancement@dungeon:ruins-of-lordaeron'end
+assert(w:GetPublicReportModel().selectedRun==winnerKey,'Old manual log selections cannot override the measured winner')
+assert(not w.SetPublicRun,'Remove manual run selection')
 local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()

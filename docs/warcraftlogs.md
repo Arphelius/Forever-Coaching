@@ -12,11 +12,13 @@ replacing it with damage. My Logs likewise uses personal effective healing and
 HPS for healer-role comparisons. The local version-22 importer counts consumed
 shields attributed to the player from both raw `SPELL_ABSORBED` layouts.
 
-## Overall and all scored logs
+## Overall and automatic highest-output selection
 
-Optimization now has a fourth picker, **Log**, for every eligible scored player-run
-in the collected reports. The default is the highest-output run for the selected
-class/spec; other players' names remain hidden. The **Overall** encounter section
+Optimization has three pickers: **Spec**, **Dungeon**, and **Encounter**. Every
+eligible scored player-run in the collected reports is considered, but only the
+highest matching HPS (healer) or DPS (damage/tank) result is displayed. Manual log
+selection and older saved log overrides are removed. Player names remain hidden.
+The **Overall** encounter section
 shows whole-dungeon damage and DPS over the entire elapsed run, including the time
 between pulls. Trash and individual bosses retain their separate scopes.
 

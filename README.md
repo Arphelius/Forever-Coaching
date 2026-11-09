@@ -5,8 +5,8 @@ reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
 Optimization shows **overall dungeon damage, combined trash and individual bosses**.
-Select **Spec → Dungeon → Encounter → Log** to browse all scored player-runs for
-that class/spec and dungeon. The highest-output run is selected by default.
+Select **Spec → Dungeon → Encounter**. The addon ranks the collected player-runs
+and displays only the highest matching HPS or DPS run automatically.
 The collector scores available runs by dungeon DPS, healer HPS, or tank DPS;
 it follows discovery pages and keeps each winning run coherent across encounters.
 Player names and non-combat actions are hidden. Search limits and unavailable
