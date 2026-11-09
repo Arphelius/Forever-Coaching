@@ -298,6 +298,11 @@ local function AddResourceRow(parent, heading, description, url, y)
 end
 
 local pages = {
+    MyLogs = {
+        heading = "My Logs",
+        description = "Import your recorded fights and compare class ability use with the catalog.",
+        cards = {},
+    },
     Rotation = {
         heading = "Optimization",
         description = "Observed combat rotations for trash pulls and named dungeon bosses.",
@@ -447,6 +452,7 @@ local function ShowTab(tabName)
         FC:BuildEncounterLearningPage(currentPage,tabName)
     end
     if tabName=="Gear" and FC.BuildGearGuidePage then FC:BuildGearGuidePage(currentPage) end
+    if tabName=="MyLogs" and FC.BuildMyLogsPage then FC:BuildMyLogsPage(currentPage) end
 
     if tabName == "Rotation" then
         if FC.BuildOptimizationPage and FC.WarcraftLogs and FC.WarcraftLogs.GetPublicReportModel then
@@ -525,6 +531,7 @@ local tabs = {
     { name = "Talents", label = "Talent Builds" },
     { name = "Learn", label = "Learn" },
     { name = "Rotation", label = "Optimization" },
+    { name = "MyLogs", label = "My Logs" },
     { name = "Scenarios", label = "Scenarios" },
     { name = "Gear", label = "Gear" },
     { name = "Resources", label = "Resources" },

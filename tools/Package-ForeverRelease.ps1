@@ -31,6 +31,12 @@ try {
  foreach ($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
   $relative=$file.FullName.Substring($source.Length+1).Replace('\','/')
   if($relative.StartsWith('Companion/')){continue}
+  if($relative.StartsWith('Helpers/')){continue}
+  if($relative -eq 'Data/PersonalCombatLog.lua'){
+   $entry=$zip.CreateEntry('ForeverCoaching/'+$relative);$writer=New-Object IO.StreamWriter($entry.Open())
+   try{$writer.Write("-- Private logs are excluded from releases.`nForeverCoaching=ForeverCoaching or {}`nForeverCoaching.PersonalCombatLog={}`n")}finally{$writer.Dispose()}
+   continue
+  }
   if ($file.Name -match ' - Copy\.|\.backup\.|\.log$' -or ($file.Extension -eq '.toc' -and $manifestNames -notcontains $file.Name)) { continue }
   if ($relative -eq 'Data/CompanionReviews.lua') {
    $entry=$zip.CreateEntry('ForeverCoaching/'+$relative)
@@ -44,6 +50,7 @@ try {
    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,'ForeverCoaching/'+$relative,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
   }
  }
+ & (Join-Path $PSScriptRoot 'Add-LocalLogImporterToPackage.ps1') -Archive $zip
 } finally { $zip.Dispose() }
 Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
 Write-Output $path

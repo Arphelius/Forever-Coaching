@@ -78,10 +78,10 @@ assert(ForeverCoachingDB.activeTalentBuilds.player=='keep-active','Guide browsin
 print('PASS: interactive class/spec/scenario menus, direct scenario selection, refreshed content and isolated live build state.')`);
 run(`unpack=unpack or table.unpack;ForeverCoaching.IsTalentVFXEnabled=function()return false end`);
 for(const file of ['Data/LocaleMessages.lua','Core/Localization.lua','Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua','Core/GuideSources.lua','Data/AbilityLessons.lua','Data/ForeverSpellCatalog.lua','Data/TalentLessonEffects.lua','Core/TalentLessons.lua','Data/SpecScenarios.lua','Data/ScenarioActions.lua','Data/CombatSituations.lua','Data/ForeverSpellGuidance.lua','Data/WowheadGuideNotes.lua','Core/SpecScenarios.lua','Core/GearGuide.lua','Core/ProfessionGuide.lua','Data/ProfessionItems.lua','Core/ProfessionItems.lua','UI/BuildsWindow.lua','Core/CombatReview.lua','ForeverCoaching.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
-for(const file of ['Core/WarcraftLogs.lua','UI/WarcraftLogs.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
+for(const file of ['Core/WarcraftLogs.lua','UI/WarcraftLogs.lua','Core/MyLogs.lua','UI/MyLogs.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`ForeverCoaching:ToggleWindow()
 local navigation={};for _,frame in ipairs(TestFrames)do if frame.navigationIndex then navigation[frame.navigationIndex]=frame end end
-for index=1,6 do
+for index=1,7 do
  local button=navigation[index];assert(button and button.scripts.OnClick);button.scripts.OnClick(button)
  assert(ForeverCoachingFrame.width==820 and ForeverCoachingFrame.height==540,'Every tab must use the one dashboard size')
  assert(button.parent==navigation[1].parent and button.height==22,'Tabs stay in the header row on every tab')
@@ -139,20 +139,20 @@ for index=1,6 do
  else assert(menus>=2,'Every dashboard section needs class/spec selection')end
 end
 assert(talentChecked,'The Talent Builds tab must be found by its label')
-assert(navigation[1].text=='Talent Builds' and navigation[2].text=='Learn' and navigation[3].text=='Optimization','Tab order: Talent Builds, Learn, Optimization, Scenarios, Gear, Resources')
+assert(navigation[1].text=='Talent Builds' and navigation[2].text=='Learn' and navigation[3].text=='Optimization' and navigation[4].text=='My Logs','My Logs follows Optimization')
 -- Tabs are as wide as their labels and laid out left to right without overlap.
 local previousRight=0
-for index=1,6 do
+for index=1,7 do
  local tab=navigation[index];assert(tab.width>=#(tab.text or '')*7+20,'Tab must be wider than its label')
  previousRight=previousRight+tab.width+2
 end
-assert(previousRight<=820-130,'All six tabs fit on one header row with room for Language')
+assert(previousRight<=820-130,'All seven tabs fit on one header row with room for Language')
 -- The Language list belongs to the dashboard (it opened behind it as a separate window).
 local languageRow
 for _,frame in ipairs(TestFrames)do if frame.text=='Romana' then languageRow=frame end end
 local inside=false;local up=languageRow and languageRow.parent;while up do if up==ForeverCoachingFrame then inside=true end;up=up.parent end
 assert(inside,'Language menu must be part of the dashboard')
-print('PASS: all six real dashboard sections expose selectors in non-overlapping toolbars, one window size, fitted tabs; talent class icons retain their original colors.')`);
+print('PASS: all seven real dashboard sections expose selectors in non-overlapping toolbars, one window size, fitted tabs; talent class icons retain their original colors.')`);
 run(`local browser=ForeverCoaching.GuideBrowser;local planner=ForeverCoaching.BuildPlanner
 browser.activity='raids'
 for _,class in ipairs(planner.classes)do
@@ -204,7 +204,7 @@ run(`ForeverCoaching.GuideBrowser.class=nil;ForeverCoaching.GuideBrowser.buildID
 for _,frame in ipairs(TestFrames)do if frame.navigationIndex and frame.navigationIndex>1 then frame.scripts.OnClick(frame) end end
 print('PASS: all reading tabs construct with the real live context provider on a level 2 Shaman.')`);
 run(`local fc=ForeverCoaching;fc.GuideBrowser.class='MAGE';fc.GuideBrowser.buildID=nil
-local gear;for _,f in ipairs(TestFrames)do if f.navigationIndex==5 then gear=f end end;assert(gear);gear.scripts.OnClick(gear)
+local gear;for _,f in ipairs(TestFrames)do if f.text=='Gear' and f.navigationIndex then gear=f end end;assert(gear);gear.scripts.OnClick(gear)
 local function find(label)for _,f in ipairs(TestFrames)do if f:IsShown() and f.text==label then return f end end end
 local toggle=assert(find('Professions'));toggle.scripts.OnClick(toggle)
 assert(find('Secondary professions') and find('Tailoring + Enchanting'),'Profession cards must render inside the native page')
@@ -226,7 +226,7 @@ local ancestor=selector.parent;while ancestor and ancestor~=ForeverCoachingFrame
 assert(ancestor==ForeverCoachingFrame,'Comparison controls belong to the main dashboard')
 assert(not ForeverCoachingWarcraftLogs and not ForeverCoaching.OpenWarcraftLogs,'No standalone Warcraft Logs window remains')
 assert(ForeverCoachingFrame.scripts.OnDragStart and ForeverCoachingFrame.scripts.OnDragStop,'Main dashboard remains draggable')
-local scenario;for _,f in ipairs(TestFrames)do if f.navigationIndex==4 then scenario=f end end
+local scenario;for _,f in ipairs(TestFrames)do if f.text=='Scenarios' and f.navigationIndex then scenario=f end end
 assert(scenario);scenario.scripts.OnClick(scenario)
 local guideMenu;for _,f in ipairs(TestFrames)do if f:IsShown() and f.guidePicker then guideMenu=true end end
 assert(not ForeverCoaching.parserScenarioView,'Scenarios is restored to class/spec guides, independent of Optimization')

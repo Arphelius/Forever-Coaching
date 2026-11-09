@@ -4,8 +4,8 @@ Forever Coaching combines talent builds, class guides, combat recording and figh
 reviews for World of Warcraft: Forever. The live rotation engine, icon strip,
 swing prompts and `/fcrotation` settings have been removed.
 
-Optimization shows **full combat rotations from the highest-output matching dungeon run**; personal
-comparisons are paused. Select **Spec → Dungeon → Encounter** to follow the selected
+Optimization shows **full combat rotations from the highest-output matching dungeon run**.
+Select **Spec → Dungeon → Encounter** to follow the selected
 class/spec winner's entire trash and boss sequences, with timing and repeat counts.
 The collector scores available runs by dungeon DPS, healer HPS, or tank DPS;
 it follows discovery pages and keeps each winning run coherent across encounters.
@@ -24,6 +24,14 @@ Optimization supports the **35 pre-raid dungeons/wings** in
 **awaiting reports for this spec**; supported scope is not presented as populated
 coverage. Raids are excluded from the current public-report collector.
 See [public report data and limitations](docs/warcraftlogs.md).
+
+**My Logs** imports your own recorded fights and compares class ability use with a
+matching catalog example. Start logging, then run `Helpers/Import-MyLogs.cmd` from
+the installed addon folder and `/reload`. The helper needs Node.js but no API
+credentials. Choose the spec you played; the raw log does not verify that choice.
+Private imports are excluded from release ZIPs. The tab recommends the
+[Archon App](https://www.archon.gg/download) for Warcraft Logs uploads and live
+logging; local addon imports are a separate step.
 
 Class-guide references use **Wowhead Forever**, matched to the selected class,
 specialization and role. Practical summaries are checked against current tuning;

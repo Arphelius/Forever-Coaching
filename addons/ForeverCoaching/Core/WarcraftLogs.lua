@@ -243,6 +243,7 @@ local function liveSpec()
  local profile=context and context.tree and FC.SpecScenarioProfiles and FC.SpecScenarioProfiles[class] and FC.SpecScenarioProfiles[class][context.tree]
  return profile and comparisonKey(class,profile.name) or nil,class
 end
+function W:GetLiveSpecKey()return liveSpec()end
 local function comparisonSelection()
  local guid=safe(UnitGUID,'player');local db=saved();db.comparisonSelections=db.comparisonSelections or {}
  if not guid then W.sessionSelection=W.sessionSelection or {};return W.sessionSelection end

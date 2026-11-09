@@ -1,5 +1,42 @@
 # Warcraft Logs Optimization
 
+## My Logs: import your own fights
+
+**My Logs** is the personal comparison tab. Enable file logging before a dungeon,
+then open the installed addon's `Helpers` folder and run `Import-MyLogs.cmd`.
+The helper imports the most recently modified `WoWCombatLog*.txt` from that game's
+`Logs` folder. It requires Node.js, but no API credentials, browser login or API
+requests. Alternatively run `tools/Import-MyCombatLogs.ps1 -GameRoot GAME_FOLDER
+-File COMBAT_LOG` to choose an older file. It supports standard and advanced
+version-22 Forever combat logs, with completed/unfinished bosses kept separate and
+trash combined within each recorded dungeon visit. New addon files require one
+client restart after installation; later imports need only `/reload`.
+
+The tab shows imports only for the current character's GUID. Choose a recorded
+fight, the spec actually played, and your role. **Spec and role selections are user
+declarations, not facts recovered from this raw log.** References match class, selected spec,
+logged role, dungeon and boss/trash section. Only normal client dungeons are
+currently supported. Warcraft Logs difficulty 10 is a general dungeon category,
+not the client difficulty ID; the tab explicitly discloses that exact reference
+difficulty cannot be verified. Heroic client runs are not substituted. The highest dungeon-output
+run with a usable matching section supplies the example; unrelated encounters and
+unfinished boss attempts are not substituted. Recorded direct damage, elapsed
+encounter DPS and class casts per minute are compared. Effective personal healing
+is also shown for healers, but encounter-specific reference healing is not yet in
+the catalog. Pet damage, gear, talents, buff uptime, threat and mechanic decisions
+are not graded. Frequency differences prompt review; they are not proven mistakes.
+
+The private `Data/PersonalCombatLog.lua` contains at most 200 recent summaries from
+the selected file. It replaces the previous local import. Packages always replace
+it with an empty placeholder, even when a developer has imported personal fights.
+Do not commit or distribute a populated personal file. The helper does not upload
+anything to a website and does not execute saved log contents as code.
+
+Recommend the [Archon App](https://www.archon.gg/download) for Warcraft Logs uploads
+and live logging. Players must configure their game logging and the appropriate
+Forever service in Archon. Archon uploads do not automatically update this addon;
+the bundled local import helper is a separate step.
+
 ## Compact damage meters and class rotations
 
 Each encounter shows its complete damage breakdown in one meter with larger

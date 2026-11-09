@@ -1,5 +1,6 @@
 const {spawnSync}=require('child_process');
 const suites=[
+ 'MyLogs.Tests.cjs',
  'WclResume.Tests.cjs',
  'PublicReportRanking.Tests.cjs',
  'CombatRotations.Tests.cjs',

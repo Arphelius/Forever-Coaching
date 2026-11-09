@@ -28,5 +28,7 @@ try {
  }
  if ((Read-Entry 'Data/ForeverLogsReview.lua') -notmatch 'ForeverLogsReview=nil') { throw 'Personal review was not excluded.' }
  if ((Read-Entry 'Data/CompanionReviews.lua') -notmatch 'CompanionReviews=\{\}') { throw 'Personal companion reviews were not excluded.' }
+ if ((Read-Entry 'Data/PersonalCombatLog.lua') -notmatch 'PersonalCombatLog=\{\}') { throw 'Private combat logs were not excluded.' }
+ foreach($helper in @('Helpers/Import-MyLogs.cmd','Helpers/tools/Import-MyCombatLogs.ps1','Helpers/tools/Import-MyCombatLogs.cjs','Helpers/tools/local-combat-log.cjs','Helpers/tools/coaching-delivery.cjs','Helpers/tools/lua-data.cjs','Helpers/tools/forever-dungeons.cjs','Helpers/data/forever-dungeons.json')){Read-Entry $helper | Out-Null}
  Write-Output 'PASS: release ZIP layout, three synchronized discovery manifests, every loaded file and private/retired-file exclusions.'
 } finally { $zip.Dispose() }

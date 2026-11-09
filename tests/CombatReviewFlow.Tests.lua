@@ -34,7 +34,7 @@ for _,heading in ipairs({'LOCAL RECORDING','PEER ROTATION COMPARISON','GET SPEC-
 end
 local resourcesButton
 for _,f in ipairs(TestFrames) do
-    if f.navigationIndex==6 then resourcesButton=f end
+    if f.text=='Resources' and f.navigationIndex then resourcesButton=f end
 end
 assert(resourcesButton,'Resources navigation missing')
 resourcesButton.scripts.OnClick(resourcesButton)
