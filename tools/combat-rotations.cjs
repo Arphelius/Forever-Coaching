@@ -65,11 +65,18 @@ function isDungeonRun(fight){
  const dungeon=resolveDungeon(fight.gameZone?.name,fight.name),normal=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
  return !!(fight.dungeonPulls?.length||dungeon&&[dungeon.name,...dungeon.aliases].some(n=>normal(n)===normal(fight.name)||normal(n)===normal(fight.gameZone?.name+': '+fight.name)));
 }
-function encounterRotations(p){
+function encounterSegments(p){
  const wholeDungeon=isDungeonRun(p.fight);
  const segments=Array.isArray(p.fight.dungeonPulls)&&p.fight.dungeonPulls.length?p.fight.dungeonPulls:
   p.fight.encounterID===0||!wholeDungeon&&p.fight.name!==p.fight.gameZone?.name?[p.fight]:[];
- return segments.filter(s=>Number.isFinite(s.startTime)&&Number.isFinite(s.endTime)&&s.endTime>s.startTime&&s.startTime>=p.fight.startTime&&s.endTime<=p.fight.endTime&&Number.isSafeInteger(s.encounterID)&&s.encounterID>=0&&typeof s.name==='string')
-  .map(s=>summarize(p,s)).filter(Boolean);
+ return segments.filter(s=>Number.isFinite(s.startTime)&&Number.isFinite(s.endTime)&&s.endTime>s.startTime&&s.startTime>=p.fight.startTime&&s.endTime<=p.fight.endTime&&Number.isSafeInteger(s.encounterID)&&s.encounterID>=0&&typeof s.name==='string');
 }
-module.exports={encounterRotations,combatCasts,nonCombat,isDungeonRun};
+function encounterRotations(p){return encounterSegments(p).map(s=>summarize(p,s));}
+function encounterDamageSummaries(p){
+ const own={...p,events:p.events.filter(e=>e.sourceID===p.actor.id)};
+ return encounterSegments(p).map(s=>{
+  const damage=new Map();for(const e of own.events)if(e.type==='damage'&&e.timestamp>=s.startTime&&e.timestamp<s.endTime&&Number.isFinite(e.amount)&&e.amount>0&&Number.isSafeInteger(e.abilityGameID)&&e.abilityGameID>0){const row=damage.get(e.abilityGameID)||{spellID:e.abilityGameID,name:p.abilities.get(e.abilityGameID)||'Spell #'+e.abilityGameID,amount:0};row.amount+=e.amount;damage.set(e.abilityGameID,row);}
+  return {combatOnly:true,summaryOnly:true,kind:s.encounterID===0?'trash':'boss',name:s.encounterID===0?'Trash mobs':s.name,start:(s.startTime-p.fight.startTime)/1000,end:(s.endTime-p.fight.startTime)/1000,opener:[],repeated:[],repeats:0,combatCasts:combatCasts(own,s.startTime,s.endTime).length,complete:p.complete,kill:s.kill===true,damage:[...damage.values()]};
+ });
+}
+module.exports={encounterRotations,encounterDamageSummaries,combatCasts,nonCombat,isDungeonRun};

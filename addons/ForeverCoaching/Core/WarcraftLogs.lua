@@ -353,7 +353,8 @@ function W:ResolvePublicDungeon(instance,encounter)
 end
 function W:PreparePublicExample(raw)
  if type(raw)~='table' or type(raw.code)~='string' or #raw.code~=16 or not raw.code:match('^%w+$') then return end
- for _,value in ipairs({raw.fightID or false,raw.actorID or false,raw.instanceId or false})do if not finite(value) or value<=0 or value%1~=0 then return end end
+ for _,value in ipairs({raw.fightID or false,raw.actorID or false})do if not finite(value) or value<=0 or value%1~=0 then return end end
+ if not finite(raw.instanceId) or raw.instanceId<0 or raw.instanceId%1~=0 or raw.instanceId==0 and not FC.SupportedDungeons then return end
  if not finite(raw.encounterId) or raw.encounterId<0 or raw.encounterId%1~=0 then return end
  if type(raw.class)~='string' or not raw.class:match('^[A-Z]+$') or type(raw.spec)~='string' or raw.spec=='' or
   type(raw.player)~='string' or raw.player=='' or not finite(raw.duration) or raw.duration<=0 or raw.duration>86400 or
@@ -403,7 +404,7 @@ function W:PreparePublicExample(raw)
     type(rotation.complete)~='boolean' or type(rotation.kill)~='boolean' then return end
    local sequences={}
    for _,field in ipairs({'opener','repeated'})do
-    local sequence=rotation[field];if type(sequence)~='table' or #sequence>(field=='opener' and 6 or 4) or field=='opener' and #sequence==0 and not (rotation.fullSequence==true and rotation.combatCasts==0) then return end
+    local sequence=rotation[field];if type(sequence)~='table' or #sequence>(field=='opener' and 6 or 4) or field=='opener' and #sequence==0 and not (rotation.fullSequence==true and rotation.combatCasts==0 or rotation.summaryOnly==true) then return end
     local names={}
     for _,action in ipairs(sequence)do
      if type(action)~='table' or not finite(action.spellID) or action.spellID<=0 or action.spellID%1~=0 or
@@ -420,9 +421,9 @@ function W:PreparePublicExample(raw)
     for _,step in ipairs(rotation.steps)do
      if type(step)~='table' or not finite(step.spellID) or step.spellID<=0 or step.spellID%1~=0 or
       ({[1]=true,[75]=true,[5019]=true,[6603]=true})[step.spellID] or type(step.name)~='string' or step.name=='' or
-      not finite(step.at) or not finite(step['end']) or step.at<0 or step.at<last or step['end']<step.at or step['end']>duration or
+      not finite(step.at) or not finite(step['end']) or step.at<0 or step.at<last or step['end']<step.at or step['end']>duration+0.000001 or
       not finite(step.count) or step.count<1 or step.count%1~=0 then return end
-     last=step['end'];total=total+step.count;steps[#steps+1]={name=displayText(step.name,180),at=step.at,['end']=step['end'],count=step.count}
+     last=math.min(step['end'],duration);total=total+step.count;steps[#steps+1]={name=displayText(step.name,180),at=math.min(step.at,duration),['end']=last,count=step.count}
     end
     if total~=rotation.combatCasts then return end
    elseif rotation.fullSequence~=nil then return end
@@ -435,7 +436,8 @@ function W:PreparePublicExample(raw)
      seenDamage[spell.spellID]=true;damage[#damage+1]={spellID=spell.spellID,name=displayText(spell.name,180),amount=spell.amount}
     end
    end
-   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=rotation.damage and damage,
+   if rotation.summaryOnly~=nil and rotation.summaryOnly~=true then return end
+   rotations[#rotations+1]={kind=rotation.kind,name=rotation.kind=='trash' and 'Trash mobs' or displayText(rotation.name,180),damage=rotation.damage and damage,summaryOnly=rotation.summaryOnly==true,
     opener=sequences.opener,repeated=sequences.repeated,repeats=rotation.repeats,combatCasts=rotation.combatCasts,complete=rotation.complete,kill=rotation.kill,
     steps=steps,fullSequence=rotation.fullSequence==true,start=rotation.start,['end']=rotation['end']}
   end
@@ -443,7 +445,7 @@ function W:PreparePublicExample(raw)
  return {key=raw.code..':'..raw.fightID..':'..raw.actorID,specKey=comparisonKey(raw.class,raw.spec),class=raw.class,spec=displayText(raw.spec,100),
   instance=dungeon and dungeon.name or displayText(raw.instance,120) or 'Instance',dungeonKey=dungeon and dungeon.key,
   encounter=displayText(raw.encounter,160) or 'Encounter',player=scenario.player,
-  role=raw.role,metric=raw.metric,performance=raw.performance,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
+  role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,recordedDeaths=raw.recordedDeaths,complete=raw.complete,kill=raw.kill,
   started=raw.started or 0,rows=rows,scenario=scenario,rotations=rotations,excerpt=not raw.spellCountsComplete,
   difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope=raw.rankingScope}
 end
@@ -457,7 +459,30 @@ function W:PublicExamples()
   local ok,entry=pcall(self.PreparePublicExample,self,raw)
   if ok and entry and not seen[entry.key] then seen[entry.key]=true;self.publicExamples[#self.publicExamples+1]=entry end
  end
+ for _,raw in ipairs(source.additionalExamples or {})do local ok,entry=pcall(self.PreparePublicExample,self,raw);if ok and entry and not seen[entry.key]then seen[entry.key]=true;self.publicExamples[#self.publicExamples+1]=entry end end
  return self.publicExamples
+end
+function W:PublicRuns()
+ local source=FC.PublicReportCatalog
+ if self.publicRunsSource==source then return self.publicRuns or {}end
+ local runs,seen={},{}
+ local details={};for _,entry in ipairs(self:PublicExamples())do details[entry.key]=entry end
+ for _,raw in ipairs(source and source.runs or {})do
+  if type(raw)=='table' and type(raw.code)=='string' and raw.code:match('^%w+$') and #raw.code==16 and finite(raw.fightID) and raw.fightID>0 and raw.fightID%1==0 and finite(raw.actorID) and raw.actorID>0 and raw.actorID%1==0 and type(raw.class)=='string' and raw.class:match('^[A-Z]+$') and type(raw.spec)=='string' and raw.spec~='' and finite(raw.duration) and raw.duration>0 and finite(raw.performance) and raw.performance>=0 and finite(raw.difficulty) and finite(raw.gameVersion) and raw.complete==true and raw.kill==true and (raw.role=='dps' or raw.role=='healer' or raw.role=='tank') and raw.metric==(raw.role=='healer' and 'hps' or 'dps') then
+   local dungeon=self:ResolvePublicDungeon(raw.instance,'');local key=raw.code..':'..raw.fightID..':'..raw.actorID
+   if dungeon and dungeon.key==raw.dungeonKey and not seen[key]then
+    local entry=details[key] or {key=key,class=raw.class,spec=displayText(raw.spec,100),specKey=comparisonKey(raw.class,raw.spec),dungeonKey=dungeon.key,instance=dungeon.name,role=raw.role,metric=raw.metric,performance=raw.performance,duration=raw.duration,totalDamage=finite(raw.totalDamage) and raw.totalDamage>=0 and raw.totalDamage or nil,difficulty=raw.difficulty,gameVersion=raw.gameVersion,rankingScope='dungeon',complete=true,kill=true,started=raw.started or 0,rotations={},encounters=raw.encounters}
+    runs[#runs+1]=entry;seen[key]=true
+   end
+  end
+ end
+ for key,entry in pairs(details)do if not seen[key]then runs[#runs+1]=entry end end
+ self.publicRunsSource=source;self.publicRuns=runs;return runs
+end
+function W:SetPublicRun(key)
+ local model=self:GetPublicReportModel()
+ for _,run in ipairs(model.runs or {})do if run.value==key then local selection=comparisonSelection();selection.publicRun=key;selection.publicRunContext=(model.selectedSpec or '')..'@'..(model.selectedEncounter or '');if FC.RefreshCombatReview then FC:RefreshCombatReview()end;return true end end
+ return false
 end
 function W:SetPublicSpec(key)
  local model=self:GetPublicReportModel()
@@ -469,7 +494,7 @@ function W:SetPublicEncounter(key)
  return false
 end
 function W:GetPublicReportModel()
- local examples=self:PublicExamples();local specs,seen={},{};local selection=comparisonSelection();local current,class=liveSpec()
+ local examples=self:PublicRuns();local specs,seen={},{};local selection=comparisonSelection();local current,class=liveSpec()
  for _,entry in ipairs(examples)do if not seen[entry.specKey]then seen[entry.specKey]=true;specs[#specs+1]={value=entry.specKey,label=entry.class:sub(1,1)..entry.class:sub(2):lower()..' / '..entry.spec..(entry.specKey==current and ' (current)' or '')}end end
  table.sort(specs,function(a,b)return a.label<b.label end)
  if current and not seen[current]then table.insert(specs,1,{value=current,label=(class or 'Current')..' / Current spec (no public example yet)'})end
@@ -482,17 +507,13 @@ function W:GetPublicReportModel()
   local groupKey=entry.dungeonKey or entry.instance;groups[groupKey]=groups[groupKey] or {};groups[groupKey][#groups[groupKey]+1]=entry
  end end
  local function rotationRows(entries)
-  local best={}
-  for _,entry in ipairs(entries or {})do
-   local full=#entry.rotations>0
-   for _,r in ipairs(entry.rotations)do if not r.fullSequence or not r.complete then full=false end end
-   if full and entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric and entry.role~='unknown' then
-    local key=entry.role..':'..entry.difficulty..':'..entry.gameVersion;local old=best[key]
-    if not old or entry.performance>old.performance or entry.performance==old.performance and entry.started>old.started then best[key]=entry end
-   end
-  end
-  local list={};for _,entry in pairs(best)do list[#list+1]=entry end
-  table.sort(list,function(a,b)return a.role..a.difficulty..a.gameVersion<b.role..b.difficulty..b.gameVersion end)
+  local list={};for _,entry in ipairs(entries or {})do if entry.complete and entry.kill and entry.rankingScope=='dungeon' and entry.gameVersion and entry.performance and entry.metric and entry.role~='unknown'then list[#list+1]=entry end end
+  table.sort(list,function(a,b)if a.role~=b.role then return a.role<b.role end;if a.performance~=b.performance then return a.performance>b.performance end;return a.key<b.key end)
+  local options={};for i,entry in ipairs(list)do options[#options+1]={value=entry.key,label=string.format('Log %d / %s / %.1f %s / %.1f min%s',i,entry.role,entry.performance,entry.metric:upper(),(entry.duration or entry.scenario and entry.scenario.duration or 0)/60,#entry.rotations==0 and ' / overall only' or '')}end
+  local chosen=list[1]
+  local context=(selected or '')..'@dungeon:'..(entries and entries[1] and entries[1].dungeonKey or '')
+  if selection.publicRunContext==context then for _,entry in ipairs(list)do if entry.key==selection.publicRun then chosen=entry;break end end end
+  list=chosen and {chosen} or {}
   local rows,sections,sectionMap={},{},{}
   for _,entry in ipairs(list)do
    local function optionalSource(name)
@@ -518,6 +539,17 @@ function W:GetPublicReportModel()
     end
     return {action='Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or 'No damage recorded.',meter=meter,totalDamage=total,totalDPS=duration>0 and total/duration or 0}
    end
+   local overallSpells,overallMap,overallTotal={},{},0
+   for _,r in ipairs(entry.rotations)do for _,spell in ipairs(r.damage or {})do local old=overallMap[spell.spellID] or {spellID=spell.spellID,name=spell.name,amount=0};old.amount=old.amount+spell.amount;overallMap[spell.spellID]=old;overallTotal=overallTotal+spell.amount end end
+   for _,spell in pairs(overallMap)do overallSpells[#overallSpells+1]=spell end
+   local duration=entry.duration or entry.scenario and entry.scenario.duration or 0
+   local overall=damageRow(overallSpells,overallTotal,duration)
+   local total=entry.totalDamage or entry.metric=='dps' and entry.performance*duration
+   if total then overall.totalDamage=total;overall.totalDPS=duration>0 and total/duration or 0 end
+   if #entry.rotations==0 then overall.reference='Encounter details are not cached for this log. Overall output comes from the recorded dungeon totals.';overall.meter=nil end
+   if not total and #entry.rotations==0 then overall.totalDamage=nil;overall.totalDPS=nil;overall.reference='Damage totals are unavailable for this healer log; the recorded ranking metric is HPS.'end
+   local overallSection={value='overall',label='Overall',rows={overall},sources={}}
+   rows[#rows+1]=overall;sections[#sections+1]=overallSection;sectionMap.overall=overallSection
    local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
    local trashDamage,trashTotal,trashAvailable,trashDuration,trashEnd={},0,true,0,0
    for _,r in ipairs(rotations)do if r.kind=='trash' then
@@ -551,16 +583,17 @@ function W:GetPublicReportModel()
     else addRow({action=title..' / damage',reference='Refresh public reports to load damage by ability for this encounter.'})end
     end
    end
+   for _,encounter in ipairs(entry.encounters or {})do if type(encounter)=='table' and (encounter.kind=='boss' or encounter.kind=='trash') and type(encounter.name)=='string'then local key=encounter.kind=='trash' and 'trash' or 'boss:'..encounter.name:lower();if not sectionMap[key]then local section={value=key,label=encounter.kind=='trash' and 'Trash mobs' or displayText(encounter.name,180),rows={{action='Encounter data unavailable',reference='Combat details for this log have not been cached. No other player\'s encounter data is substituted.'}}};sections[#sections+1]=section;sectionMap[key]=section end end end
   end
   if #sections>0 and not sectionMap.trash then sections[#sections+1]={value='trash',label='Trash mobs',rows={{action='Trash mobs',reference='No trash-pull data is available for the selected run.'}}}end
-  table.sort(sections,function(a,b)if a.value==b.value then return false end;if a.value=='trash' or b.value=='trash'then return a.value=='trash'end;return a.label<b.label end)
-  return rows,sections
+  table.sort(sections,function(a,b)if a.value==b.value then return false end;if a.value=='overall' or b.value=='overall'then return a.value=='overall'end;if a.value=='trash' or b.value=='trash'then return a.value=='trash'end;return a.label<b.label end)
+  return rows,sections,options,chosen and chosen.key
  end
  local roster=FC.SupportedDungeons or {};if not FC.SupportedDungeons then for key,entries in pairs(groups)do roster[#roster+1]={key=key,name=entries[1].instance}end;table.sort(roster,function(a,b)return a.name<b.name end)end
  local firstAvailable,covered=nil,0
  for _,dungeon in ipairs(roster)do
-  local rows,sections=rotationRows(groups[dungeon.key]);local key='dungeon:'..dungeon.key
-  choices[key]={instance=dungeon.name,rows=rows,sections=sections,hasReports=groups[dungeon.key]~=nil,otherSpecs=allDungeons[dungeon.key]}
+  local rows,sections,runs,run=rotationRows(groups[dungeon.key]);local key='dungeon:'..dungeon.key
+  choices[key]={instance=dungeon.name,rows=rows,sections=sections,runs=runs,selectedRun=run,hasReports=groups[dungeon.key]~=nil,otherSpecs=allDungeons[dungeon.key]}
   if #rows>0 then covered=covered+1;firstAvailable=firstAvailable or key end
   encounters[#encounters+1]={value=key,dungeonKey=dungeon.key,label=dungeon.name..(#rows>0 and '' or groups[dungeon.key] and ' / awaiting encounter rotations' or allDungeons[dungeon.key] and ' / other specs available' or ' / no reports loaded')}
  end
@@ -576,7 +609,7 @@ function W:GetPublicReportModel()
    entry.otherSpecs and (entry.instance..' has public reports for other specs. Choose another spec to see its recorded examples. No example is loaded for the selected spec.') or
    entry.instance..' is supported. No public-report example is loaded for this dungeon yet. The current scan did not retrieve usable runs; public reports may still exist on the website.'
  elseif entry then
-  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.metrics=entry.instance..' / damage overview'
+  model.ready=true;model.rows=entry.rows;model.sections=entry.sections;model.runs=entry.runs;model.selectedRun=entry.selectedRun;model.metrics=entry.instance..' / damage overview'
   model.status='This is not a verified ranking across every log on Warcraft Logs.'
  end
  return model

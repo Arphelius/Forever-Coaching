@@ -18,6 +18,9 @@ async function main(){
  assert.equal(result.scan.discoveryPages,3,'Scan the zone-wide report listing as well as known dungeon scopes');
  assert.equal(result.examples.length,3);
  assert.equal(result.scan.rankedCandidates,9,'Count every scored class/spec run across the discovered reports');
+ assert.equal(result.runs.length,9,'Publish every scored player-run, not only the three winners');
+ assert.equal(result.additionalExamples.length,3,'Reuse complete winner fight streams for the other players without extra API requests');
+ assert(result.additionalExamples.every(e=>e.rotations.every(r=>r.summaryOnly&&!r.fullSequence)),'Damage summaries do not claim complete cast timelines');
  const dps=result.examples.find(e=>e.role==='dps'),healer=result.examples.find(e=>e.role==='healer'),tank=result.examples.find(e=>e.role==='tank');
  assert.equal(dps.code,codes[2]);assert.equal(tank.code,codes[2]);assert.equal(healer.code,codes[1],'Healing is ranked by HPS independently of DPS');
  assert.equal(dps.performance,200);assert.equal(healer.performance,150);

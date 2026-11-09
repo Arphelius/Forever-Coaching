@@ -4,7 +4,7 @@ const {createClient,reportCode,profile,recordedScenario,HOST}=require('./warcraf
 const {toLua}=require('./foreverlogs-review.cjs');
 const {addonDirectory}=require('./coaching-delivery.cjs');
 const {resolveDungeon}=require('./forever-dungeons.cjs');
-const {encounterRotations,isDungeonRun}=require('./combat-rotations.cjs');
+const {encounterRotations,encounterDamageSummaries,isDungeonRun}=require('./combat-rotations.cjs');
 const {scanReports}=require('./public-report-scan.cjs');
 const {readReportPages}=require('./saved-report-pages.cjs');
 const KNOWN_REPORTS=['bcVxQRyHF6qjXhLk','gFd1CVbHJqkKwfMN','ZT329XazM8GAphBf'];
@@ -24,8 +24,9 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
    for(const fight of report.fights.filter(f=>f.encounterID>=0&&!f.inProgress&&f.endTime>f.startTime&&f.kill&&isDungeonRun(f))){
     const dungeon=resolveDungeon(fight.gameZone?.name,fight.name);
     if(!dungeon){notes.push(`${code}, fight ${fight.id}: unsupported or ambiguous dungeon/wing; skipped. Raids are outside the current scope.`);continue;}
-    const outputs=new Map();
+    const outputs=new Map(),damageTotals=new Map();
     for(const metric of ['dps','hps']){try{for(const row of await client.observedPlayers(code,fight,metric)){
+     if(metric==='dps')damageTotals.set(row.id,row.total);
      if((row.role==='healer'&&metric==='hps')||(row.role!=='healer'&&metric==='dps'))outputs.set(row.id,{...row,metric});
     }}catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
     for(const actor of report.masterData.actors.filter(a=>a.type==='Player'&&fight.friendlyPlayers?.includes(a.id))){
@@ -34,7 +35,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      const performance=output.total/((fight.endTime-fight.startTime)/1000);
      const key=[dungeon.key,actor.subType.toUpperCase(),spec.toLowerCase(),output.role,fight.difficulty,report.masterData.gameVersion].join(':');
      if(!candidates.has(key))candidates.set(key,[]);
-     candidates.get(key).push({report,fight,actor,spec,output,dungeon,performance});
+     candidates.get(key).push({report,fight,actor,spec,output,dungeon,performance,totalDamage:damageTotals.get(actor.id)});
      recorded++;
     }
    }
@@ -57,15 +58,30 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
     const url=`${HOST}/reports/${code}#fight=${fight.id}&source=${actor.id}`;
     examples.push({code,fightID:fight.id,actorID:actor.id,player:actor.name,class:actor.subType.toUpperCase(),spec,
      dungeonKey:dungeon.key,instanceId:fight.gameZone.id,instance:fight.gameZone.name,encounterId:fight.encounterID,encounter:fight.name,difficulty:fight.difficulty,gameVersion:report.masterData.gameVersion,rankingScope:'dungeon',
-     started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,recordedDeaths:p.deaths.length,complete:true,kill:true,
+     started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,totalDamage:candidate.totalDamage,recordedDeaths:p.deaths.length,complete:true,kill:true,
      scenario:recordedScenario(p,url),rotations,spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:true});
     break;
    }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
   }
  }
+ const runs=[],winnerKeys=new Set(examples.map(e=>`${e.code}:${e.fightID}:${e.actorID}`)),extraExamples=[];
+ const scoredCount=[...candidates.values()].reduce((n,rows)=>n+rows.length,0);
+ for(const rows of candidates.values())for(const candidate of rows){
+  const {report,fight,actor,spec,output,dungeon,performance,totalDamage}=candidate,code=report.code,key=`${code}:${fight.id}:${actor.id}`;
+  const common={code,fightID:fight.id,actorID:actor.id,class:actor.subType.toUpperCase(),spec,dungeonKey:dungeon.key,instance:dungeon.name,difficulty:fight.difficulty,gameVersion:report.masterData.gameVersion,started:report.startTime+fight.startTime,duration:(fight.endTime-fight.startTime)/1000,role:output.role,metric:output.metric,performance,totalDamage,complete:true,kill:true,rankingScope:'dungeon'};
+  runs.push({...common,encounters:[...new Map((fight.dungeonPulls||[]).map(s=>{const section={kind:s.encounterID===0?'trash':'boss',name:s.encounterID===0?'Trash mobs':s.name};return [section.kind+':'+section.name,section];})).values()]});
+  if(runs.length%250===0)onProgress(`Exporting scored logs ${runs.length}/${scoredCount}; ${extraExamples.length} additional cached breakdowns prepared.`);
+  const stream=streams.get(code+':'+fight.id);
+  if(!winnerKeys.has(key)&&stream?.complete){
+   const p=profile(report,fight,actor,stream),rotations=encounterDamageSummaries(p);
+   if(rotations.length){const scenario=recordedScenario(p,`${HOST}/reports/${code}#fight=${fight.id}&source=${actor.id}`);scenario.casts=[];scenario.items=[];scenario.buffs=[];
+    extraExamples.push({...common,player:actor.name,instanceId:fight.gameZone.id,instance:fight.gameZone.name,encounterId:fight.encounterID,encounter:fight.name,recordedDeaths:p.deaths.length,scenario,rotations,spells:[],spellCountsComplete:false});}
+  }
+ }
  found.scan.rankedCandidates=coverage.reduce((n,r)=>n+(r.rankedCandidates||0),0);
  found.scan.winnerRuns=examples.length;
- return {schema:1,source:'Warcraft Logs',examples,coverage,scan:found.scan,notes:[...new Set(notes)]};
+ found.scan.cachedBreakdowns=examples.length+extraExamples.length;
+ return {schema:1,source:'Warcraft Logs',examples,additionalExamples:extraExamples,runs,coverage,scan:found.scan,notes:[...new Set(notes)]};
 }
 // Seed only genuinely recorded actions already retrieved from a public report.
 // These are excerpts: never extrapolate their spell counts to a full run.
@@ -103,7 +119,7 @@ if(require.main===module){
    const destination=path.resolve(__dirname,'../addons/ForeverCoaching/Data/PublicReportCatalog.lua');
    writePublicCatalog(catalog,destination);
    if(gameRoot){const addon=addonDirectory(gameRoot);const manifest=fs.readFileSync(path.join(addon,'ForeverCoaching.toc'),'utf8');if(!manifest.includes('Data\\PublicReportCatalog.lua'))throw Error('Install the public-report browser update first.');writePublicCatalog(catalog,path.join(addon,'Data','PublicReportCatalog.lua'));}
-   console.log(`Selected ${catalog.examples.length} highest-output class/spec/role runs after examining ${catalog.scan.reports} available public reports and ${catalog.scan.discoveryPages} discovery pages. ${catalog.scan.incomplete?'Coverage is incomplete.':'Available discovery pages were exhausted.'} This is not a verified global ranking.`);
+   console.log(`Published ${catalog.runs.length} scored player-runs, including ${catalog.examples.length} highest-output selections and ${catalog.scan.cachedBreakdowns} cached encounter breakdowns, after examining ${catalog.scan.reports} public reports. ${catalog.scan.incomplete?'Coverage is incomplete.':'Available discovery pages were exhausted.'} This is not a verified global ranking.`);
    for(const note of catalog.notes)console.log(note);
    console.log('Catalog saved. Reload WoW after updating; a first installation with a changed TOC requires restarting the game.');
   }).catch(e=>{console.error(e.message);console.log(`${client.requestStats.network} new API requests; ${client.requestStats.cached} cached responses reused.`);if(e.code==='WCL_RATE_LIMIT')console.log('Completed responses are cached. Wait for the API limit to reset, then run the same command again.');process.exitCode=e.code==='WCL_REQUEST_BUDGET'?75:1;});

@@ -1,5 +1,23 @@
 # Warcraft Logs Optimization
 
+## Overall and all scored logs
+
+Optimization now has a fourth picker, **Log**, for every eligible scored player-run
+in the collected reports. The default is the highest-output run for the selected
+class/spec; other players' names remain hidden. The **Overall** encounter section
+shows whole-dungeon damage and DPS over the entire elapsed run, including the time
+between pulls. Trash and individual bosses retain their separate scopes.
+
+The catalog carries all scored run summaries, rather than only the selected
+winners. Winner streams already downloaded are reused to prepare compact damage
+breakdowns for their other players, without extra API requests. If a selected run's
+events have not been downloaded, its measured overall output remains available;
+boss/trash views explicitly say their details are unavailable. Another player's
+details are never substituted. Whole-run output comes from Warcraft Logs' player
+totals where available; per-ability bars show recorded direct effects and can omit
+pet attribution. Healer ranking uses HPS, while the Overall damage card uses the
+separate damage total; missing damage totals are not inferred from healing.
+
 ## My Logs: import your own fights
 
 **My Logs** is the personal comparison tab. Enable file logging before a dungeon,

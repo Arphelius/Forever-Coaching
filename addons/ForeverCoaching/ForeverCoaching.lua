@@ -305,7 +305,7 @@ local pages = {
     },
     Rotation = {
         heading = "Optimization",
-        description = "Recorded damage for trash mobs and named dungeon bosses.",
+        description = "Whole-dungeon, trash and boss damage from recorded runs.",
         cards = {},
     },
     Talents = {

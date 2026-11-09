@@ -50,13 +50,14 @@ async function main(){
  run(`assert(#ForeverCoaching.WarcraftLogs:PublicExamples()>0,'Bundled real public excerpt must validate')`);
  run('TestCatalog='+toLua(catalog)+';ExpectedDungeons='+toLua(dungeons));
  const winner=structuredClone(catalog.examples.find(e=>e.class==='SHAMAN'&&e.spec==='Enhancement'&&e.dungeonKey==='ruins-of-lordaeron'));
- const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.scenario.castCount=44;
+ const lower=structuredClone(winner);winner.actorID=999;winner.scenario.sourceURL=winner.scenario.sourceURL.replace(/source=\d+$/,'source=999');winner.performance=200;winner.totalDamage=12000;winner.scenario.castCount=44;
  winner.rotations[0].steps=Array.from({length:40},(_,i)=>({spellID:i%2?102:101,name:i===39?'Tail combat action':'Full combat action '+i,at:i*.3,end:i*.3,count:1}));winner.rotations[0].combatCasts=40;winner.rotations[1].name='Winner boss';
  winner.rotations[0].damage=[{spellID:101,name:'Trash damage ability',amount:300}];
  winner.rotations[1].damage=[{spellID:101,name:'Boss damage ability',amount:15000},{spellID:6603,name:'Melee',amount:5000},...Array.from({length:7},(_,i)=>({spellID:200+i,name:i===0?'Blood Fury':i===1?'Solid Dynamite':i===2?'Shadow Bolt':'Fixture effect '+i,amount:0}))];
  winner.rotations[1].steps[0].name='Blood Fury';
  winner.rotations.push({...structuredClone(winner.rotations[0]),start:1,end:19,damage:[{spellID:101,name:'Trash damage ability',amount:200}]});
- run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner]}));
+ const uncached={code:winner.code,fightID:winner.fightID,actorID:8888,class:winner.class,spec:winner.spec,dungeonKey:winner.dungeonKey,instance:'Ruins of Lordaeron',difficulty:winner.difficulty,gameVersion:winner.gameVersion,duration:60,performance:100,totalDamage:6000,role:'dps',metric:'dps',complete:true,kill:true,encounters:[{kind:'boss',name:'Uncached boss'}]};
+ run('LongCatalog='+toLua({schema:1,source:'Warcraft Logs',examples:[lower,winner],runs:[uncached]}));
  run(`
 local fc=ForeverCoaching;local w=fc.WarcraftLogs
 assert(#fc.SupportedDungeons==35)
@@ -98,12 +99,16 @@ assert(w:GetPublicReportModel().selectedEncounter=='dungeon:shapers-terrace','Pr
 assert(w:SetPublicEncounter('dungeon:shadowfang-keep'))
 assert(not w:SetPublicEncounter('invented') and not w:SetPublicSpec('MAGE:invented'))
 local sample=TestCatalog.examples[1];local original=sample.scenario.sourceURL
+local originalInstance=sample.instanceId;sample.instanceId=0;assert(w:PreparePublicExample(sample),'An unknown numeric zone ID is allowed only when supported dungeon names identify it');sample.instanceId=originalInstance
 sample.scenario.sourceURL='https://example.com/fake';assert(not w:PreparePublicExample(sample));sample.scenario.sourceURL=original
 sample.scenario.items[1].itemID=nil;assert(not w:PreparePublicExample(sample));sample.scenario.items[1].itemID=900
 sample.scenario.casts[1].at=-1;assert(not w:PreparePublicExample(sample));sample.scenario.casts[1].at=1
 local savedSpell=sample.rotations[1].opener[1].spellID
 sample.rotations[1].opener[1].spellID=6603;assert(not w:PreparePublicExample(sample),'Reject automatic attacks in supplied rotation summaries');sample.rotations[1].opener[1].spellID=savedSpell
 local savedEnd=sample.rotations[1]['end'];sample.rotations[1]['end']=sample.duration+1;assert(not w:PreparePublicExample(sample),'Reject summaries outside the recorded run');sample.rotations[1]['end']=savedEnd
+local lastStep=sample.rotations[1].steps[#sample.rotations[1].steps];local lastEnd=lastStep['end'];local span=sample.rotations[1]['end']-sample.rotations[1].start
+lastStep['end']=span+0.000000001;local rounded=assert(w:PreparePublicExample(sample),'Floating-point subtraction must not hide a valid boundary cast');assert(rounded.rotations[1].steps[#rounded.rotations[1].steps]['end']<=span)
+lastStep['end']=span+0.01;assert(not w:PreparePublicExample(sample),'Actual out-of-bounds cast times remain rejected');lastStep['end']=lastEnd
 sample.player='Fixture |cffff0000 markup';local clean=assert(w:PreparePublicExample(sample));assert(clean.player:find('||c',1,true))
 local partial={schema=1,source='Warcraft Logs',examples={}}
 for _,e in ipairs(TestCatalog.examples)do if not (e.class=='SHAMAN' and e.spec=='Enhancement' and e.dungeonKey=='shadowfang-keep')then partial.examples[#partial.examples+1]=e end end
@@ -112,11 +117,11 @@ assert(w:GetPublicReportModel().status:find('other specs',1,true),'Distinguish o
 local otherLabel=false;for _,option in ipairs(w:GetPublicReportModel().encounters)do if option.value=='dungeon:shadowfang-keep'then otherLabel=option.label:find('other specs available',1,true)end end;assert(otherLabel)
 fc.ForeverSpellCatalog={classes={SHAMAN={spells={['Boss damage ability']={}}},WARLOCK={spells={['Shadow Bolt']={}}}}}
 fc.PublicReportCatalog=LongCatalog;assert(w:SetPublicSpec('SHAMAN:enhancement'));assert(w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
-local full=w:GetPublicReportModel();assert(full.rows[1].meter[1].amount==500,'Choose highest output, not first stored example')
+local full=w:GetPublicReportModel();assert(full.selectedRun:find(':999',1,true) and full.rows[1].totalDamage==12000 and full.rows[1].totalDPS==200,'Overall uses whole-dungeon output and elapsed time, with highest output selected first')
 local page=fc:BuildOptimizationPage(parent)
 fc.RefreshCombatReview=function(self)self.testPanel.refresh();if self.optimizationView and self.optimizationView.parent:IsShown()then self.optimizationView.refresh()end end
-assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker,'Use the shared Learn/Scenarios document layout with three direct selectors')
-assert(#page.model.sections==2 and page.model.selectedSection=='trash','Trash and each named boss are separate selectable sections')
+assert(page.document and page.specPicker and page.dungeonPicker and page.sectionPicker and page.runPicker,'Use the shared document with a log selector')
+assert(#page.model.sections==3 and page.model.selectedSection=='overall' and #page.model.runs==3,'Overall, trash and bosses are separate; every scored log is selectable')
 for _,row in ipairs(page.model.rows)do assert(not row.action:find('Winner boss',1,true),'Trash view must not dump boss casts')end
 assert(w:SetPublicSection('boss:winner boss'))
 assert(page.model.sectionLabel=='Winner boss')
@@ -133,7 +138,14 @@ assert(#page.model.rows==0 and page.model.selectedSection==nil,'Dungeon changes 
 assert(w:SetPublicSpec('SHAMAN:enhancement') and w:SetPublicEncounter('dungeon:ruins-of-lordaeron'))
 local tail,boss=false,false
 for _,row in ipairs(full.rows)do if row.reference:find('Tail combat action',1,true)then tail=true end;if row.action=='Winner boss'then boss=true end;assert(not row.action:find('Fixture Boss',1,true),'Do not fill another encounter using the lower-ranked player')end
-assert(not tail and not boss and #full.rows==2,'Keep only damage meters; remove all timestamped cast cards')
+assert(not tail and not boss and #full.rows==3,'Keep overall and damage meters; no timestamped cast cards')
+local winnerKey=full.selectedRun
+local uncachedKey=LongCatalog.runs[1].code..':'..LongCatalog.runs[1].fightID..':8888'
+assert(w:SetPublicRun(uncachedKey) and page.model.selectedRun==uncachedKey)
+assert(page.model.selectedSection=='overall' and page.model.rows[1].totalDamage==6000,'Other logs show their own overall totals, without borrowing winner data')
+assert(w:SetPublicSection('boss:uncached boss') and page.model.rows[1].action=='Encounter data unavailable','Missing event details are explicit')
+assert(w:SetPublicRun(winnerKey) and page.model.selectedRun==winnerKey)
+assert(not w:SetPublicRun('invented'),'Reject missing log keys')
 local count=LongCatalog.examples[2].rotations[1].steps[1].count;LongCatalog.examples[2].rotations[1].steps[1].count=2;assert(not w:PreparePublicExample(LongCatalog.examples[2]),'Reject truncated/mismatched full sequence accounting');LongCatalog.examples[2].rotations[1].steps[1].count=count
 fc.PublicReportCatalog={schema=1,source='Warcraft Logs',examples={}}
 fc:RefreshCombatReview()
