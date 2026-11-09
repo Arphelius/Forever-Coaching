@@ -19,7 +19,13 @@ function FC:BuildOptimizationPage(parent)
   document:Line(model.metrics,true)
   document:Line(model.status,false,'muted')
   if model.sectionLabel then document:Line(model.sectionLabel,true)end
-  for _,row in ipairs(model.rows)do if row.meter and #row.meter>0 then document:Meter(row.action,row.meter)else document:Group(row.action,row.reference,true)end end
+  for _,row in ipairs(model.rows)do
+   if row.totalDamage then
+    local total=row.totalDamage;local value=total>=1000000 and string.format('%.1fm',total/1000000) or total>=1000 and string.format('%.1fk',total/1000) or string.format('%.0f',total)
+    document:Group('Overall damage and DPS',value..string.format(' dmg - %.0f DPS',row.totalDPS),true)
+   end
+   if row.meter and #row.meter>0 then document:Meter(row.action,row.meter)else document:Group(row.action,row.reference,true)end
+  end
   document:Finish()
  end
  self.optimizationView=view;view.refresh()

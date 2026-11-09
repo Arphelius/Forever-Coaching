@@ -513,7 +513,7 @@ function W:GetPublicReportModel()
      local value=string.format('%s dmg - %.0f DPS (%.1f%%)',shortDamage(spell.amount),dps,share)
      lines[#lines+1]=label..'  '..value;meter[#meter+1]={name=label,value=value,share=share,amount=spell.amount,dps=dps}
     end
-    return {action='Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or 'No damage recorded.',meter=meter}
+    return {action='Damage by ability',reference=#lines>0 and table.concat(lines,'\n') or 'No damage recorded.',meter=meter,totalDamage=total,totalDPS=duration>0 and total/duration or 0}
    end
    local rotations={};for _,r in ipairs(entry.rotations)do rotations[#rotations+1]=r end;table.sort(rotations,function(a,b)return a.start<b.start end)
    local trashDamage,trashTotal,trashAvailable,trashDuration,trashEnd={},0,true,0,0
