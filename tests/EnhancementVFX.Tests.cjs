@@ -34,11 +34,23 @@ assert(not art.totemBackdrop.shown and not art.enhancementRear.shown and not art
 art:Animate(11,42,42);assert(art.totemBackdrop.shown and art.enhancementRear.shown,'VFX on restores totem and full orbit')
 art:SetTheme('elemental',{});assert(not art.totemBackdrop.shown and not art.enhancementRear.shown,'Enhancement layers cannot leak into another spec')
 local designs=0
+art:SetTheme('combat',{});art:Animate(20,42,42);art:Animate(24,42,42)
+assert(art.combatSmoke.shown and art.combatBlood.shown,'Combat layers must render together after the intro')
+art:ShowSimpleBorder(42,42)
+assert(not art.combatSmoke.shown and not art.combatBlood.shown,'VFX off must hide smoke and blood')
+art:Animate(25,42,42)
+assert(art.combatSmoke.shown and not art.combatBlood.shown,'Re-enabling Combat must restore smoke and restart its intro')
+art:SetTheme('arcane',{})
+assert(not art.combatSmoke.shown and not art.combatBlood.shown,'Combat layers cannot leak into another spec')
 for kind in pairs(ForeverCoaching.TalentSimpleBorders)do
  for _,size in ipairs({32,36,48,64})do
   art:SetTheme(kind,{color={1,1,1},accent={1,.8,.4}})
   art:Animate(12,size,size);art:Animate(12.2,size,size)
   assert(art.authoredTexture.shown,kind..': animated art must be visible')
+  for _,time in ipairs({12.5,15.6,22,100})do
+   art:Animate(time,size,size)
+   for _,value in ipairs(art.authoredTexture.uv)do assert(value==value and value>=0 and value<=1,kind..': atlas coordinates must remain inside its image')end
+  end
   if kind=='discipline' then assert(art.authoredTexture.texture:find('Discipline.tga',1,true),'Discipline must use its own atlas')end
   if kind=='holy-priest' then assert(art.authoredTexture.texture:find('HolyPriest.tga',1,true),'Holy Priest must use its own atlas')end
   assert(art:ShowSimpleBorder(size,size),kind..': VFX off must retain its static border')

@@ -8,6 +8,7 @@ const suites=[
  'Optimization.Tests.cjs',
  'RotationRemoval.Tests.cjs','WarcraftLogs.Tests.cjs','WarcraftLogsAccess.Tests.cjs','PeerCoaching.Tests.cjs','CoachingCompanion.Tests.cjs','CoachingCompanionPage.Tests.cjs','BuildRecommendations.Tests.cjs','EnhancementVFX.Tests.cjs',
  'RunTalentArtPreviewTests.cjs',
+ 'TalentAnimationMatching.Tests.cjs',
  'ProfessionItems.Tests.cjs',
  'GroupThreatWarnings.Tests.cjs','WarningToast.Tests.cjs','GuideSources.Tests.cjs',
 ];

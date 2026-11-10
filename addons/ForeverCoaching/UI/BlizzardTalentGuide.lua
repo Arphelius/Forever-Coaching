@@ -19,9 +19,11 @@ function FC:CreateTalentThemeArt(owner)
     local combatSmoke=owner:CreateTexture(nil,"OVERLAY",nil,6)
     combatSmoke:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\CombatSmoke.tga")
     combatSmoke:SetBlendMode("BLEND");combatSmoke:Hide()
+    art.combatSmoke=combatSmoke
     local combatBlood=owner:CreateTexture(nil,"OVERLAY",nil,7)
     combatBlood:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\CombatBlood.tga")
     combatBlood:SetBlendMode("BLEND");combatBlood:Hide()
+    art.combatBlood=combatBlood
     local behind=CreateFrame("Frame",nil,owner)
     behind:EnableMouse(false);behind:SetAllPoints(owner)
     local totem=behind:CreateTexture(nil,"ARTWORK")
@@ -210,6 +212,7 @@ function FC:CreateTalentThemeArt(owner)
         end
     end
     function art:Animate(time,width,height)
+        if not width or not height or width<=6 or height<=6 then return end
         simpleBorder:Hide()
         if self.kind=="feral-dps" then
             simpleBorder:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\FeralFangs.tga")
@@ -250,6 +253,7 @@ function FC:CreateTalentThemeArt(owner)
             if self.kind=="shadow-priest" or self.kind=="combat" or self.kind=="subtlety" then scale=(width-6)/width*1024/406 end
             authored:SetSize(width*scale,height*scale)
             if self.kind=="combat" then
+                combatSmoke:Show()
                 local smokeFrame=math.floor(age*12)%36
                 local sx,sy=smokeFrame%8,math.floor(smokeFrame/8)
                 combatSmoke:SetTexCoord((sx*128+.5)/1024,((sx+1)*128-.5)/1024,(sy*128+.5)/1024,((sy+1)*128-.5)/1024)
@@ -469,8 +473,17 @@ local function nextPoint(build,class)
 end
 local function matches(button,step)
     if call(button.IsInspecting,button) then return false end
+    -- Forever can expose the current rank's spell ID rather than the base ID
+    -- stored in the route. Use the same name fallback as the live rank reader.
+    local function sameTalent(spellID,overrideName)
+        if spellID and step.spellId and spellID==step.spellId then return true end
+        local actualName=overrideName or call(C_Spell and C_Spell.GetSpellName,spellID) or call(GetSpellInfo,spellID)
+        if type(actualName)~="string" then return false end
+        local expectedName=call(C_Spell and C_Spell.GetSpellName,step.spellId) or call(GetSpellInfo,step.spellId)
+        return actualName==step.name or (type(expectedName)=="string" and actualName==expectedName)
+    end
     local spell=call(button.GetSpellID,button)
-    if spell==step.spellId then return true end
+    if spell and sameTalent(spell) then return true end
     local name=call(button.GetName,button)
     if type(name)=='string' and (name:match('^PlayerTalentFrameTalent%d+$') or name:match('^TalentFrameTalent%d+$')) and GetTalentInfo then
         local root=PlayerTalentFrame or TalentFrame
@@ -489,7 +502,7 @@ local function matches(button,step)
         for _,entryID in ipairs(node.entryIDs or {}) do
             local entry=call(C_Traits.GetEntryInfo,config,entryID)
             local definition=entry and entry.definitionID and call(C_Traits.GetDefinitionInfo,entry.definitionID)
-            if definition and definition.spellID==step.spellId then return true end
+            if definition and sameTalent(definition.spellID,definition.overrideName) then return true end
         end
     end
     return false
