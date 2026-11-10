@@ -6,8 +6,10 @@ run('ForeverCoaching={}');
 run(fs.readFileSync('addons/ForeverCoaching/Data/LevelingBuilds.lua','utf8'));
 run(fs.readFileSync('addons/ForeverCoaching/Data/ForeverSpellCatalog.lua','utf8'));
 const guide=fs.readFileSync('addons/ForeverCoaching/UI/BlizzardTalentGuide.lua','utf8');
-run(guide.slice(guide.indexOf('local function call(fn,'),guide.indexOf('local function selectedBuild()'))+'\n'+
- guide.slice(guide.indexOf('local function matches(button,step)'),guide.indexOf('function FC:GetSelectedTalentGuidance()'))+`
+run(guide.slice(guide.indexOf('local function validTalentArtSize'),guide.indexOf('function FC:IsTalentVFXEnabled'))+'\n'+
+ guide.slice(guide.indexOf('local function call(fn,'),guide.indexOf('local function selectedBuild()'))+'\n'+
+ guide.slice(guide.indexOf('local function matches(button,step)'),guide.indexOf('function FC:GetSelectedTalentGuidance()'))+'\n'+
+ guide.slice(guide.indexOf('local function findButton(root,step,depth)'),guide.indexOf('local target\r')>=0?guide.indexOf('local target\r'):guide.indexOf('local target\n'))+`
 local count,trees,classes=0,0,0
 local names={};C_Spell={GetSpellName=function(id)return names[id]end}
 C_ClassTalents={GetActiveConfigID=function()return 1 end}
@@ -43,6 +45,12 @@ for class,layout in pairs(ForeverCoaching.TalentTrees)do
  end
 end
 assert(classes==9 and trees==27)
+local step={spellId=123,name='Coup de Grace'}
+local icon={GetWidth=function()return 48 end,GetHeight=function()return 48 end,IsShown=function()return true end,GetSpellID=function()return 123 end}
+local root={GetWidth=function()return 1500 end,GetHeight=function()return 900 end,IsShown=function()return true end,GetSpellID=function()return 123 end,GetChildren=function()return icon end}
+assert(findButton(root,step,0)==icon,'A matching talent-window container must be skipped in favor of its icon')
+root.GetChildren=function()end
+assert(not findButton(root,step,0),'No effect may target a container when the real icon is unavailable')
 print('PASS: native animation target matching across '..classes..' classes / '..trees..' talent trees / '..count..' talents; base/current-rank IDs, trait definitions, localization, inspection and wrong-target rejection.')
 `);
 lua.lua_close(L);

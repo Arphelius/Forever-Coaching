@@ -42,6 +42,11 @@ art:Animate(25,42,42)
 assert(art.combatSmoke.shown and not art.combatBlood.shown,'Re-enabling Combat must restore smoke and restart its intro')
 art:SetTheme('arcane',{})
 assert(not art.combatSmoke.shown and not art.combatBlood.shown,'Combat layers cannot leak into another spec')
+art:SetTheme('combat',{});art:Animate(30,42,42)
+assert(not art:ShowSimpleBorder(1500,900),'Static artwork must reject a window-sized target')
+assert(not art.combatSmoke.shown and not art.combatBlood.shown and not art.authoredTexture.shown,'Rejected static target must hide every Combat layer')
+art:Animate(31,1500,900)
+assert(not art.authoredTexture.shown and not art.combatSmoke.shown,'Animated artwork must reject a window-sized target too')
 for kind in pairs(ForeverCoaching.TalentSimpleBorders)do
  for _,size in ipairs({32,36,48,64})do
   art:SetTheme(kind,{color={1,1,1},accent={1,.8,.4}})

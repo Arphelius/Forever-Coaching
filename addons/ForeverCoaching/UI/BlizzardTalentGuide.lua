@@ -1,6 +1,10 @@
 local CreateFrame = ForeverCoaching and ForeverCoaching.CreateLocalizedFrame or CreateFrame
 -- Small native UI motifs; all geometry and animation belongs to this addon.
 local FC=ForeverCoaching
+local function validTalentArtSize(width,height)
+    return type(width)=="number" and type(height)=="number"
+        and width>6 and height>6 and width<=134 and height<=134
+end
 function FC:IsTalentVFXEnabled()
     return not ForeverCoachingDB or ForeverCoachingDB.talentVFXEnabled~=false
 end
@@ -50,6 +54,7 @@ function FC:CreateTalentThemeArt(owner)
             for _,texture in ipairs(totemPieces) do texture:Hide() end
             for _,p in ipairs(self.pool) do p.texture:Hide() end
         end
+        if not validTalentArtSize(width,height) then simpleBorder:Hide();return false end
         local style=FC.TalentSimpleBorders and FC.TalentSimpleBorders[self.kind]
         if not style then simpleBorder:Hide();return false end
         if self.simpleBorderKind~=self.kind then
@@ -212,7 +217,7 @@ function FC:CreateTalentThemeArt(owner)
         end
     end
     function art:Animate(time,width,height)
-        if not width or not height or width<=6 or height<=6 then return end
+        if not validTalentArtSize(width,height) then self:ShowSimpleBorder(width,height);return end
         simpleBorder:Hide()
         if self.kind=="feral-dps" then
             simpleBorder:SetTexture("Interface\\AddOns\\ForeverCoaching\\Media\\TalentEffects\\FeralFangs.tga")
@@ -514,7 +519,10 @@ function FC:GetSelectedTalentGuidance()
 end
 local function findButton(root,step,depth)
     if depth>14 or not root or not root:IsShown() then return end
-    if matches(root,step) then return root end
+    -- Containers can expose talent mixin methods too. Never anchor an icon
+    -- effect to the whole tree/window, even when its metadata matches.
+    local width,height=call(root.GetWidth,root),call(root.GetHeight,root)
+    if validTalentArtSize(width,height) and matches(root,step) then return root end
     for _,child in ipairs({root:GetChildren()}) do
         local found=findButton(child,step,depth+1)
         if found then return found end
