@@ -12,7 +12,7 @@ function spellsFromActions(actions){
  const counts=new Map();for(const e of actions){if(!e.spellID)continue;const row=counts.get(e.spellID)||{spellID:e.spellID,name:e.name,count:0};row.count++;counts.set(e.spellID,row);}
  return [...counts.values()].sort((a,b)=>b.count-a.count||a.spellID-b.spellID).slice(0,20);
 }
-async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient(),discover=true,maxReports=500,maxPages=100,onProgress=()=>{}}={}){
+async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient(),discover=true,maxReports=500,maxPages=100,strictFetch=false,onProgress=()=>{}}={}){
  const codes=[...new Set(reports.map(reportCode))];if(!codes.length||codes.length>5000)throw Error('Supply one to five thousand public report codes.');
  const found=await scanReports(client,codes,{discover,maxReports,maxPages,zoneIDs:[3000],onProgress});
  const examples=[],notes=[...found.notes],coverage=[],candidates=new Map(),streams=new Map();
@@ -29,7 +29,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      if(metric==='dps')damageTotals.set(row.id,row.total);
      if(metric==='hps')healingTotals.set(row.id,row.total);
      if((row.role==='healer'&&metric==='hps')||(row.role!=='healer'&&metric==='dps'))outputs.set(row.id,{...row,metric});
-    }}catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
+    }}catch(error){if(strictFetch||['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}, ${metric}: ${error.message}`);}}
     for(const actor of report.masterData.actors.filter(a=>a.type==='Player'&&fight.friendlyPlayers?.includes(a.id))){
      const index=fight.friendlyPlayers.indexOf(actor.id),spec=fight.friendlySpecs?.[index],output=outputs.get(actor.id);
      if(typeof spec!=='string'||['unknown','none',''].includes(spec.toLowerCase())||!actor.subType||!output){found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: a player lacks spec, role or output metadata and cannot be ranked.`);continue;}
@@ -42,7 +42,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
    }
    if(!recorded)notes.push(`${code}: no rankable completed dungeon runs were found. Runs require a supported dungeon, completion status, spec, role and output metadata.`);
    coverage.push({code,rankedCandidates:recorded});
-  }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
+  }catch(error){if(strictFetch||['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;notes.push(`${code}: ${error.message}`);coverage.push({code,examples:0,unavailable:true});}
  }
  let candidateGroup=0;
  for(const rows of candidates.values()){
@@ -62,7 +62,7 @@ async function collectPublicReports({reports=KNOWN_REPORTS,client=createClient()
      started:report.startTime+fight.startTime,duration:p.duration,role:output.role,metric:output.metric,performance,totalDamage:candidate.totalDamage,totalHealing:candidate.totalHealing,recordedDeaths:p.deaths.length,complete:true,kill:true,
      scenario:recordedScenario(p,url),rotations,spells:[...p.counts.values()].filter(r=>r.id>0).sort((a,b)=>b.count-a.count||a.id-b.id).slice(0,20).map(r=>({spellID:r.id,name:r.name,count:r.count})),spellCountsComplete:true});
     break;
-   }catch(error){if(['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
+   }catch(error){if(strictFetch||['WCL_RATE_LIMIT','WCL_REQUEST_BUDGET'].includes(error.code))throw error;found.scan.incomplete=true;notes.push(`${code}, fight ${fight.id}: candidate event retrieval failed: ${error.message}`);}
   }
  }
  const runs=[],winnerKeys=new Set(examples.map(e=>`${e.code}:${e.fightID}:${e.actorID}`)),extraExamples=[];
