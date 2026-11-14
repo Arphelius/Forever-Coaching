@@ -234,9 +234,27 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
             if score and (not bestByRole[role] or score>bestByRole[role]) then winners[role]=index;bestByRole[role]=score end
         end
     end
+    -- Removing beta guides must not leave the class without a usable starting
+    -- point. These editorial defaults are provisional, never simulation winners.
+    local defaults={DRUID="feral-druid",HUNTER="hunter",MAGE="frost-mage",
+        PALADIN="retribution-paladin",PRIEST="shadow-priest",ROGUE="combat-rogue",
+        SHAMAN="enhancement-shaman",WARLOCK="affliction-warlock",WARRIOR="warrior"}
+    local hasWinner=next(winners)~=nil
+    if not hasWinner then
+        for index,choice in ipairs(rows) do
+            local b=choice.build
+            if b and b.id==defaults[classToken] and b.maxLevel==60 and b.points==51 then
+                winners[b.role or "damage"]=index
+                choice.provisional=true;choice.fallbackStartingPoint=true
+                choice.reason="Suggested level 60 starting point; no current "..activity.." comparison establishes a winner."
+                if activity=="pvp" then choice.reason=choice.reason.." Not validated for PvP." end
+                break
+            end
+        end
+    end
     for index,choice in ipairs(rows) do
         choice.activityRecommended=choice.build~=nil and winners[choice.build.role or "damage"]==index
-        if choice.activityRecommended and activity=="raids" and choice.build.evidence~="simulation" then
+        if choice.activityRecommended and not choice.fallbackStartingPoint and activity=="raids" and choice.build.evidence~="simulation" then
             choice.reason=choice.build.note or "Published raid build for this role."
         end
     end
@@ -246,6 +264,7 @@ end
 function Planner:GetBuildSummary(choice, activity, choices)
     local b=choice.build
     if not b then return choice.reason end
+    if choice.fallbackStartingPoint then return choice.reason end
     if b.evidence=="adapted" then
         local prefix=choice.activityRecommended and "Recommended starting point. " or "Updated planning allocation. "
         return prefix..(choice.reason or b.note or "Performance comparison pending.")

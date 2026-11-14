@@ -53,8 +53,13 @@ for _,class in ipairs(planner.classes) do
      end
     end
    end
-   -- Activity-specific evidence may be absent after beta/duel entries are
-   -- removed. Full destinations must stay visible without inventing a winner.
+   assert(count>0,class..' missing recommended starting point in '..activity.id..' at '..level)
+   for _,choice in ipairs(visible) do
+    if choice.fallbackStartingPoint then
+     assert(choice.provisional and choice.build.maxLevel==60 and choice.build.points==51)
+     assert(planner:GetBuildSummary(choice,activity.id,visible):find('no current',1,true),'Fallback must disclose missing comparisons')
+    end
+   end
    assert(#visible>0,class..' missing visible builds in '..activity.id)
   end
  end

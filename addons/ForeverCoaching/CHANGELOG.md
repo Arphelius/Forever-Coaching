@@ -2,6 +2,10 @@
 
 ## 0.1.4 — November 14, 2026
 
+- Restored recommended starting points after removing partial builds, including
+  Frost Mage, Shadow Priest and Affliction Warlock. When activity comparisons
+  are unavailable, these are explicitly provisional level 60 plans.
+
 - Removed all 49 builds that ended below level 60, including beta leveling and
   level 30 tournament entries. The bundled catalog now contains only complete
   level 60 builds.
