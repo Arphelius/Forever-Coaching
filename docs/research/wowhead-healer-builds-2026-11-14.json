@@ -1,0 +1,314 @@
+[
+  {
+    "class": "Priest",
+    "id": "wowhead-priest-discipline-60-0",
+    "title": "Discipline: Raid healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/priest/discipline/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/priest/v2005005031330011531-0350501303",
+    "fit": "raid_healing",
+    "activities": [
+      "raid_healing"
+    ],
+    "ranks": {
+      "Twin Disciplines": 5,
+      "Mental Strength": 5,
+      "Mental Agility": 3,
+      "Inner Focus": 1,
+      "Improved Power Word: Shield": 3,
+      "Meditation": 3,
+      "Soul Warding": 1,
+      "Penance": 1,
+      "Renewed Hope": 5,
+      "Divine Aegis": 3,
+      "Power Infusion": 1,
+      "Improved Renew": 3,
+      "Holy Specialization": 5,
+      "Divine Fury": 5,
+      "Blessed Recovery": 1,
+      "Inspiration": 3,
+      "Improved Healing": 3
+    }
+  },
+  {
+    "class": "Priest",
+    "id": "wowhead-priest-discipline-60-1",
+    "title": "Discipline: Dungeon healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/priest/discipline/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/priest/v2025015021330011531-0150510303",
+    "fit": "dungeon_healing",
+    "activities": [
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Wand Specialization": 2,
+      "Twin Disciplines": 5,
+      "Holy Precision": 1,
+      "Mental Strength": 5,
+      "Mental Agility": 2,
+      "Inner Focus": 1,
+      "Improved Power Word: Shield": 3,
+      "Meditation": 3,
+      "Soul Warding": 1,
+      "Penance": 1,
+      "Renewed Hope": 5,
+      "Divine Aegis": 3,
+      "Power Infusion": 1,
+      "Improved Renew": 1,
+      "Holy Specialization": 5,
+      "Divine Fury": 5,
+      "Holy Nova": 1,
+      "Inspiration": 3,
+      "Improved Healing": 3
+    }
+  },
+  {
+    "class": "Priest",
+    "id": "wowhead-priest-holy-60-0",
+    "title": "Holy: Raid healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/priest/holy/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/priest/v200500500133001-10505103230121531",
+    "fit": "raid_healing",
+    "activities": [
+      "raid_healing"
+    ],
+    "ranks": {
+      "Twin Disciplines": 5,
+      "Mental Strength": 5,
+      "Inner Focus": 1,
+      "Improved Power Word: Shield": 3,
+      "Meditation": 3,
+      "Soul Warding": 1,
+      "Twilight Focus": 1,
+      "Holy Specialization": 5,
+      "Divine Fury": 5,
+      "Holy Nova": 1,
+      "Inspiration": 3,
+      "Holy Reach": 2,
+      "Improved Healing": 3,
+      "Holy Binding": 1,
+      "Litany of Light": 2,
+      "Spirit of Redemption": 1,
+      "Spiritual Guidance": 5,
+      "Spiritual Healing": 3,
+      "Prayer of Mending": 1
+    }
+  },
+  {
+    "class": "Priest",
+    "id": "wowhead-priest-holy-60-1",
+    "title": "Holy: Dungeon healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/priest/holy/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/priest/v2025005001330011-0350510303002053",
+    "fit": "dungeon_healing",
+    "activities": [
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Wand Specialization": 2,
+      "Twin Disciplines": 5,
+      "Mental Strength": 5,
+      "Inner Focus": 1,
+      "Improved Power Word: Shield": 3,
+      "Meditation": 3,
+      "Soul Warding": 1,
+      "Penance": 1,
+      "Improved Renew": 3,
+      "Holy Specialization": 5,
+      "Divine Fury": 5,
+      "Holy Nova": 1,
+      "Inspiration": 3,
+      "Improved Healing": 3,
+      "Litany of Light": 2,
+      "Spiritual Guidance": 5,
+      "Spiritual Healing": 3
+    }
+  },
+  {
+    "class": "Druid",
+    "id": "wowhead-druid-restoration-60-0",
+    "title": "Restoration: NG Regrowth raid healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/druid/restoration/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/druid/vkndmh5530203110001--055300510311105",
+    "fit": "raid_healing",
+    "activities": [
+      "raid_healing",
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Improved Wrath": 5,
+      "Genesis": 5,
+      "Moonglow": 3,
+      "Nature's Majesty": 2,
+      "Improved Entangling Roots": 3,
+      "Nature's Splendor": 1,
+      "Insect Swarm": 1,
+      "Nature's Grace": 1,
+      "Heart of the Wild": 5,
+      "Naturalist": 5,
+      "Reflection": 3,
+      "Gift of Nature": 5,
+      "Bloom": 1,
+      "Improved Rejuvenation": 3,
+      "Swiftmend": 1,
+      "Nature's Swiftness": 1,
+      "Living Spirit": 1,
+      "Improved Regrowth": 5
+    }
+  },
+  {
+    "class": "Druid",
+    "id": "wowhead-druid-restoration-60-1",
+    "title": "Restoration: Deep Restoration healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/druid/restoration/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/druid/vkndmh552022011--0553005103113051",
+    "fit": "dungeon_healing",
+    "activities": [
+      "raid_healing",
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Improved Wrath": 5,
+      "Genesis": 5,
+      "Moonglow": 2,
+      "Nature's Majesty": 2,
+      "Nature's Reach": 2,
+      "Nature's Splendor": 1,
+      "Insect Swarm": 1,
+      "Heart of the Wild": 5,
+      "Naturalist": 5,
+      "Reflection": 3,
+      "Gift of Nature": 5,
+      "Bloom": 1,
+      "Improved Rejuvenation": 3,
+      "Swiftmend": 1,
+      "Nature's Swiftness": 1,
+      "Living Spirit": 3,
+      "Improved Regrowth": 5,
+      "Wild Growth": 1
+    }
+  },
+  {
+    "class": "Shaman",
+    "id": "wowhead-shaman-restoration-60-0",
+    "title": "Restoration: Healing with Ghost Wolf (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/shaman/restoration/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/shaman/vkndmh-0550302000002-5330003315013151",
+    "fit": "raid_healing",
+    "activities": [
+      "raid_healing",
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Thundering Strikes": 5,
+      "Ancestral Knowledge": 5,
+      "Mental Dexterity": 3,
+      "Elemental Weapons": 2,
+      "Improved Ghost Wolf": 2,
+      "Improved Healing Wave": 5,
+      "Tidal Focus": 3,
+      "Mindfulness": 3,
+      "Ancestral Healing": 3,
+      "Healing Focus": 3,
+      "Water Shield": 1,
+      "Tidal Mastery": 5,
+      "Mana Tide Totem": 1,
+      "Healing Way": 3,
+      "Nature's Swiftness": 1,
+      "Purification": 5,
+      "Riptide": 1
+    }
+  },
+  {
+    "class": "Shaman",
+    "id": "wowhead-shaman-restoration-60-1",
+    "title": "Restoration: Healing throughput (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/shaman/restoration/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/shaman/vkndmh-055-5530003315513151",
+    "fit": "dungeon_healing",
+    "activities": [
+      "raid_healing",
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Thundering Strikes": 5,
+      "Ancestral Knowledge": 5,
+      "Improved Healing Wave": 5,
+      "Tidal Focus": 5,
+      "Mindfulness": 3,
+      "Ancestral Healing": 3,
+      "Healing Focus": 3,
+      "Water Shield": 1,
+      "Tidal Mastery": 5,
+      "Restorative Totems": 5,
+      "Mana Tide Totem": 1,
+      "Healing Way": 3,
+      "Nature's Swiftness": 1,
+      "Purification": 5,
+      "Riptide": 1
+    }
+  },
+  {
+    "class": "Paladin",
+    "id": "wowhead-paladin-holy-60-0",
+    "title": "Holy: Raid healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/paladin/holy/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/paladin/v250320115022101251-50002-050330002",
+    "fit": "raid_healing",
+    "activities": [
+      "raid_healing"
+    ],
+    "ranks": {
+      "Spiritual Focus": 5,
+      "Healing Light": 3,
+      "Reverence": 2,
+      "Purifying Power": 1,
+      "Divine Favor": 1,
+      "Illumination": 5,
+      "Divine Precision": 2,
+      "Infusion of Light": 2,
+      "Oath of Light": 1,
+      "Holy Shock": 1,
+      "Boundless Light": 2,
+      "Holy Power": 5,
+      "Light's Vigil": 1,
+      "Divine Intellect": 5,
+      "Sacred Duty": 2,
+      "Benediction": 5,
+      "Conviction": 3,
+      "Sanctified Judgement": 3,
+      "Pursuit of Justice": 2
+    }
+  },
+  {
+    "class": "Paladin",
+    "id": "wowhead-paladin-holy-60-1",
+    "title": "Holy: Dungeon healing (60)",
+    "url": "https://www.wowhead.com/forever/guide/classes/paladin/holy/talent-builds-pve-healer",
+    "calculatorUrl": "https://www.wowhead.com/forever/talent-calc/paladin/v250320015222121251-5-052300002",
+    "fit": "dungeon_healing",
+    "activities": [
+      "dungeon_healing"
+    ],
+    "ranks": {
+      "Spiritual Focus": 5,
+      "Healing Light": 3,
+      "Reverence": 2,
+      "Divine Favor": 1,
+      "Illumination": 5,
+      "Holy Conduit": 2,
+      "Divine Precision": 2,
+      "Infusion of Light": 2,
+      "Oath of Light": 1,
+      "Consecrated Ground": 2,
+      "Holy Shock": 1,
+      "Boundless Light": 2,
+      "Holy Power": 5,
+      "Light's Vigil": 1,
+      "Divine Intellect": 5,
+      "Benediction": 5,
+      "Improved Judgement": 2,
+      "Conviction": 3,
+      "Pursuit of Justice": 2
+    }
+  }
+]

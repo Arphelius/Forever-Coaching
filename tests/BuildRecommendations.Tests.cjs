@@ -6,6 +6,22 @@ for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/Buil
 run(`
 local planner=ForeverCoaching.BuildPlanner
 for _,class in ipairs(planner.classes) do
+ for specIndex,spec in ipairs(ForeverCoaching.TalentTrees[class]) do
+  local complete=false
+  for index,build in ipairs(planner:GetBuilds(class)) do
+   local totals={0,0,0}
+   for _,talent in ipairs(build.talents or {}) do totals[talent.treeIndex]=totals[talent.treeIndex]+talent.rank end
+   local primary=1
+   for i=2,3 do if totals[i]>totals[primary] then primary=i end end
+   if primary==specIndex and build.maxLevel==60 and build.points==51 then
+    assert(planner:GetPlan(class,60,index),class..' invalid level 60 plan: '..build.id)
+    complete=true
+   end
+  end
+  assert(complete,class..' '..spec.name..' missing full level 60 allocation')
+ end
+end
+for _,class in ipairs(planner.classes) do
  for _,activity in ipairs(planner.activities) do
   for _,level in ipairs({1,10,20,30,40,50,60}) do
    local count=0
