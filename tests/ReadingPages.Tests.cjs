@@ -3,6 +3,15 @@ for(const p of ['tools/preview-runtime/node_modules/fengari',path.join(os.tmpdir
 const {lua,lauxlib,lualib,to_luastring,to_jsstring}=f,L=lauxlib.luaL_newstate();lualib.luaL_openlibs(L);
 function run(s){if(lauxlib.luaL_dostring(L,to_luastring(s))!==lua.LUA_OK)throw Error(to_jsstring(lua.lua_tostring(L,-1)));}
 run(fs.readFileSync('tests/CombatReviewHarness.lua','utf8'));
+// Expose Blizzard-owned tables through the environment so even an assignment
+// of the same table is observable. Normal command entries remain writable.
+run(`local shared={SlashCmdList=SlashCmdList or {},UISpecialFrames=UISpecialFrames or {}}
+rawset(_G,'SlashCmdList',nil);rawset(_G,'UISpecialFrames',nil)
+setmetatable(_G,{__index=function(_,key)return shared[key] end,
+ __newindex=function(target,key,value)
+  assert(shared[key]==nil,'Addon reassigned Blizzard shared global: '..key)
+  rawset(target,key,value)
+ end})`);
 run(`ForeverCoaching={};local factory=CreateFrame
 CreateFrame=function(...)
  local frame=factory(...)

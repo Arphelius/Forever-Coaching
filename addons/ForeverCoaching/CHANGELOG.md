@@ -2,6 +2,10 @@
 
 ## 0.1.4 — November 14, 2026
 
+- Stopped reassigning Blizzard's shared command and Escape-frame tables during
+  addon setup to reduce protected-action taint affecting actions such as raid
+  target marking. Restart the game after installing to clear existing taint.
+
 - Restored recommended starting points after removing partial builds, including
   Frost Mage, Shadow Priest and Affliction Warlock. When activity comparisons
   are unavailable, these are explicitly provisional level 60 plans.

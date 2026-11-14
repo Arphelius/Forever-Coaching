@@ -195,7 +195,7 @@ function Review:GetRecordingStatusText()
     return table.concat(lines, '\n')
 end
 
-SlashCmdList = SlashCmdList or {}
+if not SlashCmdList then SlashCmdList = {} end
 SLASH_FOREVERCOACHINGREVIEWSTATUS1 = '/fcreviewstatus'
 SlashCmdList.FOREVERCOACHINGREVIEWSTATUS = function()
     for line in Review:GetRecordingStatusText():gmatch('[^\n]+') do print(line) end
