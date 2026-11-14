@@ -6,6 +6,11 @@ for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/Buil
 run(`
 local planner=ForeverCoaching.BuildPlanner
 for _,class in ipairs(planner.classes) do
+ for _,build in ipairs(planner:GetBuilds(class)) do
+  assert(build.maxLevel==60 and build.points==51,class..' partial build must not be bundled: '..build.id)
+ end
+end
+for _,class in ipairs(planner.classes) do
  for specIndex,spec in ipairs(ForeverCoaching.TalentTrees[class]) do
   local complete=false
   for index,build in ipairs(planner:GetBuilds(class)) do
@@ -48,10 +53,12 @@ for _,class in ipairs(planner.classes) do
      end
     end
    end
-   assert(count>0,class..' missing '..activity.id..' recommendation at '..level)
+   -- Activity-specific evidence may be absent after beta/duel entries are
+   -- removed. Full destinations must stay visible without inventing a winner.
+   assert(#visible>0,class..' missing visible builds in '..activity.id)
   end
  end
 end
-print('PASS: all nine classes have valid recommendations for all four experiences at seven preview levels; adapted plans retain evidence limits.')
+print('PASS: only full level 60 builds are bundled; every talent tree stays visible across four activities and seven preview levels, with complete progression and honest recommendation limits.')
 `);
 lua.lua_close(L);
