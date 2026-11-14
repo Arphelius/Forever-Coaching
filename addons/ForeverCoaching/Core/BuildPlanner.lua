@@ -174,7 +174,10 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
                 or activity=="dungeons" and (b.role=="healer" and "dungeon_healing" or (b.role=="tank" and "dungeon_tanking" or "dungeon_damage"))
             local matchingGuide=roleScenario and (b.evidence=="guide" or b.evidence=="theorycraft")
                 and self:MatchesPlaystyle(b,roleScenario)
-            if b.evidence=="simulation" or (b.evidence=='adapted' and b.previousEvidence=='simulation') or matchingGuide then
+            -- Keep full destinations available even when this activity selects
+            -- a beta guide or tournament example for the same specialization.
+            local fullDestination=b.maxLevel==60 and b.points==51
+            if fullDestination or b.evidence=="simulation" or (b.evidence=='adapted' and b.previousEvidence=='simulation') or matchingGuide then
                 append(self:SelectSpecBuild(group,builds,index,activity))
             end
         end
@@ -184,7 +187,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
     local unique,positions,scores={},{},{}
     for _,choice in ipairs(rows)do
         local b=choice.build
-        local key=b and (b.title:lower()..':'..(b.role or 'damage')) or ('missing:'..choice.spec)
+        local key=b and (b.title:lower()..':'..(b.role or 'damage')..':'..tostring(b.maxLevel)) or ('missing:'..choice.spec)
         local score=0
         if b then
             if choice.index==choice.recommendedIndex then score=score+10000 end

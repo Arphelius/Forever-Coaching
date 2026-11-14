@@ -2,6 +2,12 @@
 
 ## 0.1.4 — November 14, 2026
 
+- Fixed full level 60 builds being hidden by level 30 recommendations with the
+  same specialization name, including Frost Mage, Affliction Warlock,
+  Discipline Priest and Protection Warrior.
+- Full level 60 destinations now remain visible across activities. Build cards
+  show their level and point count so beta and endgame options are distinct.
+
 - Added ten complete level 60 healer builds from Wowhead for Restoration Druid,
   Discipline Priest, Holy Priest, Restoration Shaman and Holy Paladin.
 - All 27 talent trees now have a full 51-point level 60 build. Existing level 30

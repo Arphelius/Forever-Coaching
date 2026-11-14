@@ -476,7 +476,7 @@ function FC:BuildPresetTalentPage(parent)
             local build=choice.build
             card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*54)
             card.title:SetText(choice.displayName or choice.spec)
-            card.detail:SetText(build and build.role or "Source needed")
+            card.detail:SetText(build and (build.role.." / Level "..build.maxLevel.." / "..build.points.." points") or "Source needed")
             card.badge:SetText(isRecommended(index,choice) and "Recommended" or "")
             card.badge:SetTextColor(unpack(build and GOLD or MUTED))
             local active=index==selectedSpec

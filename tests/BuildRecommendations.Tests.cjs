@@ -24,8 +24,20 @@ end
 for _,class in ipairs(planner.classes) do
  for _,activity in ipairs(planner.activities) do
   for _,level in ipairs({1,10,20,30,40,50,60}) do
+   local visible=planner:GetVisibleSpecBuilds(class,activity.id,level)
+   for specIndex,spec in ipairs(ForeverCoaching.TalentTrees[class]) do
+    local full=false
+    for _,choice in ipairs(visible) do
+     if choice.specIndex==specIndex and choice.build and choice.build.maxLevel==60 and choice.build.points==51 then
+      local order=planner:GetTalentProgression(class,choice.build)
+      assert(order and #order==51 and order[51].level==60,class..' '..spec.name..' incomplete visible progression')
+      full=true
+     end
+    end
+    assert(full,class..' '..spec.name..' missing visible level 60 build in '..activity.id..' at preview '..level)
+   end
    local count=0
-   for _,choice in ipairs(planner:GetVisibleSpecBuilds(class,activity.id,level)) do
+   for _,choice in ipairs(visible) do
     if choice.activityRecommended then
      count=count+1
      assert(planner:GetPlan(class,level,choice.index))
