@@ -22,10 +22,18 @@ checkBenchmark('HUNTER','raids','raid_damage','survival-hunter',1354)
 checkBenchmark('MAGE','raids','raid_damage','fire-mage',959)
 checkBenchmark('MAGE','dungeons','aoe','arcane-mage',2085)
 checkBenchmark('SHAMAN','dungeons','aoe','elemental-shaman',1819)
+checkBenchmark('ROGUE','raids','raid_damage','assassination-rogue',991)
+checkBenchmark('ROGUE','dungeons','aoe','combat-rogue',1329)
+checkBenchmark('WARRIOR','dungeons','aoe','warrior',1514)
 assert(not planner:GetRecommendation('MAGE','aoe',30),'Level 60 benchmarks require a level 60 preview')
-for _,b in ipairs(planner:GetBuilds('MAGE')) do
- if b.experimentalHybrid then assert(not planner:CompareBuild(b,'aoe',60).eligible) end
+local ranked=0
+for _,class in ipairs(planner.classes) do
+ for _,b in ipairs(planner:GetBuilds(class)) do
+  if b.aoeRank then ranked=ranked+1 end
+  if b.experimentalHybrid then assert(not planner:CompareBuild(b,'aoe',60).eligible) end
+ end
 end
+assert(ranked==22,'Every build in the matched tier-list comparison should be bundled')
 for _,class in ipairs(planner.classes) do
  for _,build in ipairs(planner:GetBuilds(class)) do
   assert(build.maxLevel==60 and build.points==51,class..' partial build must not be bundled: '..build.id)

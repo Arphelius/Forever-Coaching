@@ -13,12 +13,13 @@ The in-game MythicSim button opens a copyable link to the relevant board.
 - [Matched single-target and five-target data](https://mythicsim.com/wow-forever/tier-list/multi-target)
 
 Build records include the source preset, client 70959, and the race board's
-Rust engine revision. Each imported level 60 allocation has a legal spending
-order generated from the bundled tree. The spending order is for planning.
+Rust engine revision. The published talent strings were decoded using the
+matching [simulator UI layout](https://github.com/wowsims/forever/tree/e36dc1f/ui/sim/talents/trees)
+and matched to the bundled trees by talent name. Each import includes a legal
+spending order for planning.
 
-The Fury Warrior and three Rogue reference codes require a talent layout that
-differs from the bundled trees. Shockadin's exact allocation was unavailable
-from the source request. Their existing plans carry no November 20 rank.
+The import covers all 22 entries in the matched comparison table, including
+the Frostfire and Shockadin hybrids.
 
 ## Full catalog update, 2026-10-22
 
