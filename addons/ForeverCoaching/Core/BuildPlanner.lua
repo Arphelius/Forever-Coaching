@@ -26,6 +26,7 @@ function Planner:GetBuildDisplayName(classToken,build)
     if classToken=='WARRIOR' and (name=='Arms' or name=='Fury')then name=name..' warr' end
     if classToken=='DRUID' and name=='Feral' then name=build.role=='tank' and 'Feral (Bear)' or 'Feral (Cat)' end
     if classToken=='PRIEST' and name=='Smite' then name='Holy-Smite' end
+    if build.singleDps and classToken=="HUNTER" then name=name.." (weave)" end
     return name
 end
 
@@ -49,6 +50,21 @@ Planner.activities = {
     {id="dungeons",title="Dungeons"}, {id="leveling",title="Leveling"},
     {id="raids",title="Raids"}, {id="pvp",title="PvP"},
 }
+
+function Planner:GetDamageBenchmark(build, scenario)
+    if build.evidence~="simulation" or build.role~="damage" then return end
+    if scenario=="aoe" and build.aoeRank then
+        return build.aoeRank, build.aoeDps, build.source.aoeUrl
+    end
+    if scenario=="raid_damage" and (build.boardRank or 0)>0 then
+        return build.boardRank, build.singleDps, build.source.comparisonUrl
+    end
+end
+
+local function damageScenario(activity)
+    if activity=="raids" then return "raid_damage" end
+    if activity=="dungeons" then return "aoe" end
+end
 
 -- One source-backed starting point per talent specialization. Scores choose
 -- relevant evidence, never invent a performance ranking between guide plans.
@@ -85,7 +101,9 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                     and guide and self:MatchesPlaystyle(build,"dungeon_healing") and not matches
                 local dungeonSuggestion=activity=="dungeons" and build.role=="damage"
                     and guide and self:MatchesPlaystyle(build,"leveling") and not matches
-                local benchmark=activity=="raids" and build.evidence=="simulation" and (build.boardRank or 0)>0
+                local damageRank,_,benchmarkUrl=self:GetDamageBenchmark(build,damageScenario(activity))
+                local benchmark=damageRank or (activity=="raids" and build.role=="tank"
+                    and build.evidence=="simulation" and (build.boardRank or 0)>0 and build.boardRank)
                 local duel=activity=="pvp" and build.evidence=="tournament"
                 local adaptedReference=adapted and ((activity=="raids" and build.previousEvidence=="simulation")
                     or (activity=="pvp" and build.previousEvidence=="tournament"))
@@ -99,14 +117,16 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                     if build.maxLevel==level then score=score+1000
                     elseif build.maxLevel<level then score=score-400
                     else score=score-build.maxLevel end
-                    if benchmark then score=score-(build.boardRank or 0) end
+                    if benchmark then score=score-benchmark end
                     local valid=self:GetPlan(classToken,level,index)
                     if valid and (not bestScore or score>bestScore) then
                         bestScore=score
                         choice.index=index;choice.build=build
                         choice.provisional=adapted or dungeonSuggestion or healingSuggestion
                         choice.badge=build.evidence=='adapted' and 'UPDATED PLAN' or (benchmark and "SIM REFERENCE" or (duel and "DUEL EXAMPLE" or (build.evidence=="guide" and "RECOMMENDED" or "EXPERIMENTAL")))
-                        choice.reason=benchmark and (build.role=="tank" and "Raid threat reference; survival is not ranked." or "Published single-target raid reference; fixed gear and buffs.") or (build.note~="" and build.note or "Published plan for this activity; combat comparison pending.")
+                        choice.reason=benchmark and (build.role=="tank" and "Raid threat reference; survival is not ranked."
+                            or (activity=="dungeons" and "Published five-target damage reference." or "Published single-target damage reference."))
+                            or (build.note~="" and build.note or "Published plan for this activity; combat comparison pending.")
                         if build.evidence=="experimental" then
                             local highlights={}
                             for _,talent in ipairs(build.talents) do
@@ -127,7 +147,7 @@ function Planner:GetSpecRecommendations(classToken, activity, level)
                             if build.seriesWins then choice.reason=build.seriesWins.." finals series won, "..build.seriesLosses.." lost. Level 30 duels; requires 5 extra points. Not validated for level 60." end
                         end
                         choice.proof=(build.source.name or "Source").." / "..(build.source.guideUpdated or "snapshot unknown")
-                        choice.proofUrl=(benchmark or duel) and build.source.comparisonUrl or build.source.url
+                        choice.proofUrl=benchmarkUrl or ((benchmark or duel) and build.source.comparisonUrl or build.source.url)
                     end
                 end
             end
@@ -155,7 +175,13 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
             choice.displayName=choice.build and choice.build.title or choice.spec
             if choice.build and choice.build.evidence=="simulation" then
                 local b=choice.build
-                if activity=="raids" then
+                local rank,dps,url=self:GetDamageBenchmark(b,damageScenario(activity))
+                if rank and dps then
+                    local fight=activity=="dungeons" and "5 targets / 60 sec" or "Single target"
+                    choice.reason=fight.." / #"..rank.." / "..dps.." DPS / no trinkets"
+                    if b.experimentalHybrid then choice.reason=choice.reason.." / Experimental hybrid" end
+                    choice.benchmarkUrl=url
+                elseif activity=="raids" then
                     choice.reason=b.role=="damage" and ((b.boardRank or 0)>0
                         and ("MythicSim raid damage rank #"..b.boardRank.." for its preset gear and buffs. Best suited to this single-target benchmark.")
                         or "MythicSim raid variant; no comparable damage rank published.")
@@ -163,7 +189,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
                 else
                     choice.reason="Level "..b.maxLevel.." MythicSim raid build. No published "..activity.." comparison for this variant."
                 end
-                choice.proofUrl=b.source.comparisonUrl or b.source.url
+                choice.proofUrl=url or b.source.comparisonUrl or b.source.url
             end
             rows[#rows+1]=choice
         end
@@ -192,7 +218,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
         if b then
             if choice.index==choice.recommendedIndex then score=score+10000 end
             if b.maxLevel==60 then score=score+2000 end
-            if b.evidence=='simulation' then score=score+500-(b.boardRank or 999)
+            if b.evidence=='simulation' then score=score+500-(self:GetDamageBenchmark(b,damageScenario(activity)) or b.boardRank or 999)
             elseif b.evidence=='guide' then score=score+400 elseif b.evidence=='guide_conflict' then score=score-2000 end
             score=score-math.abs((b.maxLevel or 60)-(level or 60))
         end
@@ -204,6 +230,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
     local winners,bestByRole={},{}
     for index,choice in ipairs(rows) do
         local b=choice.build
+        local damageRank=b and self:GetDamageBenchmark(b,damageScenario(activity))
         local raidCandidate=b and activity=="raids" and (
             (b.evidence=="simulation" and (b.boardRank or 0)>0)
             or ((b.evidence=="guide" or b.evidence=="theorycraft") and self:MatchesPlaystyle(b,
@@ -211,7 +238,7 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
         local dungeonTank=b and activity=="dungeons" and b.role=="tank" and b.evidence~="guide_conflict"
             and (((b.evidence=="simulation" or (b.evidence=="adapted" and b.previousEvidence=="simulation")) and b.maxLevel==60)
                 or self:MatchesPlaystyle(b,"dungeon_tanking"))
-        if b and (choice.index==choice.recommendedIndex or raidCandidate or dungeonTank) then
+        if b and (choice.index==choice.recommendedIndex or raidCandidate or dungeonTank or damageRank) then
             local score
             if dungeonTank then
                 local direct=self:MatchesPlaystyle(b,"dungeon_tanking")
@@ -220,7 +247,9 @@ function Planner:GetVisibleSpecBuilds(classToken, activity, level)
                 -- threat ranks do not establish dungeon AoE or survival value.
                 if b.id=="protection-paladin" or b.id=="protection-warrior" or b.id=="feral-bear-druid" then score=score+50 end
                 if not direct then choice.provisional=true end
-            elseif activity=="raids" and b.evidence=="simulation" and (b.boardRank or 0)>0 then
+            elseif damageRank and not b.experimentalHybrid then
+                score=10000-damageRank
+            elseif activity=="raids" and b.role=="tank" and b.evidence=="simulation" and (b.boardRank or 0)>0 then
                 score=10000-b.boardRank
             elseif activity=="pvp" and b.evidence=="tournament" then
                 score=1000+(b.seriesWins or 0)*10-(b.seriesLosses or 0)
@@ -265,6 +294,11 @@ function Planner:GetBuildSummary(choice, activity, choices)
     local b=choice.build
     if not b then return choice.reason end
     if choice.fallbackStartingPoint then return choice.reason end
+    local rank,dps=self:GetDamageBenchmark(b,damageScenario(activity))
+    if rank and dps then
+        return (choice.activityRecommended and "Top included MythicSim build for this class. " or "")
+            ..choice.reason..(b.note and b.note~="" and (". "..b.note) or "")
+    end
     if b.evidence=="adapted" then
         local prefix=choice.activityRecommended and "Recommended starting point. " or "Updated planning allocation. "
         return prefix..(choice.reason or b.note or "Performance comparison pending.")
@@ -383,6 +417,12 @@ function Planner:CompareBuild(build, scenario, level)
         end
         return {label="Level 30 duel submission",reason="Event rules and extra talent points apply; not compared for this activity.",eligible=false}
     end
+    local rank,dps=self:GetDamageBenchmark(build,scenario)
+    if rank and dps then
+        return {label="Reference DPS rank #"..rank,
+            reason=(scenario=="aoe" and "Five targets for 60 seconds" or "Single target").."; no trinkets.",
+            eligible=not build.experimentalHybrid,rank=not build.experimentalHybrid and rank or nil}
+    end
     local group = scenario=="raid_damage" and "DPS" or (scenario=="tank_threat" and "tank" or nil)
     if group and build.evidence=="simulation" and build.boardGroup==group
         and (build.boardRank or 0)>0 and build.targets==1 and build.targetLevel==63
@@ -441,7 +481,7 @@ function Planner:EvaluateBuilds(classToken, scenario, level)
         if assessment.eligible and assessment.rank==bestRank and bestRank then
             assessment.badge=rankedCount>1 and "BEST REFERENCE" or "TOP REFERENCE"
             assessment.tone="best"
-            assessment.reason="Highest listed "..(scenario=="tank_threat" and "threat" or "DPS").." reference for this class. Fixed raid setup; not a personal gear simulation."
+            assessment.reason="Highest ranked included reference for this class. "..assessment.reason
         end
     end
     return assessments
@@ -461,7 +501,7 @@ function Planner:GetRecommendation(classToken, scenario, level)
         end
     end
     if winner then
-        return winner,"Highest listed reference: "..self:GetBuilds(classToken)[winner].title..".\nFixed raid setup; your gear and fight may change the result."
+        return winner,"Highest ranked included reference: "..self:GetBuilds(classToken)[winner].title..".\nFixed simulation setup; your gear and fight may change the result."
     end
     if matching>0 then
         if matching==1 then

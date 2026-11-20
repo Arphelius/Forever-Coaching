@@ -5,6 +5,27 @@ function run(source){if(lauxlib.luaL_dostring(L,to_luastring(source))!==lua.LUA_
 for(const file of ['Data/LevelingBuilds.lua','Data/Level60Builds.lua','Core/BuildPlanner.lua'])run(fs.readFileSync('addons/ForeverCoaching/'+file,'utf8'));
 run(`
 local planner=ForeverCoaching.BuildPlanner
+local function checkBenchmark(class, activity, scenario, id, expectedDps)
+ local winner=assert(planner:GetRecommendation(class,scenario,60))
+ assert(planner:GetBuilds(class)[winner].id==id,class..' incorrect '..scenario..' winner')
+ local rows=planner:GetVisibleSpecBuilds(class,activity,60)
+ for _,choice in ipairs(rows) do
+  if choice.activityRecommended and choice.build.role=='damage' then
+   assert(choice.build.id==id and choice.benchmarkUrl)
+   assert(choice.reason:find(expectedDps..' DPS',1,true))
+   return
+  end
+ end
+ error(class..' missing '..activity..' damage recommendation')
+end
+checkBenchmark('HUNTER','raids','raid_damage','survival-hunter',1354)
+checkBenchmark('MAGE','raids','raid_damage','fire-mage',959)
+checkBenchmark('MAGE','dungeons','aoe','arcane-mage',2085)
+checkBenchmark('SHAMAN','dungeons','aoe','elemental-shaman',1819)
+assert(not planner:GetRecommendation('MAGE','aoe',30),'Level 60 benchmarks require a level 60 preview')
+for _,b in ipairs(planner:GetBuilds('MAGE')) do
+ if b.experimentalHybrid then assert(not planner:CompareBuild(b,'aoe',60).eligible) end
+end
 for _,class in ipairs(planner.classes) do
  for _,build in ipairs(planner:GetBuilds(class)) do
   assert(build.maxLevel==60 and build.points==51,class..' partial build must not be bundled: '..build.id)

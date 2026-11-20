@@ -1,5 +1,25 @@
 # MythicSim build snapshots
 
+## DPS recommendations, 2026-11-20
+
+The Talent Builds Raids tab uses the one-target DPS rank. Dungeons uses the
+five-target, 60-second DPS rank. Both are from the same no-trinket reference
+set, so raid DPS in the addon can differ from the default trinket-enabled page.
+The recommendation is the highest ranked compatible regular preset for the
+selected class. Experimental hybrids can show their benchmark for comparison.
+The in-game MythicSim button opens a copyable link to the relevant board.
+
+- [Single-target board](https://mythicsim.com/wow-forever/tier-list)
+- [Matched single-target and five-target data](https://mythicsim.com/wow-forever/tier-list/multi-target)
+
+Build records include the source preset, client 70959, and the race board's
+Rust engine revision. Each imported level 60 allocation has a legal spending
+order generated from the bundled tree. The spending order is for planning.
+
+The Fury Warrior and three Rogue reference codes require a talent layout that
+differs from the bundled trees. Shockadin's exact allocation was unavailable
+from the source request. Their existing plans carry no November 20 rank.
+
 ## Full catalog update, 2026-10-22
 
 The catalog now includes all 33 reference presets linked from MythicSim's race

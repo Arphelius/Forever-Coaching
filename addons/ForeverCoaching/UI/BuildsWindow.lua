@@ -208,8 +208,6 @@ function FC:BuildPresetTalentPage(parent)
     end)
     vfxButton:ClearAllPoints();vfxButton:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-PAD,-8)
     vfxButton:SetScript("OnShow",syncVFX);syncVFX()
-    -- The spec rows carry "Recommended"; this line stays hidden (kept for refresh).
-    local recommendation=text(parent,"",11,10,MUTED);recommendation:Hide()
     for index,token in ipairs(planner.classes) do
         local classToken=token
         local b=CreateFrame('Button',nil,parent,'BackdropTemplate')
@@ -369,6 +367,7 @@ function FC:BuildPresetTalentPage(parent)
         local b=button(parent,title,0,0,80,click);fit(b,80);b:ClearAllPoints()
         if footerRight then b:SetPoint("BOTTOMRIGHT",footerRight,"BOTTOMLEFT",-6,0) else b:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",-PAD,8) end
         footerRight=b
+        return b
     end
     local routeWindow=CreateFrame("Frame",nil,detail,"BackdropTemplate")
     routeWindow:SetSize(DETAIL_W,60);routeWindow:SetPoint("TOPLEFT",0,ROUTE_TOP)
@@ -427,7 +426,15 @@ function FC:BuildPresetTalentPage(parent)
     local levelButton=button(parent,"",0,0,LEFT_W-20,function() previewIndex=previewIndex % #levels+1;preview=levels[previewIndex];refresh() end)
     levelButton:ClearAllPoints();levelButton:SetPoint("BOTTOMLEFT",PAD,8)
     footer("Talent code",function() local b=current();if b and (b.points or 0)>0 then local original=b.source.calculatorUrl and b.source.calculatorUrl~="";copy(original and "Original calculator / "..b.title or "Talent code / "..b.title,original and b.source.calculatorUrl or b.talentString) end end)
-    footer("Wowhead",function() local choice=choices[selectedSpec];if choice and choice.build then copy('Wowhead Forever guide',FC.BuildPlanner:GetBuildEvidenceUrl(choice.build,class)) end end)
+    local sourceButton=footer("Wowhead",function()
+        local choice=choices[selectedSpec]
+        if not choice or not choice.build then return end
+        if choice.benchmarkUrl then
+            copy("MythicSim rankings",choice.benchmarkUrl)
+        else
+            copy("Wowhead Forever guide",planner:GetBuildEvidenceUrl(choice.build,class))
+        end
+    end)
     refresh=function()
         detailScroll:SetVerticalScroll(0)
         popup.box:ClearFocus();popup:Hide()
@@ -440,11 +447,6 @@ function FC:BuildPresetTalentPage(parent)
         for _,card in ipairs(cards) do card:Hide() end
         choices=planner:GetVisibleSpecBuilds(class,planner.activities[activity].id,preview)
         local builds=planner:GetBuilds(class)
-        local pick
-        for index,choice in ipairs(choices) do
-            if choice.activityRecommended then pick=index;break end
-        end
-        recommendation:SetText(pick and ("Recommended for "..planner.activities[activity].title..": "..choices[pick].displayName) or "Select a spec to see its build and source.")
         local function isRecommended(index,choice)
             return choice.activityRecommended==true
         end
@@ -477,7 +479,7 @@ function FC:BuildPresetTalentPage(parent)
             card:ClearAllPoints();card:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(visibleCount-1)*54)
             card.title:SetText(choice.displayName or choice.spec)
             card.detail:SetText(build and (build.role.." / Level "..build.maxLevel.." / "..build.points.." points") or "Source needed")
-            card.badge:SetText(isRecommended(index,choice) and "Recommended" or "")
+            card.badge:SetText(isRecommended(index,choice) and (choice.benchmarkUrl and "Recommended DPS" or "Recommended") or "")
             card.badge:SetTextColor(unpack(build and GOLD or MUTED))
             local active=index==selectedSpec
             local normal=card.GetNormalTexture and card:GetNormalTexture()
@@ -510,6 +512,7 @@ function FC:BuildPresetTalentPage(parent)
         if selected then plan,err=planner:GetPlan(class,preview,selected) end
         for _,panel in ipairs(panels) do for _,node in ipairs(panel.nodes) do node:Hide() end end
         if not plan then
+            sourceButton.caption:SetText("Wowhead")
             routeWindow:Hide()
             liveLevel:SetText("YOUR LEVEL  "..level);liveHint:SetText("");activeStep=nil;focusPoint=false
             hero:SetText("Select a build")
@@ -531,6 +534,10 @@ function FC:BuildPresetTalentPage(parent)
         local badgeColor=GOLD
         selectedBadge:SetBackdropBorderColor(unpack(badgeColor));selectedBadge.text:SetTextColor(unpack(badgeColor))
         status:SetText(planner.activities[activity].title..'  ·  '..(build.kind=='custom' and 'Custom build' or 'Published build')..'  ·  Source: '..build.source.name)
+        if choice.benchmarkUrl then
+            status:SetText("MythicSim / "..choice.reason)
+        end
+        sourceButton.caption:SetText(choice.benchmarkUrl and "MythicSim" or "Wowhead")
         local ranks={};for _,talent in ipairs(plan.rows) do ranks[talent.treeIndex..":"..talent.talentIndex]=talent.rank end
         for treeIndex,tree in ipairs(build.treeLayout or (FC.TalentTrees or {})[class] or {}) do
             local panel=panels[treeIndex];panel.title:SetText(tree.name);panel.wash:SetVertexColor(accent[1],accent[2],accent[3],.12)
